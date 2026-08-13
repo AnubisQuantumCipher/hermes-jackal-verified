@@ -1,7 +1,7 @@
 ---
 name: jackal-verified-computation
 description: Use JACKAL for exact, bounded, or checked STEM work.
-version: 1.0.0
+version: 1.0.1
 author: Anubis Quantum Cipher contributors
 license: MIT
 platforms: [macos]

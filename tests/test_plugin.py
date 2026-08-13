@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import importlib.util, json, os, shutil, stat, sys, tempfile, unittest
+import hashlib, importlib.util, json, os, shutil, stat, subprocess, sys, tempfile, unittest
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -98,6 +98,30 @@ class JackalPluginTests(unittest.TestCase):
                 body=call(tools.evaluate,{'expression':'2+2'})
                 self.assertFalse(body['success']); self.assertIn('identity mismatch',body['error'])
             finally: tools.BINARY=original
+
+    def test_private_snapshot_resists_public_path_a_b_a_substitution(self):
+        original_binary,original_digest,original_run=tools.BINARY,tools.APPROVED_SHA256,tools.subprocess.run
+        with tempfile.TemporaryDirectory() as td:
+            public=Path(td)/'jackal-native'
+            admitted=b'#!/bin/sh\nprintf A\\n\n'; substitute=b'#!/bin/sh\nprintf B\\n\n'
+            public.write_bytes(admitted); public.chmod(0o700)
+            seen={}
+            def fake_run(argv,**kwargs):
+                snapshot=Path(argv[0])
+                seen['private_path']=snapshot!=public and snapshot.parent!=public.parent
+                seen['snapshot_was_admitted']=snapshot.read_bytes()==admitted
+                public.write_bytes(substitute); public.chmod(0o700)
+                seen['public_substituted']=public.read_bytes()==substitute
+                public.write_bytes(admitted); public.chmod(0o700)
+                return subprocess.CompletedProcess(argv,0,stdout='4\n',stderr='')
+            tools.BINARY=public; tools.APPROVED_SHA256=hashlib.sha256(admitted).hexdigest(); tools.subprocess.run=fake_run
+            try:
+                raw=tools._invoke(['eval','2+2'])
+                self.assertTrue(raw['released'])
+                self.assertTrue(all(seen.values()))
+                self.assertEqual(public.read_bytes(),admitted)
+            finally:
+                tools.BINARY,tools.APPROVED_SHA256,tools.subprocess.run=original_binary,original_digest,original_run
 
     def test_input_controls(self):
         self.assertFalse(call(tools.evaluate,{'expression':'\x00'})['success'])

@@ -2,6 +2,13 @@
 
 All notable changes are documented here.
 
+## 1.0.1 — 2026-08-13
+
+### Fixed
+
+- Removed the remaining documentation overclaim that described an unkeyed SHA-256 checksum as byte authentication.
+- Promoted the private-snapshot A→B→A public-path substitution challenge into the permanent regression suite.
+
 ## 1.0.0 — 2026-08-13
 
 ### Added

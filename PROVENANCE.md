@@ -54,7 +54,7 @@ python3 tests/test_plugin.py
 Observed:
 
 ```text
-Ran 13 tests
+Ran 14 tests
 OK
 ```
 
@@ -71,6 +71,7 @@ Covered controls:
 - cross-operation status rejection after recomputed receipt digest;
 - missing exact/check metadata, contradictory refusal release, and model/request mismatch rejection after recomputed digests;
 - substituted executable rejection;
+- private-snapshot resistance to public-path A→B→A substitution;
 - malformed-input rejection.
 - registration of all seven tools, the bundled skill, and the automatic routing policy.
 

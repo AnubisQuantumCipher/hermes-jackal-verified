@@ -194,7 +194,7 @@ Run the adapter and poison suite:
 python3 tests/test_plugin.py
 ```
 
-The thirteen tests cover:
+The fourteen tests cover:
 
 - exact rational output and receipt validation;
 - a full 3,011-digit `2^10000` comparison;
@@ -207,6 +207,7 @@ The thirteen tests cover:
 - cross-operation status forgery with a recomputed digest;
 - missing exact/check metadata, contradictory refusal release, and model/request mismatch after recomputed digests;
 - substituted executable identity;
+- public-path A→B→A substitution while execution remains bound to a private admitted snapshot;
 - malformed and hostile inputs.
 - plugin registration of all seven tools, the bundled skill, and automatic routing policy.
 
@@ -267,7 +268,7 @@ JACKAL Verified makes strong but bounded claims:
 - `checked` means sampled numerical challenge, not symbolic identity proof.
 - `bounded` means an enclosure conditional on JACKAL's stated IEEE basic-operation and ≤2 ULP libm model and a tested—not end-to-end mechanized—implementation.
 - `model-based` means conditional on stated assumptions, not observed physical reality.
-- SHA-256 authenticates bytes; it does not prove mathematical validity.
+- SHA-256 identifies and checksums bytes; it does not authenticate an author or prove mathematical validity.
 - Passing finite campaigns does not establish universal correctness.
 
 The upstream JACKAL interval model includes Lean mechanization, but this plugin does not claim an end-to-end formal proof from Anubis source through the embedded native executable.
