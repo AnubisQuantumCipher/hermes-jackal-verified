@@ -9,7 +9,7 @@
 - `instrument`
 - `receipt_sha256`
 
-The digest is SHA-256 over canonical JSON of the first five fields: UTF-8, sorted keys, compact separators, and non-finite JSON numbers forbidden.
+The digest is SHA-256 over canonical JSON of the first five fields: UTF-8, sorted keys, compact separators, and non-finite JSON numbers forbidden. It is an unkeyed checksum for integrity and self-consistency, not a signature or hostile-author authentication mechanism.
 
 ## Status invariants
 

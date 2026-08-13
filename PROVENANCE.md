@@ -54,7 +54,7 @@ python3 tests/test_plugin.py
 Observed:
 
 ```text
-Ran 12 tests
+Ran 13 tests
 OK
 ```
 
@@ -69,6 +69,7 @@ Covered controls:
 - tampered receipt rejection;
 - reversed enclosure rejection after recomputed receipt digest;
 - cross-operation status rejection after recomputed receipt digest;
+- missing exact/check metadata, contradictory refusal release, and model/request mismatch rejection after recomputed digests;
 - substituted executable rejection;
 - malformed-input rejection.
 - registration of all seven tools, the bundled skill, and the automatic routing policy.

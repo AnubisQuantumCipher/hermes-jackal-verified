@@ -6,7 +6,7 @@
 
 **JACKAL Verified turns Hermes Agent into an assurance-aware STEM computation system.** It combines seven typed native tools with a companion skill that teaches Hermes when to request exact arithmetic, a checked derivative, a numerical estimate, a certified enclosure, or an explicitly model-based result.
 
-The plugin does not merely return numbers. It returns canonical, tamper-evident receipts that bind the request, epistemic status, result, residual non-claims, and exact JACKAL executable identity.
+The plugin does not merely return numbers. It returns canonical, checksummed receipts that bind the request, epistemic status, result, residual non-claims, and exact JACKAL executable identity. The checksum detects accidental or unrecomputed modification; it is not a signature or hostile-author authentication mechanism.
 
 ```text
 natural-language request
@@ -165,9 +165,9 @@ The receipt digest is SHA-256 over canonical UTF-8 JSON of the first five fields
 Validation is deliberately two-layered:
 
 1. **Integrity:** schema, exact keyset, canonical digest, and instrument identity.
-2. **Semantics:** known status, ordered finite enclosure, requested-tolerance compliance, and claim-card fingerprint recomputation.
+2. **Semantics:** operation/status compatibility, required result fields, non-release invariants, ordered finite enclosures, requested-tolerance compliance, and claim-card fingerprint/model consistency.
 
-An attacker cannot make a reversed enclosure valid merely by recomputing the outer receipt digest.
+A recomputed outer digest does not make a semantically malformed enclosure, cross-operation status, or non-release result valid. Because the receipt is unkeyed, a malicious party able to rewrite both plugin policy and receipt bytes is outside this checksum's threat model.
 
 See [`skills/jackal-verified-computation/references/receipt-contract.md`](skills/jackal-verified-computation/references/receipt-contract.md) for the compact contract.
 
@@ -176,7 +176,7 @@ See [`skills/jackal-verified-computation/references/receipt-contract.md`](skills
 - Seven curated tools; no generic command, endpoint, filesystem, or shell surface.
 - `subprocess.run` with an argument list and `shell=False`.
 - Restricted child environment.
-- Content-pinned executable; SHA-256 checked before and after execution.
+- Content-pinned executable copied into a private execution snapshot; source and snapshot SHA-256 checked before execution, with snapshot and source checked afterward.
 - Expression-length, output-size, and runtime bounds.
 - Finite-number admission and interval-order validation.
 - Explicit status vocabulary: `exact`, `estimated`, `checked`, `bounded`, `model-based`, `refused`, `indeterminate`.
@@ -194,7 +194,7 @@ Run the adapter and poison suite:
 python3 tests/test_plugin.py
 ```
 
-The twelve tests cover:
+The thirteen tests cover:
 
 - exact rational output and receipt validation;
 - a full 3,011-digit `2^10000` comparison;
@@ -205,6 +205,7 @@ The twelve tests cover:
 - receipt tampering;
 - semantic poison with a recomputed digest;
 - cross-operation status forgery with a recomputed digest;
+- missing exact/check metadata, contradictory refusal release, and model/request mismatch after recomputed digests;
 - substituted executable identity;
 - malformed and hostile inputs.
 - plugin registration of all seven tools, the bundled skill, and automatic routing policy.

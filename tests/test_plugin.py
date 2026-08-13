@@ -21,6 +21,13 @@ def call(fn,args):
     return json.loads(fn(args))
 
 
+def resign(receipt):
+    import hashlib
+    core={k:receipt[k] for k in ('schema','operation','request','result','instrument')}
+    receipt['receipt_sha256']=hashlib.sha256(tools._canonical(core)).hexdigest()
+    return receipt
+
+
 class JackalPluginTests(unittest.TestCase):
     def test_plugin_registers_tools_skill_and_automatic_routing(self):
         package=importlib.util.spec_from_file_location(
@@ -108,6 +115,27 @@ class JackalPluginTests(unittest.TestCase):
         verdict=tools.verify(receipt)
         self.assertFalse(verdict['valid'])
         self.assertIn('status is invalid for operation',verdict['errors'])
+
+    def test_recomputed_digest_cannot_forge_required_semantics(self):
+        cases=[]
+
+        exact=call(tools.exact,{'mode':'rational','expression':'1/3'})['receipt']
+        exact['result'].pop('exact'); cases.append((resign(exact),'malformed exact rational result'))
+
+        refused=call(tools.range_bound,{'expression':'1/x','lower':-1,'upper':1})['receipt']
+        refused['result']['released']=True; cases.append((resign(refused),'non-release status must set released=false'))
+
+        checked=call(tools.differentiate,{'expression':'x^2'})['receipt']
+        checked['result'].pop('check'); cases.append((resign(checked),'malformed derivative check metadata'))
+
+        model=call(tools.claim_card,{'model':'projectile','speed':20,'angle_degrees':45,'gravity':9.80665})['receipt']
+        model['request']['model']='other'; cases.append((resign(model),'claim-card model mismatch'))
+
+        for receipt,error in cases:
+            with self.subTest(error=error):
+                verdict=tools.verify(receipt)
+                self.assertFalse(verdict['valid'])
+                self.assertIn(error,verdict['errors'])
 
 
 if __name__=='__main__': unittest.main(verbosity=2)

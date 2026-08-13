@@ -7,6 +7,7 @@ import math
 import os
 import re
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 from typing import Any, Mapping
@@ -86,14 +87,27 @@ def _binary_identity() -> dict[str, Any]:
 def _invoke(argv: list[str], timeout: int = 180) -> dict[str, Any]:
     instrument = _binary_identity()
     started = time.time()
-    try:
-        proc = subprocess.run(
-            [str(BINARY), *argv], text=True, capture_output=True, timeout=max(1, min(int(timeout), 3600)),
-            shell=False, stdin=subprocess.DEVNULL, cwd=str(PLUGIN_ROOT),
-            env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": str(PLUGIN_ROOT), "LANG": "C.UTF-8"},
-        )
-    except subprocess.TimeoutExpired as exc:
-        return {"released": False, "status": "indeterminate", "reason": "execution-timeout", "detail": str(exc), "instrument": instrument}
+    # Execute a private snapshot of the bytes that were admitted. Hashing a
+    # public path and then executing that same path leaves a replacement race.
+    # The private 0700 directory removes that path race from the admitted
+    # source artifact; same-user process compromise remains outside this
+    # plugin's local threat boundary.
+    with tempfile.TemporaryDirectory(prefix="jackal-verified-") as tmp:
+        snapshot = Path(tmp) / "jackal-native"
+        snapshot.write_bytes(BINARY.read_bytes())
+        snapshot.chmod(0o500)
+        if _sha(snapshot) != instrument["sha256"]:
+            raise JackalError("JACKAL executable changed while creating the execution snapshot")
+        try:
+            proc = subprocess.run(
+                [str(snapshot), *argv], text=True, capture_output=True, timeout=max(1, min(int(timeout), 3600)),
+                shell=False, stdin=subprocess.DEVNULL, cwd=tmp,
+                env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": tmp, "LANG": "C.UTF-8"},
+            )
+        except subprocess.TimeoutExpired as exc:
+            return {"released": False, "status": "indeterminate", "reason": "execution-timeout", "detail": str(exc), "instrument": instrument}
+        if _sha(snapshot) != instrument["sha256"]:
+            raise JackalError("JACKAL execution snapshot changed during execution")
     if len(proc.stdout.encode()) > MAX_OUTPUT_BYTES or len(proc.stderr.encode()) > MAX_OUTPUT_BYTES:
         raise JackalError("JACKAL output exceeded the adapter limit")
     observed_after = _sha(BINARY)
@@ -285,6 +299,27 @@ def verify(receipt: Any) -> dict[str, Any]:
         operation=receipt.get("operation")
         if operation not in OPERATIONS: errors.append("unknown operation")
         elif status not in OPERATIONS[operation]: errors.append("status is invalid for operation")
+        request=receipt.get("request")
+        if not isinstance(request,dict): errors.append("request must be an object")
+        if status in {"refused","indeterminate"}:
+            if result.get("released") is not False: errors.append("non-release status must set released=false")
+            if not isinstance(result.get("reason"),str) or not result.get("reason"): errors.append("non-release status requires a reason")
+        if status=="exact":
+            mode=request.get("mode") if isinstance(request,dict) else None
+            if mode=="rational":
+                if not all(isinstance(result.get(k),str) and result.get(k) for k in ("parsed","exact","approx")):
+                    errors.append("malformed exact rational result")
+            elif mode in {"big_add","big_multiply","big_power","factorial","binomial"}:
+                value=result.get("value"); digits=result.get("digits")
+                if not isinstance(value,str) or not value.isdigit() or digits!=len(value): errors.append("malformed exact integer result")
+            else: errors.append("unsupported exact receipt mode")
+        if status=="checked":
+            check=result.get("check")
+            if not isinstance(result.get("derivative"),str) or not result.get("derivative"): errors.append("checked result requires a derivative")
+            try:
+                if not isinstance(check,dict) or isinstance(check.get("points"),bool) or int(check.get("points")) <= 0: raise ValueError
+                _finite(check.get("max_relative_deviation"),"deviation"); _finite(check.get("tolerance"),"tolerance")
+            except Exception: errors.append("malformed derivative check metadata")
         if status=="bounded":
             enc=result.get("enclosure")
             try:
@@ -293,7 +328,10 @@ def verify(receipt: Any) -> dict[str, Any]:
                 request=receipt.get("request",{})
                 if "tolerance" in request and hi-lo>_finite(request["tolerance"],"tolerance")*(1+1e-9):errors.append("enclosure exceeds requested tolerance")
             except Exception:errors.append("malformed enclosure")
-        if status=="model-based" and result.get("fingerprint_sha256")!=hashlib.sha256(str(result.get("canonical","")).encode()).hexdigest():errors.append("claim-card fingerprint mismatch")
+        if status=="model-based":
+            if result.get("fingerprint_sha256")!=hashlib.sha256(str(result.get("canonical","")).encode()).hexdigest():errors.append("claim-card fingerprint mismatch")
+            expected_model={"projectile":"ideal-projectile"}.get(request.get("model")) if isinstance(request,dict) else None
+            if expected_model is None or result.get("model")!=expected_model: errors.append("claim-card model mismatch")
         if status not in {"exact","estimated","checked","bounded","model-based","refused","indeterminate"}:errors.append("unknown epistemic status")
     return {"valid":not errors,"errors":errors,"receipt_sha256":receipt.get("receipt_sha256"),"instrument_sha256":instrument.get("sha256") if isinstance(instrument,dict) else None}
 

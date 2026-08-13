@@ -18,11 +18,11 @@ Please include:
 
 ## Security model
 
-The plugin is local and offline. It exposes seven fixed tools, not arbitrary command execution. It invokes a content-pinned JACKAL executable with an argument array, `shell=False`, a restricted environment, bounded input/output/runtime, and identity checks before and after execution.
+The plugin is local and offline. It exposes seven fixed tools, not arbitrary command execution. It copies a content-pinned JACKAL executable into a private `0700` execution directory, verifies the snapshot, then invokes it with an argument array, `shell=False`, a restricted environment, and bounded input/output/runtime. The source and private snapshot are rechecked after execution.
 
 Receipt validation has two independent layers:
 
-1. canonical digest validation;
+1. canonical checksum validation (integrity/self-consistency, not signature authentication);
 2. semantic validation of instrument identity, status vocabulary, interval ordering and tolerance, and claim-card fingerprints.
 
 The plugin is not a sandbox. Like all native Hermes plugins, its Python code executes with the user's authority. Install only from a source and release digest you trust.
