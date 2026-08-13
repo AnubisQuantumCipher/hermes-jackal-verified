@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: macos-14
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify platform and embedded JACKAL identity
+        run: |
+          test "$(uname -m)" = arm64
+          test "$(shasum -a 256 bin/jackal-native | awk '{print $1}')" = "609de1035be62a5183ad6555b97402567c9e4539b41806a5b52974f6be9030ae"
+          file bin/jackal-native | grep -q 'Mach-O 64-bit executable arm64'
+      - name: Compile Python
+        run: python3 -m compileall -q __init__.py schemas.py tools.py tests
+      - name: Run unit and poison suite
+        run: python3 tests/test_plugin.py
+      - name: Run fresh-install registration smoke test
+        run: python3 scripts/fresh_install_smoke.py
+      - name: Verify sealed manifest
+        run: python3 scripts/verify_manifest.py
+      - name: Reject forbidden tracked paths
+        run: python3 scripts/release_audit.py

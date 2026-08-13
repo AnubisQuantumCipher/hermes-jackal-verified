@@ -1,0 +1,22 @@
+name: jackal-verified
+version: "1.0.0"
+manifest_version: 2
+api_version: 1
+description: "Typed, receipt-bearing access to the JACKAL computation engine."
+author: "Anubis Quantum Cipher contributors"
+license: MIT
+kind: standalone
+tags: [jackal, mathematics, verified-computation, interval-arithmetic]
+provides_tools:
+  - jackal_exact
+  - jackal_evaluate
+  - jackal_differentiate
+  - jackal_integrate
+  - jackal_range_bound
+  - jackal_claim_card
+  - jackal_verify_receipt
+provides_skills:
+  - jackal-verified-computation
+config_schema:
+  timeout_seconds: {type: int, default: 180, description: "Maximum seconds per JACKAL invocation."}
+  max_expression_chars: {type: int, default: 8192, description: "Maximum accepted expression length."}
