@@ -27,7 +27,7 @@ jobs:
         # PACKAGE, which is what the plugin actually trusts.
         run: |
           test "$(uname -m)" = arm64
-          test "$(shasum -a 256 pkg/jackal-v1.1.0-macos-arm64.tar.gz | awk '{print $1}')" = "95588591d4a17e687b9b870d15920c834276059058d38726d1d48640bbbb3c56"
+          test "$(shasum -a 256 pkg/jackal-v1.1.0-macos-arm64.tar.gz | awk '{print $1}')" = "b3750df84e83b39c780501a93f399e648b118f94ab0c28200ec85c0b4d36ea21"
       - name: Compile Python
         run: python3 -m compileall -q __init__.py schemas.py tools.py jackal_formal tests scripts
       - name: Run unit and admission suite

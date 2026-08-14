@@ -36,8 +36,22 @@ All notable changes are documented here.
 - `.github/workflows/ci.yml` pinned the removed `bin/jackal-native` against the
   old v1.0.0 hash, so every v2 run failed before any test executed. The gate now
   pins the vendored **package** (`pkg/jackal-v1.1.0-macos-arm64.tar.gz`,
-  SHA-256 `95588591…`) — what the plugin actually admits — and runs both the
+  SHA-256 `b3750df8…`) — what the plugin actually admits — and runs both the
   unit/admission suite and the v2 formal+poison suite (the latter under `-O` too).
+
+### Fixed — vendored/public tarball internal release identity (Hermes-found)
+
+- The vendored (and public) v1.1.0 archive `95588591…` was internally labeled
+  **`v1.0.4` / "PRIVATE … no public download is claimed"** in its `README.txt`,
+  `MANIFEST.sha256`, `NON-CLAIMS.txt`, and `PROVENANCE-RECEIPT.txt` — false now
+  that jackal-calc is public. The archive was rebuilt with correct `v1.1.0` /
+  public / unsigned-ad-hoc labels (`release/build_package.sh`); the two shipped
+  binaries are **unchanged and re-verified** (`jackal-native` `820c0722…`,
+  `jackal_cert_check` `2186b43f…`), so the pinned evaluator/checker identities
+  and the `cert_check_sound` trust chain are untouched. `PKG_SHA256` moved
+  `95588591… → b3750df8…`; the public jackal-calc v1.1.0 asset was re-released
+  with the corrected archive. The archive is now **byte-reproducible**: a rebuild
+  from the same inputs yields the identical tarball hash.
 
 ## 2.0.0 — 2026-08-14
 
@@ -47,7 +61,8 @@ All notable changes are documented here.
   release as one vendored, verified 40 MB archive containing BOTH the evaluator
   (`jackal-native`, SHA-256 `820c0722…`) AND the Lean-proved certificate checker
   (`jackal_cert_check`, SHA-256 `2186b43f…`). The archive is byte-identical to
-  the public jackal-calc v1.1.0 release asset (SHA-256 `95588591…`), so its
+  the public jackal-calc v1.1.0 release asset (SHA-256 `95588591…`; corrected and
+  re-pinned to `b3750df8…` in 2.0.2, see below), so its
   provenance is independently verifiable. It is admitted — tarball-hash +
   safe-extract + SHA256SUMS-inventory + per-binary SHA/Mach-O-arm64/mode
   verified — into a private 0500 snapshot before either binary runs. A plain

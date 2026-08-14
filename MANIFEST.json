@@ -1,8 +1,8 @@
 {
   "files": {
-    ".github/workflows/ci.yml": "6c716b6ae50bbcb849989014d2533300321f729b0485073349f717bbf4de6939",
+    ".github/workflows/ci.yml": "2167870489f5d440268c1d83d86e531c725af39fc6002614053049f99539bfd3",
     ".gitignore": "f428bce23c7ee29fbccee7a4c5bfbbcc32bc069edeb95974f4d3b3cc1a63b817",
-    "CHANGELOG.md": "b825eb24a39f8879a184706e0555afa302e32c60922006a0ecc5cafb7f76db84",
+    "CHANGELOG.md": "7df9f725623761ea72587844a8a18c8c45bbac178524ed669a03135748f3e618",
     "CONTRIBUTING.md": "99513c9d00827b1a5a0e8f4ad543d38f59509215c4743b12a35c6780187aa7c3",
     "LICENSE": "080285dc8fc1106a7d9b32e773fa26ebbff7e4f18fbf1759283fc41cb9678494",
     "PROVENANCE.md": "4921d79da83fc95faf2c1e33e6fe9079b642bf92b7ec4740168a5cfec12a8857",
@@ -15,7 +15,7 @@
     "jackal_formal/formal_coverage_inventory.json": "ff4855e0a43d7168ecba7a10eda686699e26577fd37534bf69c3c53dab754d00",
     "jackal_formal/formal_status_gate.py": "2d52820b4a6dfde47bb6b4e0650348682bfaed59aaea48b866e9f0680a330d71",
     "jackal_formal/release_validate.py": "5f785afee3781e2c8837958d7f0204bbea70902ff30bdd599f6c9ef5e3050920",
-    "pkg/jackal-v1.1.0-macos-arm64.tar.gz": "95588591d4a17e687b9b870d15920c834276059058d38726d1d48640bbbb3c56",
+    "pkg/jackal-v1.1.0-macos-arm64.tar.gz": "b3750df84e83b39c780501a93f399e648b118f94ab0c28200ec85c0b4d36ea21",
     "plugin.yaml": "abe2602ee8b10e64716fc774ed108611e4bf1020b25bebe4ad1cbe50ec512dd3",
     "schemas.py": "09560efacc5f57b5de67b690b98e268e4e3f53216f0005f2db574fb40dc38d03",
     "scripts/fresh_install_smoke.py": "617bab56fed2a847d09b5c87ce8ba17d955c396462ab5adbef0b0524aaf30295",
@@ -25,10 +25,10 @@
     "skills/jackal-verified-computation/SKILL.md": "873790646fb47c8909af6f4592647bbdbee10ef614aba4e0074f4f9fc29f2712",
     "skills/jackal-verified-computation/references/receipt-contract.md": "b8892f37cc99a62881cdfe64912b14aa6ab0b3fa0d6f48f1867e4e6020903337",
     "tests/aba_recheck_gate.py": "9917f4424a018421f4b92186164725d8cac6f1d35be5f2b0ca264c850e1430f8",
-    "tests/evidence/aba_recheck_gate.json": "7ec4b16a1559b664adfa08e3c0f917f23268164c076995143934bc3e1368df5a",
+    "tests/evidence/aba_recheck_gate.json": "7cf9a169309775535604d9550a5ad4677abfd6047d866377316f08056c772a5b",
     "tests/test_plugin.py": "ebd7dcbb8b5a2dbb44b4a0a0a86d28fdf8aff750f2ecb387f4bb0d6c18189d77",
     "tests/test_plugin_v2.py": "7853d3fb0bbdfbd7d36d15b93d01adc9953e84a0e29c0cb974cdf7cb64db7fbb",
-    "tools.py": "14a3357ef48ba67356bb6900f200cc135f685774156b1fe04490c025ba61c8fa"
+    "tools.py": "6f20b70f1d1f1f5af116561f63760fd9269d66b0cb9ef8398ab4f02819ef5861"
   },
   "schema": "jackal-plugin-manifest-v1"
 }

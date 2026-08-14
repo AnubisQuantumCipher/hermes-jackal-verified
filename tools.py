@@ -28,7 +28,7 @@ FORMAL_THEOREM = "cert_check_sound"
 # private snapshot before either binary is executed. No LFS, no network fetch,
 # no stripping; a plain git clone carries everything (offline-capable).
 PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.1.0-macos-arm64.tar.gz"
-PKG_SHA256 = "95588591d4a17e687b9b870d15920c834276059058d38726d1d48640bbbb3c56"
+PKG_SHA256 = "b3750df84e83b39c780501a93f399e648b118f94ab0c28200ec85c0b4d36ea21"
 PKG_DIRNAME = "jackal-v1.1.0-macos-arm64"
 MAX_OUTPUT_BYTES = 2_000_000
 MAX_INTEGER_DIGITS = 100_000
