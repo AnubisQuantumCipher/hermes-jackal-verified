@@ -93,19 +93,19 @@ The project deliberately supports the same instruction at three scopes:
 
 The public snippet does not pretend other agents can call Hermes tools directly. It teaches assurance selection and reporting discipline; an actual integration still needs an authorized tool bridge.
 
-### Verify the embedded executable
+### Verify the vendored public package
 
 ```bash
-shasum -a 256 bin/jackal-native
+shasum -a 256 pkg/jackal-v1.1.1-macos-arm64.tar.gz
 ```
 
 Expected:
 
 ```text
-609de1035be62a5183ad6555b97402567c9e4539b41806a5b52974f6be9030ae
+8ed047183bdd6259fc3d9b22ab87003389eabf9c4da1722024848c016fc4ec09
 ```
 
-The plugin repeats this identity check before and after every invocation.
+The plugin verifies this archive plus its complete internal inventory, evaluator, checker, architecture, and modes before execution from a private snapshot.
 
 ## Natural-language usage
 
@@ -123,14 +123,14 @@ Users do not normally call the skill or tool names themselves. In a new session,
 
 > Compute a certified enclosure for `exp(-100000000*(x-0.1234567)^2)` from `0` to `1`, no wider than `1e-8`. Do not substitute an estimate if certification fails. Validate the receipt.
 
-Observed v1.0.0 result:
+Representative bounded-lane result:
 
 ```text
 status=bounded
 enclosure=[0.00017724538401736711, 0.00017724538656304582]
 width=2.54567870147486e-12
 receipt_validation=valid
-instrument_sha256=609de1035be62a5183ad6555b97402567c9e4539b41806a5b52974f6be9030ae
+instrument_sha256=820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c
 ```
 
 ### Range analysis
@@ -145,18 +145,18 @@ JACKAL refuses because the denominator interval contains zero. The plugin preser
 
 ## Receipt contract
 
-Every computation returns `jackal-hermes-receipt-v1` with exactly:
+Every computation returns `jackal-hermes-receipt-v2` with exactly:
 
 ```json
 {
-  "schema": "jackal-hermes-receipt-v1",
+  "schema": "jackal-hermes-receipt-v2",
   "operation": "jackal_integrate",
   "request": {},
   "result": {},
   "instrument": {
     "name": "jackal",
-    "sha256": "609de1035be62a...",
-    "size": 1386400
+    "sha256": "820c0722e46a...",
+    "checker_sha256": "2186b43f8e45..."
   },
   "receipt_sha256": "..."
 }
@@ -168,8 +168,9 @@ Validation is deliberately two-layered:
 
 1. **Integrity:** schema, exact keyset, canonical digest, and instrument identity.
 2. **Semantics:** operation/status compatibility, required result fields, non-release invariants, ordered finite enclosures, requested-tolerance compliance, and claim-card fingerprint/model consistency.
+3. **Formal re-check:** `formal-bounded` receipts carry the exact certificate; validation re-admits the pinned package, re-runs the proved checker on those bytes, and binds the request, enclosure, commitments, operators, theorem, and executable identities to the checker verdict.
 
-A recomputed outer digest does not make a semantically malformed enclosure, cross-operation status, or non-release result valid. Because the receipt is unkeyed, a malicious party able to rewrite both plugin policy and receipt bytes is outside this checksum's threat model.
+A recomputed outer digest does not make a semantically malformed or forged formal result valid. The digest is an unkeyed integrity checksum, not author authentication; formal validity comes from re-executing the proved checker.
 
 See [`skills/jackal-verified-computation/references/receipt-contract.md`](skills/jackal-verified-computation/references/receipt-contract.md) for the compact contract.
 
@@ -178,7 +179,7 @@ See [`skills/jackal-verified-computation/references/receipt-contract.md`](skills
 - Seven curated tools; no generic command, endpoint, filesystem, or shell surface.
 - `subprocess.run` with an argument list and `shell=False`.
 - Restricted child environment.
-- Content-pinned executable copied into a private execution snapshot; source and snapshot SHA-256 checked before execution, with snapshot and source checked afterward.
+- Public JACKAL v1.1.1 package pinned by archive SHA-256, safe extraction, complete internal `SHA256SUMS`, evaluator/checker SHA-256, Mach-O arm64, and executable-mode checks before execution from a private snapshot.
 - Expression-length, output-size, and runtime bounds.
 - Finite-number admission and interval-order validation.
 - Explicit status vocabulary: `exact`, `estimated`, `checked`, `bounded`, `model-based`, `refused`, `indeterminate`.
@@ -196,7 +197,7 @@ Run the adapter and poison suite:
 python3 tests/test_plugin.py
 ```
 
-The fourteen tests cover:
+The regression suites cover:
 
 - exact rational output and receipt validation;
 - a full 3,011-digit `2^10000` comparison;
@@ -210,6 +211,9 @@ The fourteen tests cover:
 - missing exact/check metadata, contradictory refusal release, and model/request mismatch after recomputed digests;
 - substituted executable identity;
 - public-path A→B→A substitution while execution remains bound to a private admitted snapshot;
+- the four recomputed-digest formal receipt forgeries found against v2.0.0/v2.0.1;
+- stripped-certificate and substituted-enclosure refusal;
+- load-bearing A→B→A of the master formal re-check gate, including `python3 -O` parity;
 - malformed and hostile inputs.
 - plugin registration of all seven tools, the bundled skill, and automatic routing policy.
 
@@ -244,12 +248,15 @@ CI runs the unit/poison suite, manifest consistency checks, Python compilation, 
 ├── __init__.py                 # Hermes registration
 ├── schemas.py                  # model-visible typed schemas
 ├── tools.py                    # fail-closed adapter and receipt validator
-├── bin/jackal-native           # content-pinned JACKAL v1.0.0 arm64 binary
+├── pkg/jackal-v1.1.1-macos-arm64.tar.gz  # evaluator + proved checker
+├── jackal_formal/              # shared release validator/status/coverage gates
 ├── skills/
 │   └── jackal-verified-computation/
 │       ├── SKILL.md            # automatic assurance-selection discipline
 │       └── references/receipt-contract.md
 ├── tests/test_plugin.py
+├── tests/test_plugin_v2.py
+├── tests/aba_recheck_gate.py
 ├── PROVENANCE.md
 ├── SECURITY.md
 ├── CONTRIBUTING.md
@@ -258,7 +265,7 @@ CI runs the unit/poison suite, manifest consistency checks, Python compilation, 
 
 ## Platform support
 
-The initial release supports **Apple Silicon macOS only** because JACKAL v1.0.0 currently publishes that native artifact. The plugin fails closed if the embedded executable is missing, non-executable, or has the wrong digest.
+The plugin supports **Apple Silicon macOS only** because the pinned JACKAL v1.1.1 package contains Mach-O arm64 evaluator/checker artifacts. It fails closed if the archive, manifest, inventory, architecture, modes, evaluator, or checker differs from the pinned identity.
 
 Portable support should use one reviewed binary per platform with explicit OS/architecture selection and per-artifact digests. It must never fall back to an arbitrary `jackal` found on `PATH`.
 
@@ -269,6 +276,7 @@ JACKAL Verified makes strong but bounded claims:
 - `exact` means exact within the supported grammar, operation, and compute budget.
 - `checked` means sampled numerical challenge, not symbolic identity proof.
 - `bounded` means an enclosure conditional on JACKAL's stated IEEE basic-operation and ≤2 ULP libm model and a tested—not end-to-end mechanized—implementation.
+- `formal-bounded` means the packaged proved checker accepted the carried certificate and the plugin re-bound the exact request/result identities; it still depends on the stated ModelTCB and does not prove source-to-native refinement.
 - `model-based` means conditional on stated assumptions, not observed physical reality.
 - SHA-256 identifies and checksums bytes; it does not authenticate an author or prove mathematical validity.
 - Passing finite campaigns does not establish universal correctness.
@@ -277,11 +285,13 @@ The upstream JACKAL interval model includes Lean mechanization, but this plugin 
 
 ## Provenance
 
-The embedded executable is the official JACKAL CALC `v1.0.0` release artifact:
+The vendored package is the public JACKAL CALC `v1.1.1` release artifact:
 
 - Upstream: https://github.com/AnubisQuantumCipher/jackal-calc
-- Commit: `ae9a6f5174546610c1a71d113db0c199cbbcca0c`
-- Binary SHA-256: `609de1035be62a5183ad6555b97402567c9e4539b41806a5b52974f6be9030ae`
+- Commit: `fd1ac8584e463a2ace3c32cfdc6b6a4a77851087`
+- Archive SHA-256: `8ed047183bdd6259fc3d9b22ab87003389eabf9c4da1722024848c016fc4ec09`
+- Evaluator SHA-256: `820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c`
+- Proved checker SHA-256: `2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b`
 - License: MIT
 
 See [`PROVENANCE.md`](PROVENANCE.md) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

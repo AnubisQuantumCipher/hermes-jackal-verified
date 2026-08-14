@@ -7,10 +7,10 @@ This document binds the public plugin release to its upstream computation instru
 ```text
 JACKAL source commit
 → pinned Anubis compiler and reproducible upstream build
-→ official JACKAL v1.0.0 release binary
-→ embedded binary digest
+→ public JACKAL v1.1.1 release archive
+→ archive manifest + evaluator/checker identities
 → native Hermes plugin adapter
-→ unit and poison suite
+→ formal/poison suites + A→B→A gate
 → Hermes Plugin Doctor
 → live fresh-session invocation and receipt validation
 ```
@@ -20,26 +20,28 @@ JACKAL source commit
 | Field | Value |
 |---|---|
 | Upstream repository | `https://github.com/AnubisQuantumCipher/jackal-calc` |
-| Upstream release | `v1.0.0` |
-| Source commit | `ae9a6f5174546610c1a71d113db0c199cbbcca0c` |
-| `jackal_calc.anb` SHA-256 | `b74d078db6acc7b73f81001ed823643df037e4770b6062c15de411ff571f5384` |
-| Release asset | `jackal-native` |
+| Upstream release | `v1.1.1` |
+| Source commit | `fd1ac8584e463a2ace3c32cfdc6b6a4a77851087` |
+| `jackal_calc.anb` SHA-256 | `5d43df8de01adb86bb10a0a6cea28fb79faf03cd58be51654c3fa88c653e4a40` |
+| Release asset | `jackal-v1.1.1-macos-arm64.tar.gz` |
 | Architecture | Mach-O 64-bit arm64 |
-| Size | 1,386,400 bytes |
-| Binary SHA-256 | `609de1035be62a5183ad6555b97402567c9e4539b41806a5b52974f6be9030ae` |
+| Archive size | 39,912,160 bytes |
+| Archive SHA-256 | `8ed047183bdd6259fc3d9b22ab87003389eabf9c4da1722024848c016fc4ec09` |
+| Evaluator SHA-256 | `820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c` |
+| Proved checker SHA-256 | `2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b` |
 | License | MIT |
 
 Upstream release URL:
 
-`https://github.com/AnubisQuantumCipher/jackal-calc/releases/tag/v1.0.0`
+`https://github.com/AnubisQuantumCipher/jackal-calc/releases/tag/v1.1.1`
 
-The upstream release includes `SHA256SUMS`, and GitHub's release-asset metadata independently reports the same SHA-256 digest for `jackal-native`.
+The upstream release includes `RELEASE-SHA256SUMS`; the archive contains a complete internal `SHA256SUMS`. Anonymous download, GitHub asset metadata, and the vendored plugin bytes agree on the archive digest.
 
 ## Reproducibility inherited from JACKAL
 
-JACKAL's own `PROVENANCE.md` records that repeated clean builds from the committed source under content-addressed Anubis compiler pin `anubis-a733565f237d` produced byte-identical native executables with the digest above. This plugin does not rebuild JACKAL during installation; it embeds and verifies that official artifact.
+JACKAL's own `PROVENANCE.md` records the content-addressed Anubis compiler pin `anubis-a733565f237d` and byte-identical evaluator builds. The v1.1.1 archive was also built twice byte-for-byte identically. This plugin does not rebuild JACKAL during installation; it vendors and verifies that public release archive.
 
-The plugin checks the digest immediately before execution and again after execution. A mismatch produces no computation result.
+The plugin verifies the archive, safe extraction, complete internal inventory, evaluator/checker digests, Mach-O arm64 architecture, and modes before execution from a private snapshot. A mismatch produces no computation result.
 
 ## Plugin verification performed before publication
 
@@ -53,10 +55,7 @@ python3 tests/test_plugin.py
 
 Observed:
 
-```text
-Ran 14 tests
-OK
-```
+The release gate requires the legacy 14-test adapter suite, the v2 formal/poison suite under normal Python and `python3 -O`, and the formal-recheck A→B→A mutation gate.
 
 Covered controls:
 
@@ -72,6 +71,9 @@ Covered controls:
 - missing exact/check metadata, contradictory refusal release, and model/request mismatch rejection after recomputed digests;
 - substituted executable rejection;
 - private-snapshot resistance to public-path A→B→A substitution;
+- exact rejection of the four recomputed-digest formal receipt forgeries;
+- checker re-execution over the embedded certificate;
+- A→B→A proof that removing the master formal re-check re-admits those forgeries;
 - malformed-input rejection.
 - registration of all seven tools, the bundled skill, and the automatic routing policy.
 
@@ -104,11 +106,12 @@ over [0,1], tolerance 1e-8, no estimate fallback
 Observed:
 
 ```text
-status=bounded
+status=formal-bounded
 enclosure=[0.00017724538401736711,0.00017724538656304582]
 width=2.54567870147486e-12
 receipt_validation=valid
-instrument_sha256=609de1035be62a5183ad6555b97402567c9e4539b41806a5b52974f6be9030ae
+evaluator_sha256=820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c
+checker_sha256=2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b
 ```
 
 The live session receipt was valid for that request. It is not a universal JACKAL proof.

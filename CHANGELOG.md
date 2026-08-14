@@ -2,6 +2,21 @@
 
 All notable changes are documented here.
 
+## 2.0.3 — 2026-08-14
+
+### Fixed — immutable upstream package epoch
+
+- Re-pinned the vendored formal package to public JACKAL `v1.1.1`, archive
+  SHA-256 `8ed047183bdd6259fc3d9b22ab87003389eabf9c4da1722024848c016fc4ec09`
+  (39,912,160 bytes). The evaluator (`820c0722…`) and proved checker
+  (`2186b43f…`) are unchanged; only package labels and release identity moved.
+- Restored public JACKAL `v1.1.0` to its original `95588591…` archive after an
+  in-place replacement was detected. v1.1.1 is the corrected immutable
+  successor; v2.0.3 binds to it instead of rewriting v2.0.2 history.
+- Updated the bundled skill and receipt contract to schema v2. Formal receipts
+  carry the exact certificate, and verification re-runs the proved checker on
+  those bytes before accepting any formal result.
+
 ## 2.0.2 — 2026-08-14
 
 ### Fixed — formal receipt false accept (§487, Hermes-found; soundness)
@@ -35,8 +50,8 @@ All notable changes are documented here.
 
 - `.github/workflows/ci.yml` pinned the removed `bin/jackal-native` against the
   old v1.0.0 hash, so every v2 run failed before any test executed. The gate now
-  pins the vendored **package** (`pkg/jackal-v1.1.0-macos-arm64.tar.gz`,
-  SHA-256 `b3750df8…`) — what the plugin actually admits — and runs both the
+  pinned the vendored **package** (`pkg/jackal-v1.1.0-macos-arm64.tar.gz`,
+  SHA-256 `95588591…`) — what the plugin actually admitted in that epoch — and ran both the
   unit/admission suite and the v2 formal+poison suite (the latter under `-O` too).
 
 ### Fixed — vendored/public tarball internal release identity (Hermes-found)
@@ -48,10 +63,9 @@ All notable changes are documented here.
   public / unsigned-ad-hoc labels (`release/build_package.sh`); the two shipped
   binaries are **unchanged and re-verified** (`jackal-native` `820c0722…`,
   `jackal_cert_check` `2186b43f…`), so the pinned evaluator/checker identities
-  and the `cert_check_sound` trust chain are untouched. `PKG_SHA256` moved
-  `95588591… → b3750df8…`; the public jackal-calc v1.1.0 asset was re-released
-  with the corrected archive. The archive is now **byte-reproducible**: a rebuild
-  from the same inputs yields the identical tarball hash.
+  and the `cert_check_sound` trust chain are untouched. An attempted in-place
+  re-pin to `b3750df8…` was later reversed: v1.1.0 was restored to `95588591…`,
+  and the corrected package was published immutably as v1.1.1 for plugin 2.0.3.
 
 ## 2.0.0 — 2026-08-14
 

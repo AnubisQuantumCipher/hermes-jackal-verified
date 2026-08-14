@@ -15,21 +15,21 @@ from typing import Any, Mapping
 PLUGIN_ROOT = Path(__file__).resolve().parent
 BINARY = PLUGIN_ROOT / "bin" / "jackal-native"
 CHECKER = PLUGIN_ROOT / "bin" / "jackal_cert_check"
-# v1.1.0 formal epoch: the evaluator emits schema-v2 certificates the packaged
+# v1.1.1 formal package epoch: the evaluator emits schema-v2 certificates the packaged
 # proved checker requires. Both identities are load-bearing and pinned.
 APPROVED_SHA256 = "820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c"
 APPROVED_CHECKER_SHA256 = "2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b"
 SCHEMA = "jackal-hermes-receipt-v2"
 FORMAL_THEOREM = "cert_check_sound"
 # The evaluator + proved checker ship inside ONE vendored, verified upstream
-# v1.1.0 release tarball (the 131 MB checker exceeds GitHub's 100 MB file limit
+# v1.1.1 release tarball (the 131 MB checker exceeds GitHub's 100 MB file limit
 # uncompressed; the tarball is 40 MB). It is admitted — hash-verified, safely
 # extracted, manifest-verified, per-binary SHA/arch/mode-verified — into a
 # private snapshot before either binary is executed. No LFS, no network fetch,
 # no stripping; a plain git clone carries everything (offline-capable).
-PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.1.0-macos-arm64.tar.gz"
-PKG_SHA256 = "b3750df84e83b39c780501a93f399e648b118f94ab0c28200ec85c0b4d36ea21"
-PKG_DIRNAME = "jackal-v1.1.0-macos-arm64"
+PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.1.1-macos-arm64.tar.gz"
+PKG_SHA256 = "8ed047183bdd6259fc3d9b22ab87003389eabf9c4da1722024848c016fc4ec09"
+PKG_DIRNAME = "jackal-v1.1.1-macos-arm64"
 MAX_OUTPUT_BYTES = 2_000_000
 MAX_INTEGER_DIGITS = 100_000
 MAX_EXPONENT = 1_000_000
@@ -354,7 +354,7 @@ def integrate(args: Mapping[str, Any], timeout: int = 180, max_chars: int = 8192
 
 def _formal_range_bound(expr: str, lower: str, upper: str, timeout: int) -> dict[str, Any]:
     """Snapshot the evaluator AND the proved checker into a private 0500
-    execution root, then run the shared release validator (the upstream v1.1.0
+    execution root, then run the shared release validator (the upstream v1.1.1
     release path): emit certificate → proved checker ACCEPT → identity/TOCTOU/
     request bindings → formal-status gate → `formal-bounded`. Returns the
     validator receipt; raises JackalError on any refusal (no bounded fallback)."""

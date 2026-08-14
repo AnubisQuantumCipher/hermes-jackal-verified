@@ -16,8 +16,10 @@ JACKAL Verified is available through Hermes Agent's `jackal-verified` plugin. Ro
 
 Never silently downgrade a bounded request. Never call an estimate a bound, a sampled check a proof, a model fingerprint physical truth, or a matching digest mathematical correctness. Treat `refused` and `indeterminate` as valid outcomes. Preserve the returned assumptions and non-claims.
 
-The currently approved Apple Silicon JACKAL executable SHA-256 is:
+The approved public JACKAL package/evaluator/checker SHA-256 identities are:
 
-`609de1035be62a5183ad6555b97402567c9e4539b41806a5b52974f6be9030ae`
+- package `8ed047183bdd6259fc3d9b22ab87003389eabf9c4da1722024848c016fc4ec09`;
+- evaluator `820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c`;
+- proved checker `2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b`.
 
 This snippet describes routing and reporting discipline only. Non-Hermes agents still need an authorized mechanism to call the Hermes plugin; do not invent a shell or network interface.

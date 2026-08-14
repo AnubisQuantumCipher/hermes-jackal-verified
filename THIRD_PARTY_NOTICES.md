@@ -2,18 +2,20 @@
 
 ## JACKAL
 
-This repository embeds the Apple Silicon macOS `jackal-native` executable from:
+This repository vendors the public Apple Silicon macOS JACKAL package from:
 
 - Project: JACKAL CALC
 - Repository: https://github.com/AnubisQuantumCipher/jackal-calc
-- Release: `v1.0.0`
-- Source commit: `ae9a6f5174546610c1a71d113db0c199cbbcca0c`
-- Source file SHA-256: `b74d078db6acc7b73f81001ed823643df037e4770b6062c15de411ff571f5384`
-- Binary SHA-256: `609de1035be62a5183ad6555b97402567c9e4539b41806a5b52974f6be9030ae`
-- Upstream release asset: https://github.com/AnubisQuantumCipher/jackal-calc/releases/download/v1.0.0/jackal-native
+- Release: `v1.1.1`
+- Source commit: `fd1ac8584e463a2ace3c32cfdc6b6a4a77851087`
+- Source file SHA-256: `5d43df8de01adb86bb10a0a6cea28fb79faf03cd58be51654c3fa88c653e4a40`
+- Archive SHA-256: `8ed047183bdd6259fc3d9b22ab87003389eabf9c4da1722024848c016fc4ec09`
+- Evaluator SHA-256: `820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c`
+- Proved checker SHA-256: `2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b`
+- Upstream release asset: https://github.com/AnubisQuantumCipher/jackal-calc/releases/download/v1.1.1/jackal-v1.1.1-macos-arm64.tar.gz
 - License: MIT
 
-The upstream release publishes a `SHA256SUMS` asset. This plugin independently checks the embedded binary against the same digest before and after every invocation.
+The upstream release publishes `RELEASE-SHA256SUMS`; the archive carries a complete internal `SHA256SUMS`. The plugin independently admits the archive, inventory, evaluator, checker, architecture, and modes before execution.
 
 ## Hermes Agent
 

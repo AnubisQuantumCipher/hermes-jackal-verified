@@ -1,7 +1,7 @@
 ---
 name: jackal-verified-computation
 description: Use JACKAL for exact, bounded, or checked STEM work.
-version: 1.0.1
+version: 1.1.0
 author: Anubis Quantum Cipher contributors
 license: MIT
 platforms: [macos]
@@ -28,7 +28,7 @@ Use the profile-local `jackal-verified` plugin as a deterministic computational 
 ## Prerequisites
 
 - The `jackal-verified` native Hermes plugin is enabled in the active profile. When loaded from the plugin bundle, its explicit name is `jackal-verified:jackal-verified-computation`.
-- Its embedded executable must match the plugin's approved SHA-256; identity mismatch fails before computation.
+- Its vendored public JACKAL package, evaluator, and proved checker must match the plugin's approved SHA-256 identities; any mismatch fails before computation.
 - A new Hermes session may be required after plugin installation because tool schemas remain stable during a conversation.
 
 ## Assurance Selection
@@ -49,7 +49,7 @@ When the user asks for "accurate," infer the consequence. Prefer `bounded` for m
 ## Procedure
 
 1. **Classify the computation.** Identify exact, checked, estimated, bounded, or model-based intent. Completion: one assurance class is named before interpreting output.
-2. **Call the typed JACKAL tool.** Do not construct a raw JACKAL shell command when the plugin tool covers the operation. Completion: the response includes `jackal-hermes-receipt-v1` and the approved instrument digest.
+2. **Call the typed JACKAL tool.** Do not construct a raw JACKAL shell command when the plugin tool covers the operation. Completion: the response includes `jackal-hermes-receipt-v2` and the approved instrument identity.
 3. **Inspect status before value.** Treat `refused` and `indeterminate` as terminal computational outcomes unless the user explicitly accepts a weaker lane. Completion: no value from a prior or weaker run is substituted.
 4. **Verify consequential receipts.** Call `jackal_verify_receipt` before relying on exact, bounded, or model-based results in consequential work. Completion: `valid=true`; otherwise report the validation errors and release no answer.
 5. **Report the epistemic class.** Put exact value, enclosure, checked derivative, estimate, or model assumptions in the answer using the same class JACKAL returned. Completion: wording does not exceed evidence.
@@ -61,7 +61,7 @@ When the user asks for "accurate," infer the consequence. Prefer `bounded` for m
 - `checked` is never formally proved.
 - `bounded` is an enclosure, not an exact value.
 - `model-based` is conditional on stated assumptions, not an observed fact.
-- A matching SHA-256 authenticates bytes, not mathematical validity.
+- A matching SHA-256 identifies bytes; it does not authenticate an author or establish mathematical validity.
 - A finite campaign cannot establish universal correctness.
 - A refusal is an answer. Do not hide it by automatically calling a weaker lane.
 
@@ -78,11 +78,12 @@ When the user asks for "accurate," infer the consequence. Prefer `bounded` for m
 
 For a consequential receipt:
 
-1. Confirm `schema=jackal-hermes-receipt-v1`.
+1. Confirm `schema=jackal-hermes-receipt-v2`.
 2. Call `jackal_verify_receipt` and require `valid=true`.
-3. Confirm the returned status matches the requested assurance.
-4. For bounded integration, require ordered finite endpoints and width no greater than requested tolerance.
-5. For claim cards, require independent fingerprint recomputation.
-6. Report the instrument SHA-256 alongside high-stakes results when auditability matters.
+3. For `formal-bounded`, require an embedded certificate, the pinned evaluator and checker identities, theorem `cert_check_sound`, and checker-derived request/enclosure/operator bindings. Verification re-runs the proved checker on the embedded certificate; an outer digest alone is never sufficient.
+4. Confirm the returned status matches the requested assurance.
+5. For bounded integration, require ordered finite endpoints and width no greater than requested tolerance.
+6. For claim cards, require independent fingerprint recomputation.
+7. Report evaluator/checker SHA-256 identities alongside high-stakes formal results when auditability matters.
 
 The plugin's local regression suite and plugin-doctor result establish adapter behavior separately from JACKAL's own mathematical claims.
