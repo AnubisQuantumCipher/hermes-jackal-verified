@@ -362,6 +362,7 @@ def _formal_range_bound(expr: str, lower: str, upper: str, timeout: int) -> dict
     fdir = str(PLUGIN_ROOT / "jackal_formal")
     if fdir not in _sys.path:
         _sys.path.insert(0, fdir)
+    import base64 as _b64
     import release_validate as rv  # vendored, from jackal_formal/
     adm = _admit_package()  # evaluator + checker from the verified private snapshot
     ev, ck = Path(adm["evaluator"]), Path(adm["checker"])
@@ -375,8 +376,16 @@ def _formal_range_bound(expr: str, lower: str, upper: str, timeout: int) -> dict
                 workdir=str(wd))
         except rv.ReleaseRefusal as r:
             raise JackalError(f"formal-release-refused:{r.cls}") from r
+        # Read the EXACT certificate the checker accepted, before the workdir is
+        # cleaned. It travels in the receipt so the public verifier can re-run the
+        # proved checker on it — a formal receipt must be independently
+        # re-checkable, not merely self-consistent (§487 false-accept repair).
+        cert_bytes = (wd / "cert.bytes").read_bytes()
     if receipt.get("status") != "formal-bounded":
         raise JackalError("formal path did not yield formal-bounded")
+    if hashlib.sha256(cert_bytes).hexdigest() != receipt["certificate_sha256"]:
+        raise JackalError("embedded certificate digest mismatch")
+    receipt["certificate_b64"] = _b64.b64encode(cert_bytes).decode("ascii")
     return receipt
 
 
@@ -411,6 +420,7 @@ def range_bound(args: Mapping[str, Any], timeout: int = 180, max_chars: int = 81
             "expr_commitment": rr["expr_commitment"],
             "request_commitment": rr["request_commitment"],
             "certificate_sha256": rr["certificate_sha256"],
+            "certificate": rr["certificate_b64"],
             "cert_status": rr["cert_status"],
             "operators": rr["operators"],
             "theorem": FORMAL_THEOREM,
@@ -445,6 +455,73 @@ def claim_card(args: Mapping[str, Any], timeout: int = 180, max_chars: int = 819
         result={"status":"model-based","model":fields.get("model"),"assumptions":next((line.split("=",1)[1] for line in lines if line.startswith("assumptions=")),None),"non_claims":next((line.split("=",1)[1] for line in lines if line.startswith("non-claims=")),None),"canonical":canonical,"fingerprint_sha256":printed,"fingerprint_recomputed":True,"card_text":raw["stdout"]}
         return _finish(op,request,raw,result)
     except Exception as exc:return _error(op,exc)
+
+
+def _recheck_formal_receipt(receipt: Mapping[str, Any]) -> list[str]:
+    """Authoritative formal re-verification. Re-runs the PACKAGED PROVED CHECKER on
+    the certificate carried in the receipt, then binds every self-reported field to
+    what the checker actually accepted. A recomputed outer digest cannot launder a
+    formal claim here, because none of the receipt's own fields are trusted — the
+    truth comes from re-executing `jackal_cert_check` on the embedded bytes and
+    re-deriving the request commitment from the request (§487 false-accept repair)."""
+    import base64
+    errs: list[str] = []
+    result = receipt.get("result") if isinstance(receipt, dict) else None
+    request = receipt.get("request") if isinstance(receipt, dict) else None
+    if not isinstance(result, dict) or not isinstance(request, dict):
+        return ["formal receipt malformed"]
+    cert_b64 = result.get("certificate")
+    if not isinstance(cert_b64, str) or not cert_b64:
+        return ["formal receipt missing embedded certificate"]
+    try:
+        cert_bytes = base64.b64decode(cert_b64, validate=True)
+    except Exception:
+        return ["embedded certificate is not valid base64"]
+    if hashlib.sha256(cert_bytes).hexdigest() != result.get("certificate_sha256"):
+        errs.append("certificate digest does not match embedded certificate")
+    expr = request.get("expression"); lo = request.get("lower"); hi = request.get("upper")
+    if not (isinstance(expr, str) and isinstance(lo, str) and isinstance(hi, str)):
+        return errs + ["formal request malformed"]
+    import sys as _sys
+    fdir = str(PLUGIN_ROOT / "jackal_formal")
+    if fdir not in _sys.path:
+        _sys.path.insert(0, fdir)
+    try:
+        import release_validate as rv
+    except Exception as exc:
+        return errs + [f"formal verifier unavailable: {exc}"]
+    try:
+        adm = _admit_package()
+        with tempfile.TemporaryDirectory(prefix="jackal-verify-") as tmp:
+            cp = Path(tmp) / "cert.bytes"
+            fd = os.open(str(cp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            try:
+                os.write(fd, cert_bytes)
+            finally:
+                os.close(fd)
+            out = rv.validate_cert_file(
+                cert_path=str(cp), expr=expr, lo=lo, hi=hi,
+                evaluator=adm["evaluator"], checker=adm["checker"],
+                expected_evaluator=APPROVED_SHA256, expected_checker=APPROVED_CHECKER_SHA256)
+    except rv.ReleaseRefusal as r:
+        return errs + [f"checker re-verification refused: {r.cls}"]
+    except Exception as exc:
+        return errs + [f"checker re-verification failed: {exc}"]
+    # Bind every self-reported field to what the proved checker actually accepted.
+    enc = result.get("enclosure") if isinstance(result.get("enclosure"), dict) else {}
+    if [str(enc.get("lower")), str(enc.get("upper"))] != list(out["certified_enclosure"]):
+        errs.append("enclosure does not match checker-accepted enclosure")
+    if result.get("request_commitment") != out["request_commitment"]:
+        errs.append("request commitment does not match recomputation")
+    if result.get("expr_commitment") != out["expr_commitment"]:
+        errs.append("expr commitment does not match certificate")
+    if result.get("certificate_sha256") != out["certificate_sha256"]:
+        errs.append("certificate digest does not match checker input")
+    if sorted(result.get("operators") or []) != list(out["operators"]):
+        errs.append("operators do not match certificate")
+    if out.get("status") != "formal-bounded":
+        errs.append("checker did not derive formal-bounded")
+    return errs
 
 
 def verify(receipt: Any) -> dict[str, Any]:
@@ -514,6 +591,11 @@ def verify(receipt: Any) -> dict[str, Any]:
                 except Exception as _e: errors.append(f"coverage check failed: {_e}")
             if not isinstance(result.get("request_commitment"),str) or not result.get("request_commitment"):
                 errors.append("formal receipt missing request commitment")
+            # Authoritative gate: re-run the proved checker on the carried
+            # certificate and bind every self-reported field to its verdict. The
+            # cheap structural checks above are only a fast pre-filter; this is
+            # what makes a recomputed outer digest unable to forge a formal claim.
+            errors.extend(_recheck_formal_receipt(receipt))
         if status=="exact":
             mode=request.get("mode") if isinstance(request,dict) else None
             if mode=="rational":

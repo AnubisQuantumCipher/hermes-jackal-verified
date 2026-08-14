@@ -1,5 +1,5 @@
 name: jackal-verified
-version: "2.0.0"
+version: "2.0.2"
 manifest_version: 1
 api_version: 1
 description: "Typed, receipt-bearing access to the JACKAL computation engine, with a proof-carrying formal-bounded lane: results are accepted by a packaged, Lean-proved checker before release."

@@ -2,6 +2,43 @@
 
 All notable changes are documented here.
 
+## 2.0.2 — 2026-08-14
+
+### Fixed — formal receipt false accept (§487, Hermes-found; soundness)
+
+- **`jackal_verify_receipt` now re-runs the proved checker.** In 2.0.0/2.0.1,
+  `verify_receipt` validated a formal receipt against *itself*: it checked the
+  theorem id, that `certificate_sha256` matched a hex pattern, that the enclosure
+  was *ordered*, and that `request_commitment` was a *nonempty string* — but it
+  never re-executed the checker, never recomputed the request commitment, and
+  never confirmed the enclosure was the one the checker accepted. Because the
+  outer receipt digest is unkeyed, an auditor could mutate a genuine receipt and
+  recompute the digest. Hermes demonstrated four true false accepts this way:
+  an ordered-but-wrong enclosure `[0,0]`, a changed request (`x^2+1 → x^999`),
+  an arbitrary certificate digest, and an arbitrary request commitment — all
+  returned `valid=true`. The 2.0.0 changelog's claim that "a recomputed outer
+  digest cannot legitimize a mismatch" was therefore false as shipped.
+- **Repair.** Formal receipts now **carry the exact certificate** the checker
+  accepted (`result.certificate`, base64). `verify_receipt` decodes it, confirms
+  its digest, re-admits the pinned package, and **re-runs `jackal_cert_check` on
+  those exact bytes** via the shared release validator — then binds every
+  self-reported field (enclosure, request commitment, expr commitment,
+  certificate digest, operator set, derived status) to what the checker actually
+  accepted. No receipt-authored field is load-bearing; a recomputed digest can
+  no longer forge a formal claim. A formal receipt with the certificate stripped
+  is refused (it is not independently re-checkable).
+- **Regressions.** The four exact Hermes forgeries, the stripped-certificate
+  case, and a wider-enclosure substitution are pinned in `tests/test_plugin_v2.py`
+  and refuse under both `python3` and `python3 -O`.
+
+### Fixed — hosted CI gate (Hermes-found)
+
+- `.github/workflows/ci.yml` pinned the removed `bin/jackal-native` against the
+  old v1.0.0 hash, so every v2 run failed before any test executed. The gate now
+  pins the vendored **package** (`pkg/jackal-v1.1.0-macos-arm64.tar.gz`,
+  SHA-256 `95588591…`) — what the plugin actually admits — and runs both the
+  unit/admission suite and the v2 formal+poison suite (the latter under `-O` too).
+
 ## 2.0.0 — 2026-08-14
 
 ### Added — proof-carrying formal lane (breaking receipt/status contract)

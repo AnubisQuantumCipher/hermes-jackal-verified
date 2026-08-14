@@ -79,6 +79,19 @@ def main() -> int:
     poison("status-upgrade-estimated-to-formal", lambda t: (t.__setitem__("operation", "jackal_evaluate"),
                                                             t["result"].__setitem__("status", "formal-bounded")))
 
+    # --- Hermes false-accept repair (§487): the exact four forgeries that once
+    # passed a self-consistent verifier. Each carries a RECOMPUTED outer digest;
+    # each must now be refused because verify() re-runs the proved checker on the
+    # embedded certificate and binds every field to the checker's verdict. ---
+    poison("hermes-ordered-wrong-enclosure", lambda t: t["result"].__setitem__("enclosure", {"lower": "0", "upper": "0"}))
+    poison("hermes-changed-request", lambda t: t["request"].__setitem__("expression", "x^999"))
+    poison("hermes-arbitrary-cert-digest", lambda t: t["result"].__setitem__("certificate_sha256", "d" * 64))
+    poison("hermes-arbitrary-request-commitment", lambda t: t["result"].__setitem__("request_commitment", "deadbeef" * 8))
+    poison("hermes-stripped-certificate", lambda t: t["result"].pop("certificate", None))
+    # A genuine certificate for a DIFFERENT true request cannot be re-labeled as
+    # this one: swap in the base cert but claim a wider [0,10] enclosure.
+    poison("substituted-enclosure-claim", lambda t: t["result"].__setitem__("enclosure", {"lower": "0", "upper": "10"}))
+
     # --- v1 receipt cannot satisfy v2 verification ---
     v1 = copy.deepcopy(base); v1["schema"] = "jackal-hermes-receipt-v1"; reseal(v1)
     check("v1-receipt-rejected", not vok(v1))
