@@ -1,0 +1,34 @@
+{
+  "B_import_ok": true,
+  "forgeries": {
+    "arbitrary-cert-digest": {
+      "A_post_valid": false,
+      "A_pre_valid": false,
+      "B_valid_admitted": true
+    },
+    "arbitrary-request-commitment": {
+      "A_post_valid": false,
+      "A_pre_valid": false,
+      "B_valid_admitted": true
+    },
+    "changed-request": {
+      "A_post_valid": false,
+      "A_pre_valid": false,
+      "B_valid_admitted": true
+    },
+    "ordered-wrong-enclosure": {
+      "A_post_valid": false,
+      "A_pre_valid": false,
+      "B_valid_admitted": true
+    }
+  },
+  "gate": "formal-recheck-master",
+  "genuine": {
+    "A_post_valid": true,
+    "A_pre_valid": true
+  },
+  "restore_hash_verified": true,
+  "source_hash_mutated": "8c01bd6f05afbadd958829cdb01580d9acc6935f99c9fe05a72bd5b13d252fda",
+  "source_hash_post": "14a3357ef48ba67356bb6900f200cc135f685774156b1fe04490c025ba61c8fa",
+  "source_hash_pre": "14a3357ef48ba67356bb6900f200cc135f685774156b1fe04490c025ba61c8fa"
+}

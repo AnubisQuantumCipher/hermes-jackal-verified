@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: macos-14   # Apple Silicon (arm64): the vendored package binaries run here
@@ -33,6 +37,10 @@ jobs:
       - name: Run v2 formal + poison suite (-O parity)
         # Identical verdict under -O proves no load-bearing `assert` on any gate.
         run: python3 -O tests/test_plugin_v2.py
+      - name: A→B→A — formal re-check gate is load-bearing
+        # Disables the checker-re-run gate in-source; the four Hermes forgeries
+        # must be re-admitted (B), then refuse again after hash-verified restore.
+        run: python3 tests/aba_recheck_gate.py
       - name: Run fresh-install registration smoke test
         run: python3 scripts/fresh_install_smoke.py
       - name: Verify sealed manifest

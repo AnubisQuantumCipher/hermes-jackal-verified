@@ -1,6 +1,6 @@
 {
   "files": {
-    ".github/workflows/ci.yml": "34b403fc8e02f4a9414179882e59ccf7675f078329d03a5ae45da1ff82a97dcb",
+    ".github/workflows/ci.yml": "6c716b6ae50bbcb849989014d2533300321f729b0485073349f717bbf4de6939",
     ".gitignore": "f428bce23c7ee29fbccee7a4c5bfbbcc32bc069edeb95974f4d3b3cc1a63b817",
     "CHANGELOG.md": "b825eb24a39f8879a184706e0555afa302e32c60922006a0ecc5cafb7f76db84",
     "CONTRIBUTING.md": "99513c9d00827b1a5a0e8f4ad543d38f59509215c4743b12a35c6780187aa7c3",
@@ -24,6 +24,8 @@
     "skills/AGENTS-SNIPPET.md": "78e5d83a9d01f2c3f625002a8d823387f1d712f1a11d1bf697ac2873e98412cc",
     "skills/jackal-verified-computation/SKILL.md": "873790646fb47c8909af6f4592647bbdbee10ef614aba4e0074f4f9fc29f2712",
     "skills/jackal-verified-computation/references/receipt-contract.md": "b8892f37cc99a62881cdfe64912b14aa6ab0b3fa0d6f48f1867e4e6020903337",
+    "tests/aba_recheck_gate.py": "9917f4424a018421f4b92186164725d8cac6f1d35be5f2b0ca264c850e1430f8",
+    "tests/evidence/aba_recheck_gate.json": "7ec4b16a1559b664adfa08e3c0f917f23268164c076995143934bc3e1368df5a",
     "tests/test_plugin.py": "ebd7dcbb8b5a2dbb44b4a0a0a86d28fdf8aff750f2ecb387f4bb0d6c18189d77",
     "tests/test_plugin_v2.py": "7853d3fb0bbdfbd7d36d15b93d01adc9953e84a0e29c0cb974cdf7cb64db7fbb",
     "tools.py": "14a3357ef48ba67356bb6900f200cc135f685774156b1fe04490c025ba61c8fa"
