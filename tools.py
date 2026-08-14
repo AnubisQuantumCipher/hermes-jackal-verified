@@ -460,19 +460,23 @@ def verify(receipt: Any) -> dict[str, Any]:
     instrument=receipt.get("instrument")
     result=receipt.get("result")
     status=result.get("status") if isinstance(result,dict) else None
-    # Instrument identity: formal receipts carry a nested evaluator+checker pair
-    # (both pinned); weaker/refused lanes carry the flat single evaluator.
-    if isinstance(instrument,dict) and "evaluator" in instrument:
-        ev=instrument.get("evaluator"); ck=instrument.get("checker")
-        if not (isinstance(ev,dict) and ev.get("sha256")==APPROVED_SHA256):
-            errors.append("evaluator identity mismatch")
-        if not (isinstance(ck,dict) and ck.get("sha256")==APPROVED_CHECKER_SHA256):
-            errors.append("checker identity mismatch")
-    else:
-        if not (isinstance(instrument,dict)
-                and instrument.get("sha256")==APPROVED_SHA256
-                and (instrument.get("name")=="jackal-native")):
-            errors.append("instrument identity mismatch")
+    # Instrument identity: enforced strictly for RELEASED statuses only. A
+    # refusal/indeterminate carries no value, so its instrument is informational
+    # (the flat evaluator+checker pair). Formal releases carry a nested
+    # evaluator+checker pair (both pinned); weaker released lanes carry the flat
+    # single evaluator.
+    if status not in {"refused", "indeterminate"}:
+        if isinstance(instrument,dict) and "evaluator" in instrument:
+            ev=instrument.get("evaluator"); ck=instrument.get("checker")
+            if not (isinstance(ev,dict) and ev.get("sha256")==APPROVED_SHA256):
+                errors.append("evaluator identity mismatch")
+            if not (isinstance(ck,dict) and ck.get("sha256")==APPROVED_CHECKER_SHA256):
+                errors.append("checker identity mismatch")
+        else:
+            if not (isinstance(instrument,dict)
+                    and instrument.get("sha256")==APPROVED_SHA256
+                    and (instrument.get("name")=="jackal-native")):
+                errors.append("instrument identity mismatch")
     if not isinstance(result,dict):errors.append("result must be an object")
     else:
         operation=receipt.get("operation")

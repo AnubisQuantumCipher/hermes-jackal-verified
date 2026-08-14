@@ -24,9 +24,9 @@
     "skills/AGENTS-SNIPPET.md": "78e5d83a9d01f2c3f625002a8d823387f1d712f1a11d1bf697ac2873e98412cc",
     "skills/jackal-verified-computation/SKILL.md": "873790646fb47c8909af6f4592647bbdbee10ef614aba4e0074f4f9fc29f2712",
     "skills/jackal-verified-computation/references/receipt-contract.md": "b8892f37cc99a62881cdfe64912b14aa6ab0b3fa0d6f48f1867e4e6020903337",
-    "tests/test_plugin.py": "e6944db744b5a3b81eabdc5996c4c67fc7fb25a4c2beb1f1b4484dfc49ca54f8",
+    "tests/test_plugin.py": "ebd7dcbb8b5a2dbb44b4a0a0a86d28fdf8aff750f2ecb387f4bb0d6c18189d77",
     "tests/test_plugin_v2.py": "a2ff481184760cb22c98b75bf3a87ae8054678d88448d3608f90186380f05a7b",
-    "tools.py": "451baf0f1bae14daad811cf466779bc3d67476b60fb8a54495014f2e978d5e2e"
+    "tools.py": "352eac7bd0a79f37b3e68010c6272f16ac59e3a731643e474c813d1dc9698bb4"
   },
   "schema": "jackal-plugin-manifest-v1"
 }
