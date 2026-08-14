@@ -4,9 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: Apple Silicon](https://img.shields.io/badge/platform-Apple%20Silicon-lightgrey.svg)](#platform-support)
 
-**JACKAL Verified turns Hermes Agent into an assurance-aware STEM computation system.** It combines seven typed native tools with a companion skill that teaches Hermes when to request exact arithmetic, a checked derivative, a numerical estimate, a certified enclosure, or an explicitly model-based result.
+**JACKAL Verified turns Hermes Agent into an assurance-aware STEM computation system.** It combines seven typed native tools with a companion skill that teaches Hermes when to request exact arithmetic, a checked derivative, a numerical estimate, a **proof-carrying formal enclosure**, or an explicitly model-based result.
 
-The plugin does not merely return numbers. It returns canonical, checksummed receipts that bind the request, epistemic status, result, residual non-claims, and exact JACKAL executable identity. The checksum detects accidental or unrecomputed modification; it is not a signature or hostile-author authentication mechanism.
+**v2.0.0 — the formal lane is proof-carrying.** `jackal_range_bound` now releases `status=formal-bounded` only when a **Lean-proved certificate checker** (packaged alongside the evaluator) accepts the certificate the evaluator emitted for the exact request. Checker acceptance is connected by the theorem `cert_check_sound` to a `Runs`-derivation enclosure of the exact semantics over the mechanized operator fragment; anything outside that fragment refuses rather than releasing a value. Both binaries ship in one vendored, hash-verified release archive (byte-identical to the public jackal-calc v1.1.0 release asset), admitted into a private snapshot before use — a plain clone works offline. Weaker lanes (`exact`/`checked`/`estimated`/`model-based`) keep their epistemic class and can never be relabeled formal.
+
+The plugin does not merely return numbers. It returns canonical `jackal-hermes-receipt-v2` receipts that bind the request commitment, epistemic status, result, residual non-claims, and exact evaluator + checker executable identities. `jackal_verify_receipt` recomputes the semantic relationships; a recomputed digest cannot legitimize a mismatch. The checksum detects modification; it is not a signature or hostile-author authentication mechanism.
 
 ```text
 natural-language request

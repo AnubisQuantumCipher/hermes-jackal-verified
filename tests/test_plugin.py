@@ -89,39 +89,29 @@ class JackalPluginTests(unittest.TestCase):
         receipt['receipt_sha256']=hashlib.sha256(tools._canonical(core)).hexdigest()
         self.assertIn('reversed enclosure',tools.verify(receipt)['errors'])
 
-    def test_binary_identity_poison_fails_before_execution(self):
-        original=tools.BINARY
-        with tempfile.TemporaryDirectory() as td:
-            poison=Path(td)/'jackal'; poison.write_text('#!/bin/sh\nprintf 42\\n'); poison.chmod(0o700)
-            tools.BINARY=poison
-            try:
-                body=call(tools.evaluate,{'expression':'2+2'})
-                self.assertFalse(body['success']); self.assertIn('identity mismatch',body['error'])
-            finally: tools.BINARY=original
+    def test_package_identity_poison_fails_admission(self):
+        # v2: a wrong pinned package tarball hash must refuse admission before
+        # any binary runs (the package, not a single binary, is the trust root).
+        original=tools.PKG_SHA256
+        tools._ADMITTED=None
+        tools.PKG_SHA256="0"*64
+        try:
+            body=call(tools.evaluate,{'expression':'2+2'})
+            self.assertFalse(body['success']); self.assertIn('mismatch',body['error'])
+        finally:
+            tools.PKG_SHA256=original; tools._ADMITTED=None
 
-    def test_private_snapshot_resists_public_path_a_b_a_substitution(self):
-        original_binary,original_digest,original_run=tools.BINARY,tools.APPROVED_SHA256,tools.subprocess.run
-        with tempfile.TemporaryDirectory() as td:
-            public=Path(td)/'jackal-native'
-            admitted=b'#!/bin/sh\nprintf A\\n\n'; substitute=b'#!/bin/sh\nprintf B\\n\n'
-            public.write_bytes(admitted); public.chmod(0o700)
-            seen={}
-            def fake_run(argv,**kwargs):
-                snapshot=Path(argv[0])
-                seen['private_path']=snapshot!=public and snapshot.parent!=public.parent
-                seen['snapshot_was_admitted']=snapshot.read_bytes()==admitted
-                public.write_bytes(substitute); public.chmod(0o700)
-                seen['public_substituted']=public.read_bytes()==substitute
-                public.write_bytes(admitted); public.chmod(0o700)
-                return subprocess.CompletedProcess(argv,0,stdout='4\n',stderr='')
-            tools.BINARY=public; tools.APPROVED_SHA256=hashlib.sha256(admitted).hexdigest(); tools.subprocess.run=fake_run
-            try:
-                raw=tools._invoke(['eval','2+2'])
-                self.assertTrue(raw['released'])
-                self.assertTrue(all(seen.values()))
-                self.assertEqual(public.read_bytes(),admitted)
-            finally:
-                tools.BINARY,tools.APPROVED_SHA256,tools.subprocess.run=original_binary,original_digest,original_run
+    def test_admitted_snapshot_is_private_and_pinned(self):
+        # v2: admission yields a private snapshot whose evaluator+checker match
+        # the pinned identities and live outside the plugin tree.
+        tools._ADMITTED=None
+        adm=tools._admit_package()
+        self.assertEqual(tools._sha(Path(adm['evaluator'])),tools.APPROVED_SHA256)
+        self.assertEqual(tools._sha(Path(adm['checker'])),tools.APPROVED_CHECKER_SHA256)
+        self.assertNotIn(str(tools.PLUGIN_ROOT),adm['evaluator'])
+        # non-formal lane runs from the admitted snapshot and releases
+        raw=tools._invoke(['eval','2+2'])
+        self.assertTrue(raw['released'])
 
     def test_input_controls(self):
         self.assertFalse(call(tools.evaluate,{'expression':'\x00'})['success'])

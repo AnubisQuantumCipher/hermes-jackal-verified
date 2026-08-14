@@ -14,8 +14,22 @@ from typing import Any, Mapping
 
 PLUGIN_ROOT = Path(__file__).resolve().parent
 BINARY = PLUGIN_ROOT / "bin" / "jackal-native"
-APPROVED_SHA256 = "609de1035be62a5183ad6555b97402567c9e4539b41806a5b52974f6be9030ae"
-SCHEMA = "jackal-hermes-receipt-v1"
+CHECKER = PLUGIN_ROOT / "bin" / "jackal_cert_check"
+# v1.1.0 formal epoch: the evaluator emits schema-v2 certificates the packaged
+# proved checker requires. Both identities are load-bearing and pinned.
+APPROVED_SHA256 = "820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c"
+APPROVED_CHECKER_SHA256 = "2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b"
+SCHEMA = "jackal-hermes-receipt-v2"
+FORMAL_THEOREM = "cert_check_sound"
+# The evaluator + proved checker ship inside ONE vendored, verified upstream
+# v1.1.0 release tarball (the 131 MB checker exceeds GitHub's 100 MB file limit
+# uncompressed; the tarball is 40 MB). It is admitted — hash-verified, safely
+# extracted, manifest-verified, per-binary SHA/arch/mode-verified — into a
+# private snapshot before either binary is executed. No LFS, no network fetch,
+# no stripping; a plain git clone carries everything (offline-capable).
+PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.1.0-macos-arm64.tar.gz"
+PKG_SHA256 = "95588591d4a17e687b9b870d15920c834276059058d38726d1d48640bbbb3c56"
+PKG_DIRNAME = "jackal-v1.1.0-macos-arm64"
 MAX_OUTPUT_BYTES = 2_000_000
 MAX_INTEGER_DIGITS = 100_000
 MAX_EXPONENT = 1_000_000
@@ -24,7 +38,7 @@ OPERATIONS = {
     "jackal_evaluate": {"estimated", "refused", "indeterminate"},
     "jackal_differentiate": {"checked", "refused", "indeterminate"},
     "jackal_integrate": {"estimated", "bounded", "refused", "indeterminate"},
-    "jackal_range_bound": {"bounded", "refused", "indeterminate"},
+    "jackal_range_bound": {"formal-bounded", "refused", "indeterminate"},
     "jackal_claim_card": {"model-based", "refused", "indeterminate"},
 }
 
@@ -75,29 +89,127 @@ def _expression(value: Any, max_chars: int = 8192) -> str:
     return text
 
 
+_ADMITTED: dict[str, Any] | None = None
+
+
+def _safe_extract(tar_path: Path, dest: Path) -> None:
+    """Extract with path-traversal / special-file protection: every member must
+    be a regular file or dir landing strictly inside `dest` (no absolute paths,
+    no '..', no symlinks/devices/hardlinks)."""
+    import posixpath
+    import tarfile
+    dest = dest.resolve()
+
+    def _is_appledouble(name: str) -> bool:
+        # macOS `tar` stores extended attributes as AppleDouble `._X` sidecars
+        # and a `__MACOSX/` tree. They are extraction-time metadata, never
+        # package content; the real files remain fully SHA-verified below.
+        base = posixpath.basename(name.rstrip("/"))
+        return base.startswith("._") or name.split("/", 1)[0] == "__MACOSX"
+
+    with tarfile.open(tar_path, "r:gz") as tf:
+        keep = []
+        for m in tf.getmembers():
+            if _is_appledouble(m.name):
+                continue
+            if not (m.isreg() or m.isdir()):
+                raise JackalError(f"package contains a non-regular member: {m.name}")
+            target = (dest / m.name).resolve()
+            if dest != target and dest not in target.parents:
+                raise JackalError(f"package member escapes extraction root: {m.name}")
+            keep.append(m)
+        tf.extractall(dest, members=keep)  # noqa: S202 — members validated above
+
+
+def _verify_manifest(pkg: Path) -> None:
+    """SHA256SUMS is the package's exact inventory: every listed file must exist
+    and match; no shipped file (besides SHA256SUMS) may be unlisted."""
+    sums = pkg / "SHA256SUMS"
+    if not sums.is_file():
+        raise JackalError("package SHA256SUMS is missing")
+    listed: dict[str, str] = {}
+    for line in sums.read_text().splitlines():
+        if not line.strip():
+            continue
+        digest, _, name = line.partition("  ")
+        listed[name.lstrip("./")] = digest
+    for name, digest in listed.items():
+        f = pkg / name
+        if not f.is_file():
+            raise JackalError(f"package manifest lists a missing file: {name}")
+        if _sha(f) != digest:
+            raise JackalError(f"package file hash mismatch: {name}")
+    present = {str(p.relative_to(pkg)) for p in pkg.rglob("*") if p.is_file()}
+    extra = present - set(listed) - {"SHA256SUMS"}
+    if extra:
+        raise JackalError(f"package contains unlisted files: {sorted(extra)}")
+
+
+def _arch_ok(path: Path) -> bool:
+    """Require a Mach-O arm64 executable (0xcffaedfe / cputype 0x0100000c)."""
+    with path.open("rb") as f:
+        head = f.read(8)
+    if len(head) < 8:
+        return False
+    magic = head[:4]
+    cputype = int.from_bytes(head[4:8], "little")
+    return magic in (b"\xcf\xfa\xed\xfe", b"\xce\xfa\xed\xfe") and (cputype & 0x0100000C) == 0x0100000C
+
+
+def _admit_package() -> dict[str, Any]:
+    """Admit the vendored release tarball into a private snapshot ONCE:
+    verify tarball SHA-256 → safe-extract into a 0700 dir → verify SHA256SUMS
+    inventory → verify evaluator/checker SHA-256 + Mach-O arm64 + set 0500.
+    Returns the verified snapshot paths. Cached for the process."""
+    global _ADMITTED
+    if _ADMITTED is not None:
+        ev, ck = Path(_ADMITTED["evaluator"]), Path(_ADMITTED["checker"])
+        if ev.is_file() and ck.is_file() and _sha(ev) == APPROVED_SHA256 and _sha(ck) == APPROVED_CHECKER_SHA256:
+            return _ADMITTED
+    if not PKG_TARBALL.is_file():
+        raise JackalError("vendored release package is missing")
+    if _sha(PKG_TARBALL) != PKG_SHA256:
+        raise JackalError("release package tarball identity mismatch")
+    snap = Path(tempfile.mkdtemp(prefix="jackal-admitted-"))
+    os.chmod(snap, 0o700)
+    _safe_extract(PKG_TARBALL, snap)
+    pkg = snap / PKG_DIRNAME
+    if not pkg.is_dir():
+        raise JackalError("release package layout unexpected")
+    _verify_manifest(pkg)
+    ev, ck = pkg / "jackal-native", pkg / "jackal_cert_check"
+    if _sha(ev) != APPROVED_SHA256:
+        raise JackalError(f"admitted evaluator identity mismatch: {_sha(ev)}")
+    if _sha(ck) != APPROVED_CHECKER_SHA256:
+        raise JackalError(f"admitted checker identity mismatch: {_sha(ck)}")
+    if not _arch_ok(ev) or not _arch_ok(ck):
+        raise JackalError("admitted binary is not a Mach-O arm64 executable")
+    ev.chmod(0o500)
+    ck.chmod(0o500)
+    _ADMITTED = {"snapshot": str(snap), "package": str(pkg),
+                 "evaluator": str(ev), "checker": str(ck),
+                 "evaluator_sha256": APPROVED_SHA256, "checker_sha256": APPROVED_CHECKER_SHA256}
+    return _ADMITTED
+
+
 def _binary_identity() -> dict[str, Any]:
-    if not BINARY.is_file() or not os.access(BINARY, os.X_OK):
-        raise JackalError("approved JACKAL executable is missing or not executable")
-    digest = _sha(BINARY)
-    if digest != APPROVED_SHA256:
-        raise JackalError(f"JACKAL executable identity mismatch: observed {digest}")
-    return {"name": "jackal", "sha256": digest, "size": BINARY.stat().st_size}
+    adm = _admit_package()
+    ev = Path(adm["evaluator"])
+    return {"name": "jackal-native", "sha256": adm["evaluator_sha256"], "size": ev.stat().st_size}
 
 
 def _invoke(argv: list[str], timeout: int = 180) -> dict[str, Any]:
+    adm = _admit_package()
     instrument = _binary_identity()
     started = time.time()
-    # Execute a private snapshot of the bytes that were admitted. Hashing a
-    # public path and then executing that same path leaves a replacement race.
-    # The private 0700 directory removes that path race from the admitted
-    # source artifact; same-user process compromise remains outside this
-    # plugin's local threat boundary.
+    # Execute the admitted evaluator directly from its private 0500 snapshot
+    # (admitted once via the hash+manifest+arch-verified package). Re-hash
+    # before and after so a same-run replacement is caught; same-user process
+    # compromise remains outside this plugin's local threat boundary.
+    snapshot = Path(adm["evaluator"])
     with tempfile.TemporaryDirectory(prefix="jackal-verified-") as tmp:
-        snapshot = Path(tmp) / "jackal-native"
-        snapshot.write_bytes(BINARY.read_bytes())
-        snapshot.chmod(0o500)
         if _sha(snapshot) != instrument["sha256"]:
-            raise JackalError("JACKAL executable changed while creating the execution snapshot")
+            raise JackalError("JACKAL executable changed before execution")
         try:
             proc = subprocess.run(
                 [str(snapshot), *argv], text=True, capture_output=True, timeout=max(1, min(int(timeout), 3600)),
@@ -110,8 +222,7 @@ def _invoke(argv: list[str], timeout: int = 180) -> dict[str, Any]:
             raise JackalError("JACKAL execution snapshot changed during execution")
     if len(proc.stdout.encode()) > MAX_OUTPUT_BYTES or len(proc.stderr.encode()) > MAX_OUTPUT_BYTES:
         raise JackalError("JACKAL output exceeded the adapter limit")
-    observed_after = _sha(BINARY)
-    if observed_after != instrument["sha256"]:
+    if _sha(snapshot) != instrument["sha256"]:
         raise JackalError("JACKAL executable changed during execution")
     if proc.returncode != 0:
         meaningful = [line.strip() for line in proc.stderr.splitlines() if "panicked at" not in line and not line.startswith("note:") and line.strip()]
@@ -241,17 +352,79 @@ def integrate(args: Mapping[str, Any], timeout: int = 180, max_chars: int = 8192
     except Exception as exc:return _error(op,exc)
 
 
+def _formal_range_bound(expr: str, lower: str, upper: str, timeout: int) -> dict[str, Any]:
+    """Snapshot the evaluator AND the proved checker into a private 0500
+    execution root, then run the shared release validator (the upstream v1.1.0
+    release path): emit certificate → proved checker ACCEPT → identity/TOCTOU/
+    request bindings → formal-status gate → `formal-bounded`. Returns the
+    validator receipt; raises JackalError on any refusal (no bounded fallback)."""
+    import sys as _sys
+    fdir = str(PLUGIN_ROOT / "jackal_formal")
+    if fdir not in _sys.path:
+        _sys.path.insert(0, fdir)
+    import release_validate as rv  # vendored, from jackal_formal/
+    adm = _admit_package()  # evaluator + checker from the verified private snapshot
+    ev, ck = Path(adm["evaluator"]), Path(adm["checker"])
+    with tempfile.TemporaryDirectory(prefix="jackal-formal-") as tmp:
+        wd = Path(tmp) / "run"
+        wd.mkdir(mode=0o700)
+        try:
+            receipt = rv.validate_release(
+                expr=expr, lo=lower, hi=upper, evaluator=str(ev), checker=str(ck),
+                expected_evaluator=APPROVED_SHA256, expected_checker=APPROVED_CHECKER_SHA256,
+                workdir=str(wd))
+        except rv.ReleaseRefusal as r:
+            raise JackalError(f"formal-release-refused:{r.cls}") from r
+    if receipt.get("status") != "formal-bounded":
+        raise JackalError("formal path did not yield formal-bounded")
+    return receipt
+
+
 def range_bound(args: Mapping[str, Any], timeout: int = 180, max_chars: int = 8192) -> str:
-    op="jackal_range_bound"
+    """Formal, checker-verified range enclosure. Releases `formal-bounded` ONLY
+    when the packaged proved checker accepts the certificate the packaged
+    evaluator emitted for this exact request, with evaluator+checker identity,
+    TOCTOU, and request bindings — otherwise refuses (no bounded fallback)."""
+    op = "jackal_range_bound"
     try:
-        expr=_expression(args.get("expression"),max_chars); lower=_finite(args.get("lower"),"lower"); upper=_finite(args.get("upper"),"upper")
-        if not lower<upper:raise JackalError("lower must be less than upper")
-        request={"expression":expr,"lower":lower,"upper":upper}; raw=_invoke(["range-bound",expr,_number(lower),_number(upper)],timeout)
-        if not raw["released"]:return _finish(op,request,raw)
-        fields=_fields(raw["stdout"]); lo,hi,lo_s,hi_s=_enclosure(raw["stdout"],"range-enclosure")
-        if fields.get("status")!="bounded":raise JackalError("range result was not labeled bounded")
-        return _finish(op,request,raw,{"status":"bounded","enclosure":{"lower":lo_s,"upper":hi_s,"width":hi-lo},"assurance":fields.get("assurance"),"non_claims":["superset may be wider than the attained range","conditional on the stated floating-point/libm model"]})
-    except Exception as exc:return _error(op,exc)
+        expr = _expression(args.get("expression"), max_chars)
+        lower = _finite(args.get("lower"), "lower")
+        upper = _finite(args.get("upper"), "upper")
+        if not lower < upper:
+            raise JackalError("lower must be less than upper")
+        lo_s, hi_s = _number(lower), _number(upper)
+        request = {"expression": expr, "lower": lo_s, "upper": hi_s,
+                   "requested_assurance": "formal-bounded"}
+        try:
+            rr = _formal_range_bound(expr, lo_s, hi_s, timeout)
+        except JackalError as je:
+            raw = {"released": False, "status": "refused", "reason": str(je),
+                   "instrument": {"evaluator_sha256": APPROVED_SHA256,
+                                  "checker_sha256": APPROVED_CHECKER_SHA256}}
+            return _finish(op, request, raw)
+        instrument = {"evaluator": {"name": "jackal-native", "sha256": rr["evaluator_sha256"]},
+                      "checker": {"name": "jackal_cert_check", "sha256": rr["checker_sha256"]}}
+        result = {
+            "status": "formal-bounded",
+            "enclosure": {"lower": rr["certified_enclosure"][0], "upper": rr["certified_enclosure"][1]},
+            "input": {"lower": rr["input"][0], "upper": rr["input"][1]},
+            "expr_commitment": rr["expr_commitment"],
+            "request_commitment": rr["request_commitment"],
+            "certificate_sha256": rr["certificate_sha256"],
+            "cert_status": rr["cert_status"],
+            "operators": rr["operators"],
+            "theorem": FORMAL_THEOREM,
+            "assurance": rr["assurance"],
+            "non_claims": [
+                "formal-bounded = checker-accepted, Runs-derived enclosure of the exact semantics over the modeled fragment",
+                "conditional on the recorded TCB (libm<=2ulp const node, Lean kernel + checker build, canonical rational codec)",
+                "not universal correctness; not an exact value",
+                "superset may be wider than the attained range"],
+        }
+        receipt = _receipt(op, request, result, instrument)
+        return json.dumps({"success": True, "receipt": receipt}, ensure_ascii=False, sort_keys=True)
+    except Exception as exc:
+        return _error(op, exc)
 
 
 def claim_card(args: Mapping[str, Any], timeout: int = 180, max_chars: int = 8192) -> str:
@@ -285,17 +458,27 @@ def verify(receipt: Any) -> dict[str, Any]:
     except Exception:expected=""
     if receipt.get("receipt_sha256")!=expected:errors.append("receipt digest mismatch")
     instrument=receipt.get("instrument")
-    if (
-        not isinstance(instrument,dict)
-        or instrument.get("name") != "jackal"
-        or instrument.get("sha256") != APPROVED_SHA256
-        or not isinstance(instrument.get("size"), int)
-        or instrument.get("size", 0) <= 0
-    ): errors.append("instrument identity mismatch")
     result=receipt.get("result")
+    status=result.get("status") if isinstance(result,dict) else None
+    # Instrument identity: enforced strictly for RELEASED statuses only. A
+    # refusal/indeterminate carries no value, so its instrument is informational
+    # (the flat evaluator+checker pair). Formal releases carry a nested
+    # evaluator+checker pair (both pinned); weaker released lanes carry the flat
+    # single evaluator.
+    if status not in {"refused", "indeterminate"}:
+        if isinstance(instrument,dict) and "evaluator" in instrument:
+            ev=instrument.get("evaluator"); ck=instrument.get("checker")
+            if not (isinstance(ev,dict) and ev.get("sha256")==APPROVED_SHA256):
+                errors.append("evaluator identity mismatch")
+            if not (isinstance(ck,dict) and ck.get("sha256")==APPROVED_CHECKER_SHA256):
+                errors.append("checker identity mismatch")
+        else:
+            if not (isinstance(instrument,dict)
+                    and instrument.get("sha256")==APPROVED_SHA256
+                    and (instrument.get("name")=="jackal-native")):
+                errors.append("instrument identity mismatch")
     if not isinstance(result,dict):errors.append("result must be an object")
     else:
-        status=result.get("status")
         operation=receipt.get("operation")
         if operation not in OPERATIONS: errors.append("unknown operation")
         elif status not in OPERATIONS[operation]: errors.append("status is invalid for operation")
@@ -304,6 +487,33 @@ def verify(receipt: Any) -> dict[str, Any]:
         if status in {"refused","indeterminate"}:
             if result.get("released") is not False: errors.append("non-release status must set released=false")
             if not isinstance(result.get("reason"),str) or not result.get("reason"): errors.append("non-release status requires a reason")
+        if status=="formal-bounded":
+            # A recomputed outer digest must NOT legitimize a formal claim that
+            # is not actually checker-backed and fragment-covered (§487).
+            if result.get("theorem")!=FORMAL_THEOREM: errors.append("formal receipt missing/incorrect theorem id")
+            if not re.fullmatch(r"[0-9a-f]{64}", str(result.get("certificate_sha256",""))): errors.append("formal receipt missing certificate digest")
+            if result.get("cert_status")!="bounded": errors.append("formal receipt cert_status must be bounded")
+            if not (isinstance(instrument,dict) and "evaluator" in instrument and "checker" in instrument):
+                errors.append("formal receipt requires evaluator+checker identities")
+            enc=result.get("enclosure")
+            try:
+                from fractions import Fraction as _F
+                lo=_F(str(enc["lower"])); hi=_F(str(enc["upper"]))
+                if lo>hi: errors.append("reversed enclosure")
+            except Exception: errors.append("malformed formal enclosure")
+            ops=result.get("operators")
+            if not isinstance(ops,list) or not ops: errors.append("formal receipt missing operators")
+            else:
+                try:
+                    import sys as _s
+                    _s.path.insert(0, str(PLUGIN_ROOT/"jackal_formal"))
+                    import formal_status_gate as _g
+                    formal=_g.formal_operators(_g.load_inventory())
+                    nonf=[o for o in ops if o not in formal]
+                    if nonf: errors.append(f"formal receipt operators outside fragment: {nonf}")
+                except Exception as _e: errors.append(f"coverage check failed: {_e}")
+            if not isinstance(result.get("request_commitment"),str) or not result.get("request_commitment"):
+                errors.append("formal receipt missing request commitment")
         if status=="exact":
             mode=request.get("mode") if isinstance(request,dict) else None
             if mode=="rational":
@@ -332,8 +542,12 @@ def verify(receipt: Any) -> dict[str, Any]:
             if result.get("fingerprint_sha256")!=hashlib.sha256(str(result.get("canonical","")).encode()).hexdigest():errors.append("claim-card fingerprint mismatch")
             expected_model={"projectile":"ideal-projectile"}.get(request.get("model")) if isinstance(request,dict) else None
             if expected_model is None or result.get("model")!=expected_model: errors.append("claim-card model mismatch")
-        if status not in {"exact","estimated","checked","bounded","model-based","refused","indeterminate"}:errors.append("unknown epistemic status")
-    return {"valid":not errors,"errors":errors,"receipt_sha256":receipt.get("receipt_sha256"),"instrument_sha256":instrument.get("sha256") if isinstance(instrument,dict) else None}
+        if status not in {"formal-bounded","exact","estimated","checked","bounded","model-based","refused","indeterminate"}:errors.append("unknown epistemic status")
+    if isinstance(instrument,dict) and "evaluator" in instrument:
+        ident={"evaluator_sha256":instrument.get("evaluator",{}).get("sha256"),"checker_sha256":instrument.get("checker",{}).get("sha256")}
+    else:
+        ident={"instrument_sha256":instrument.get("sha256") if isinstance(instrument,dict) else None}
+    return {"valid":not errors,"errors":errors,"receipt_sha256":receipt.get("receipt_sha256"),**ident}
 
 
 def verify_receipt(args: Mapping[str, Any], **_: Any) -> str:
