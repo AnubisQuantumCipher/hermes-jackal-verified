@@ -94,27 +94,30 @@ registrations: 7 tool(s), 0 hook(s)
 
 ### Fresh-session live proof
 
-A new Hermes session automatically loaded `jackal-verified-computation`, invoked `jackal_integrate`, then invoked `jackal_verify_receipt`.
+A new standalone Hermes session (`20260814_181716_d5b5d4`) loaded personal skill v1.1.0, invoked the typed `jackal_range_bound` tool, and passed the exact returned receipt to typed `jackal_verify_receipt`.
 
 Request:
 
 ```text
-certified enclosure for exp(-100000000*(x-0.1234567)^2)
-over [0,1], tolerance 1e-8, no estimate fallback
+expression=x, lower=1, upper=2
+requested_assurance=formal-bounded
 ```
 
 Observed:
 
 ```text
 status=formal-bounded
-enclosure=[0.00017724538401736711,0.00017724538656304582]
-width=2.54567870147486e-12
-receipt_validation=valid
+enclosure=[1,2]
+theorem=cert_check_sound
+certificate_sha256=c80a3a9175bac71b58268e373e472d43f68a97aad81a0eb8234ba50b0575b2e7
+receipt_sha256=5cf17733fba230b8dc727aa735492c399570e825025d2da17360de81c68d215b
+receipt_valid=true
 evaluator_sha256=820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c
 checker_sha256=2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b
+errors=[]
 ```
 
-The live session receipt was valid for that request. It is not a universal JACKAL proof.
+The stored session transcript contains both typed calls and the verifier's `valid=true` result. An earlier fresh session (`20260814_181339_df5499`) altered a longer certificate while reconstructing the second tool argument; the verifier rejected it with digest mismatch and checker refusal. That rejection is retained as observed fail-closed behavior, not counted as a pass. The valid receipt above is evidence only for its exact request and recorded TCB, not a universal JACKAL proof.
 
 ### Standalone repository smoke test
 
