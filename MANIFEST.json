@@ -2,16 +2,21 @@
   "files": {
     ".github/workflows/ci.yml": "a658d8c7784590592c7df88b49367c2cfdf389855fbea8bd413c64bb14868126",
     ".gitignore": "f428bce23c7ee29fbccee7a4c5bfbbcc32bc069edeb95974f4d3b3cc1a63b817",
-    "CHANGELOG.md": "00e8914ffd0b14a8964c7ba65488aa81e2b1907fb8bbfe1ef92849f2c1ac7a8e",
+    "CHANGELOG.md": "95808b993a0807f9c27c12a1e05c345e4c7e5a73cf221b00b0389340aef57186",
     "CONTRIBUTING.md": "99513c9d00827b1a5a0e8f4ad543d38f59509215c4743b12a35c6780187aa7c3",
     "LICENSE": "080285dc8fc1106a7d9b32e773fa26ebbff7e4f18fbf1759283fc41cb9678494",
     "PROVENANCE.md": "4921d79da83fc95faf2c1e33e6fe9079b642bf92b7ec4740168a5cfec12a8857",
-    "README.md": "30400d287885cd6093e97890a7e99f2c87e1d961696ddad27e8d2a86e788a1ae",
+    "README.md": "6e018c95ec4bd93ec84853281d2cbe85e737dc037d76ded5974e05357f0825a7",
     "SECURITY.md": "b347304419942b156b0dda22eeda81275c6203a6c409043ed5e2f6d4e58bf25c",
     "THIRD_PARTY_NOTICES.md": "a6c6cbc339512b97a065a5244222e0be02dac9310730122af8a0b7aff0b8fa97",
     "__init__.py": "4d35a63763e6963b9c50de042adbcca6e40fa0783a6f42f6d72467fde93fe971",
-    "bin/jackal-native": "609de1035be62a5183ad6555b97402567c9e4539b41806a5b52974f6be9030ae",
-    "plugin.yaml": "4bfa5a6432772f989d4d29abf4a738e80579cb8e9a43433eebccf31360ec289e",
+    "jackal_formal/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "jackal_formal/coverage_inventory.py": "51d6251351e16e56ab78c170e15746cfc7cc36efeec3b35c90469f3a3b691d21",
+    "jackal_formal/formal_coverage_inventory.json": "ff4855e0a43d7168ecba7a10eda686699e26577fd37534bf69c3c53dab754d00",
+    "jackal_formal/formal_status_gate.py": "2d52820b4a6dfde47bb6b4e0650348682bfaed59aaea48b866e9f0680a330d71",
+    "jackal_formal/release_validate.py": "5f785afee3781e2c8837958d7f0204bbea70902ff30bdd599f6c9ef5e3050920",
+    "pkg/jackal-v1.1.0-macos-arm64.tar.gz": "95588591d4a17e687b9b870d15920c834276059058d38726d1d48640bbbb3c56",
+    "plugin.yaml": "3f31703b400771c00cf618fc1ac8e6da9c04330d8a16b31f99f6b235a95425b9",
     "schemas.py": "09560efacc5f57b5de67b690b98e268e4e3f53216f0005f2db574fb40dc38d03",
     "scripts/fresh_install_smoke.py": "617bab56fed2a847d09b5c87ce8ba17d955c396462ab5adbef0b0524aaf30295",
     "scripts/release_audit.py": "169236115b7292d95dc1b2b02d0843cf64dd90885e6f5e9b8445e5854d39f9f2",
@@ -20,7 +25,8 @@
     "skills/jackal-verified-computation/SKILL.md": "873790646fb47c8909af6f4592647bbdbee10ef614aba4e0074f4f9fc29f2712",
     "skills/jackal-verified-computation/references/receipt-contract.md": "b8892f37cc99a62881cdfe64912b14aa6ab0b3fa0d6f48f1867e4e6020903337",
     "tests/test_plugin.py": "e6944db744b5a3b81eabdc5996c4c67fc7fb25a4c2beb1f1b4484dfc49ca54f8",
-    "tools.py": "e1674208c242d23c6a47d1901a724d11553556e22cf5afed9dfcb4f32ecadbbc"
+    "tests/test_plugin_v2.py": "a2ff481184760cb22c98b75bf3a87ae8054678d88448d3608f90186380f05a7b",
+    "tools.py": "451baf0f1bae14daad811cf466779bc3d67476b60fb8a54495014f2e978d5e2e"
   },
   "schema": "jackal-plugin-manifest-v1"
 }

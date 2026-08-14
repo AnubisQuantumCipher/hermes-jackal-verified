@@ -1,8 +1,8 @@
 name: jackal-verified
-version: "1.0.1"
+version: "2.0.0"
 manifest_version: 2
 api_version: 1
-description: "Typed, receipt-bearing access to the JACKAL computation engine."
+description: "Typed, receipt-bearing access to the JACKAL computation engine, with a proof-carrying formal-bounded lane: results are accepted by a packaged, Lean-proved checker before release."
 author: "Anubis Quantum Cipher contributors"
 license: MIT
 kind: standalone
