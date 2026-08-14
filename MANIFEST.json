@@ -16,7 +16,7 @@
     "jackal_formal/formal_status_gate.py": "2d52820b4a6dfde47bb6b4e0650348682bfaed59aaea48b866e9f0680a330d71",
     "jackal_formal/release_validate.py": "5f785afee3781e2c8837958d7f0204bbea70902ff30bdd599f6c9ef5e3050920",
     "pkg/jackal-v1.1.0-macos-arm64.tar.gz": "95588591d4a17e687b9b870d15920c834276059058d38726d1d48640bbbb3c56",
-    "plugin.yaml": "3f31703b400771c00cf618fc1ac8e6da9c04330d8a16b31f99f6b235a95425b9",
+    "plugin.yaml": "6586f202da4e795be4be04d3966e16cc0041d110154248cde73780e533a90ae0",
     "schemas.py": "09560efacc5f57b5de67b690b98e268e4e3f53216f0005f2db574fb40dc38d03",
     "scripts/fresh_install_smoke.py": "617bab56fed2a847d09b5c87ce8ba17d955c396462ab5adbef0b0524aaf30295",
     "scripts/release_audit.py": "169236115b7292d95dc1b2b02d0843cf64dd90885e6f5e9b8445e5854d39f9f2",
