@@ -5,6 +5,13 @@ def _expr(description: str = "JACKAL expression") -> dict:
     return {"type": "string", "description": description, "minLength": 1, "maxLength": 8192}
 
 
+def _rational_number(description: str) -> dict:
+    return {"oneOf": [
+        {"type": "number"},
+        {"type": "string", "minLength": 1, "maxLength": 256},
+    ], "description": description}
+
+
 EXACT = {
     "name": "jackal_exact",
     "description": "Use JACKAL exact arithmetic for rational expressions or bounded big-integer operations. Prefer this over mental arithmetic when an exact result matters. Returns an instrument-bound receipt; never treats the decimal approximation as exact.",
@@ -36,15 +43,15 @@ DIFFERENTIATE = {
 
 INTEGRATE = {
     "name": "jackal_integrate",
-    "description": "Integrate an expression with an explicit assurance tier: fast_estimate, adaptive_estimate, or bounded. Never silently downgrades bounded requests; certification failure remains a refusal.",
+    "description": "Integrate with an explicit assurance tier. formal-bounded is a zero-libm theorem-backed lane for the admitted canonical Gaussian family; unsupported formal requests refuse without fallback. bounded remains the conditional outward-rounded-f64/libm lane.",
     "parameters": {
         "type": "object",
         "properties": {
             "expression": _expr("Integrand in x"),
-            "lower": {"type": "number"},
-            "upper": {"type": "number"},
-            "assurance": {"type": "string", "enum": ["fast_estimate", "adaptive_estimate", "bounded"]},
-            "tolerance": {"type": "number", "exclusiveMinimum": 0},
+            "lower": _rational_number("Lower endpoint; exact rational strings are accepted for formal-bounded."),
+            "upper": _rational_number("Upper endpoint; exact rational strings are accepted for formal-bounded."),
+            "assurance": {"type": "string", "enum": ["fast_estimate", "adaptive_estimate", "bounded", "formal-bounded"]},
+            "tolerance": _rational_number("Positive tolerance; required by adaptive_estimate, bounded, and formal-bounded."),
             "panels": {"type": "integer", "minimum": 2, "maximum": 1000000},
         },
         "required": ["expression", "lower", "upper", "assurance"],

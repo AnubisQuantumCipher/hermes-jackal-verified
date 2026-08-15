@@ -9,28 +9,32 @@ import re
 import subprocess
 import tempfile
 import time
+from fractions import Fraction
 from pathlib import Path
 from typing import Any, Mapping
 
 PLUGIN_ROOT = Path(__file__).resolve().parent
 BINARY = PLUGIN_ROOT / "bin" / "jackal-native"
 CHECKER = PLUGIN_ROOT / "bin" / "jackal_cert_check"
-# v1.2.0 formal-receipt package epoch. Evaluator and checker identities are
+# v1.3.0 formal-receipt package epoch. Evaluator and checker identities are
 # unchanged; the package adds the canonical embedded-certificate receipt and
 # independent verifier shared with the upstream wrapper and plugin.
 APPROVED_SHA256 = "820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c"
 APPROVED_CHECKER_SHA256 = "2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b"
+APPROVED_GAUSSIAN_PRODUCER_SHA256 = "20c24622b786940a8e82198f2364fb7593e761902fa0736289b179642f1e4306"
+APPROVED_GAUSSIAN_CHECKER_SHA256 = "11c741f04b811aa8621db4da5c5dc05e292ead8c0e6a854739f6068757470612"
 SCHEMA = "jackal-hermes-receipt-v2"
 FORMAL_THEOREM = "cert_check_sound"
-# The evaluator + proved checker ship inside ONE vendored, verified upstream
-# v1.2.0 release tarball (the 131 MB checker exceeds GitHub's 100 MB file limit
-# uncompressed; the tarball is 40 MB). It is admitted — hash-verified, safely
+GAUSSIAN_FORMAL_THEOREM = "gaussian_integral_check_sound"
+# The evaluator + two proved checkers ship inside ONE vendored, verified upstream
+# v1.3.0 release tarball (each checker exceeds GitHub's 100 MB file limit
+# uncompressed; the deterministic tarball is about 79 MB). It is admitted — hash-verified, safely
 # extracted, manifest-verified, per-binary SHA/arch/mode-verified — into a
 # private snapshot before either binary is executed. No LFS, no network fetch,
 # no stripping; a plain git clone carries everything (offline-capable).
-PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.2.0-macos-arm64.tar.gz"
-PKG_SHA256 = "3b63e86bd9d2cffafa33dde813c40919cc754343db2232b1c33072a3ec41e0a7"
-PKG_DIRNAME = "jackal-v1.2.0-macos-arm64"
+PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.3.0-macos-arm64.tar.gz"
+PKG_SHA256 = "13e6a3cb6145522ffe8323bc01b84a505b8647c3f2017f43e4813c38e9b5a7ac"
+PKG_DIRNAME = "jackal-v1.3.0-macos-arm64"
 MAX_OUTPUT_BYTES = 2_000_000
 MAX_INTEGER_DIGITS = 100_000
 MAX_EXPONENT = 1_000_000
@@ -38,7 +42,7 @@ OPERATIONS = {
     "jackal_exact": {"exact", "refused", "indeterminate"},
     "jackal_evaluate": {"estimated", "refused", "indeterminate"},
     "jackal_differentiate": {"checked", "refused", "indeterminate"},
-    "jackal_integrate": {"estimated", "bounded", "refused", "indeterminate"},
+    "jackal_integrate": {"estimated", "bounded", "formal-bounded", "refused", "indeterminate"},
     "jackal_range_bound": {"formal-bounded", "refused", "indeterminate"},
     "jackal_claim_card": {"model-based", "refused", "indeterminate"},
 }
@@ -83,6 +87,24 @@ def _finite(value: Any, name: str) -> float:
 def _number(value: Any) -> str:
     v = _finite(value, "numeric argument")
     return format(v, ".17g")
+
+
+def _rational_arg(value: Any, name: str) -> str:
+    """Canonical exact rational for the formal lane.
+
+    JSON numbers are interpreted through their shortest decimal spelling;
+    strings may use decimal/scientific or `p/q` notation.  The canonical
+    integer/fraction is what the proved checker binds.
+    """
+    if isinstance(value, bool):
+        raise JackalError(f"{name} must be a finite rational")
+    try:
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ValueError
+        q = Fraction(str(value))
+    except (ValueError, ZeroDivisionError) as exc:
+        raise JackalError(f"{name} must be a finite rational") from exc
+    return str(q.numerator) if q.denominator == 1 else f"{q.numerator}/{q.denominator}"
 
 
 def _expression(value: Any, max_chars: int = 8192) -> str:
@@ -173,7 +195,13 @@ def _admit_package() -> dict[str, Any]:
     global _ADMITTED
     if _ADMITTED is not None:
         ev, ck = Path(_ADMITTED["evaluator"]), Path(_ADMITTED["checker"])
-        if ev.is_file() and ck.is_file() and _sha(ev) == APPROVED_SHA256 and _sha(ck) == APPROVED_CHECKER_SHA256:
+        gp = Path(_ADMITTED["gaussian_producer"])
+        gc = Path(_ADMITTED["gaussian_checker"])
+        if (ev.is_file() and ck.is_file() and gp.is_file() and gc.is_file()
+                and _sha(ev) == APPROVED_SHA256
+                and _sha(ck) == APPROVED_CHECKER_SHA256
+                and _sha(gp) == APPROVED_GAUSSIAN_PRODUCER_SHA256
+                and _sha(gc) == APPROVED_GAUSSIAN_CHECKER_SHA256):
             return _ADMITTED
     if not PKG_TARBALL.is_file():
         raise JackalError("vendored release package is missing")
@@ -187,17 +215,27 @@ def _admit_package() -> dict[str, Any]:
         raise JackalError("release package layout unexpected")
     _verify_manifest(pkg)
     ev, ck = pkg / "jackal-native", pkg / "jackal_cert_check"
+    gp, gc = pkg / "gaussian_certificate.py", pkg / "jackal_gaussian_check"
     if _sha(ev) != APPROVED_SHA256:
         raise JackalError(f"admitted evaluator identity mismatch: {_sha(ev)}")
     if _sha(ck) != APPROVED_CHECKER_SHA256:
         raise JackalError(f"admitted checker identity mismatch: {_sha(ck)}")
-    if not _arch_ok(ev) or not _arch_ok(ck):
+    if _sha(gp) != APPROVED_GAUSSIAN_PRODUCER_SHA256:
+        raise JackalError(f"admitted Gaussian producer identity mismatch: {_sha(gp)}")
+    if _sha(gc) != APPROVED_GAUSSIAN_CHECKER_SHA256:
+        raise JackalError(f"admitted Gaussian checker identity mismatch: {_sha(gc)}")
+    if not _arch_ok(ev) or not _arch_ok(ck) or not _arch_ok(gc):
         raise JackalError("admitted binary is not a Mach-O arm64 executable")
     ev.chmod(0o500)
     ck.chmod(0o500)
+    gp.chmod(0o500)
+    gc.chmod(0o500)
     _ADMITTED = {"snapshot": str(snap), "package": str(pkg),
-                 "evaluator": str(ev), "checker": str(ck),
-                 "evaluator_sha256": APPROVED_SHA256, "checker_sha256": APPROVED_CHECKER_SHA256}
+                  "evaluator": str(ev), "checker": str(ck),
+                  "gaussian_producer": str(gp), "gaussian_checker": str(gc),
+                  "evaluator_sha256": APPROVED_SHA256, "checker_sha256": APPROVED_CHECKER_SHA256,
+                  "gaussian_producer_sha256": APPROVED_GAUSSIAN_PRODUCER_SHA256,
+                  "gaussian_checker_sha256": APPROVED_GAUSSIAN_CHECKER_SHA256}
     return _ADMITTED
 
 
@@ -331,12 +369,124 @@ def differentiate(args: Mapping[str, Any], timeout: int = 180, max_chars: int = 
     except Exception as exc:return _error(op,exc)
 
 
+def _formal_gaussian_integrate(expr: str, lower: str, upper: str,
+                               tolerance: str, timeout: int) -> dict[str, Any]:
+    """Run the plugin-sealed v1.3 Gaussian release gate and independently
+    rehydrate its certificate through the admitted Lean checker."""
+    import sys as _sys
+    from types import SimpleNamespace
+
+    fdir = str(PLUGIN_ROOT / "jackal_formal")
+    if fdir not in _sys.path:
+        _sys.path.insert(0, fdir)
+    import gaussian_release as gr
+    import receipt_verify as vr
+
+    adm = _admit_package()
+    gp = Path(adm["gaussian_producer"])
+    gc = Path(adm["gaussian_checker"])
+    plugin_sha = _plugin_manifest_sha256()
+    with tempfile.TemporaryDirectory(prefix="jackal-gaussian-formal-") as tmp:
+        formal_path = Path(tmp) / "formal-receipt.json"
+        ns = SimpleNamespace(
+            expression=expr, lower=lower, upper=upper, tolerance=tolerance,
+            producer=str(gp), checker=str(gc),
+            expected_producer=APPROVED_GAUSSIAN_PRODUCER_SHA256,
+            expected_checker=APPROVED_GAUSSIAN_CHECKER_SHA256,
+            receipt=str(formal_path), plugin_sha256=plugin_sha,
+            release_epoch="v1.3.0", timeout=max(1, min(int(timeout), 3600)),
+        )
+        try:
+            formal_receipt = gr.release(ns)
+        except gr.Refusal as refusal:
+            raise JackalError(f"formal-release-refused:{refusal.cls}") from refusal
+        try:
+            formal_verification = vr.verify_receipt(
+                receipt=formal_receipt, checker=str(gc),
+                expected_evaluator=APPROVED_GAUSSIAN_PRODUCER_SHA256,
+                expected_checker=APPROVED_GAUSSIAN_CHECKER_SHA256,
+                inventory_path=PLUGIN_ROOT / "jackal_formal" / "formal_coverage_inventory.json",
+                expected_plugin=plugin_sha,
+            )
+        except vr.ReceiptRefusal as refusal:
+            raise JackalError(f"formal-receipt-refused:{refusal.cls}") from refusal
+
+    result = formal_receipt.get("result", {})
+    if result.get("status") != "formal-bounded":
+        raise JackalError("formal Gaussian path did not yield formal-bounded")
+    return {
+        "status": "formal-bounded",
+        "certified_enclosure": [result["enclosure_lo"], result["enclosure_hi"]],
+        "request_commitment": formal_receipt["request"]["request_commitment_b64"],
+        "certificate_sha256": formal_receipt["certificate"]["sha256"],
+        "cert_status": result["cert_status"],
+        "operators": formal_receipt["fragment"]["expression_operators"],
+        "coverage_row_ids": formal_receipt["fragment"]["coverage_row_ids"],
+        "formal_receipt": formal_receipt,
+        "formal_verification": formal_verification,
+        "producer_sha256": APPROVED_GAUSSIAN_PRODUCER_SHA256,
+        "checker_sha256": APPROVED_GAUSSIAN_CHECKER_SHA256,
+    }
+
+
 def integrate(args: Mapping[str, Any], timeout: int = 180, max_chars: int = 8192) -> str:
     op="jackal_integrate"
     try:
-        expr=_expression(args.get("expression"),max_chars); lower=_finite(args.get("lower"),"lower"); upper=_finite(args.get("upper"),"upper")
+        expr=_expression(args.get("expression"),max_chars)
+        assurance=str(args.get("assurance", ""))
+        if assurance == "formal-bounded":
+            lo_s = _rational_arg(args.get("lower"), "lower")
+            hi_s = _rational_arg(args.get("upper"), "upper")
+            tol_s = _rational_arg(args.get("tolerance"), "tolerance")
+            if not Fraction(lo_s) < Fraction(hi_s):
+                raise JackalError("lower must be less than upper")
+            if Fraction(tol_s) <= 0:
+                raise JackalError("tolerance must be positive")
+            request = {"expression": expr, "lower": lo_s, "upper": hi_s,
+                       "tolerance": tol_s, "assurance": assurance}
+            try:
+                rr = _formal_gaussian_integrate(expr, lo_s, hi_s, tol_s, timeout)
+            except JackalError as error:
+                raw = {"released": False, "status": "refused", "reason": str(error),
+                       "instrument": {
+                           "producer_sha256": APPROVED_GAUSSIAN_PRODUCER_SHA256,
+                           "checker_sha256": APPROVED_GAUSSIAN_CHECKER_SHA256}}
+                return _finish(op, request, raw)
+            lo, hi = rr["certified_enclosure"]
+            instrument = {
+                "evaluator": {"name": "gaussian_certificate.py",
+                              "sha256": rr["producer_sha256"]},
+                "checker": {"name": "jackal_gaussian_check",
+                             "sha256": rr["checker_sha256"]},
+                "plugin": {"name": "jackal-verified",
+                           "sha256": rr["formal_verification"]["plugin_sha256"]},
+            }
+            result = {
+                "status": "formal-bounded",
+                "enclosure": {"lower": lo, "upper": hi,
+                              "width": str(Fraction(hi) - Fraction(lo))},
+                "request_commitment": rr["request_commitment"],
+                "certificate_sha256": rr["certificate_sha256"],
+                "formal_receipt": rr["formal_receipt"],
+                "cert_status": rr["cert_status"],
+                "operators": rr["operators"],
+                "coverage_row_ids": rr["coverage_row_ids"],
+                "theorem": GAUSSIAN_FORMAL_THEOREM,
+                "assurance": "theorem-backed exact-rational Gaussian enclosure; zero libm",
+                "non_claims": [
+                    "admitted only for canonical exp(-A*(x-mu)^2), exact-square rational A, and a domain covering the proved core",
+                    "unsupported formal integration requests refuse without bounded fallback",
+                    "not universal correctness; not an exact value",
+                    "conditional on the recorded Lean/Mathlib/checker/build and executable-identity TCB",
+                ],
+            }
+            receipt = _receipt(op, request, result, instrument)
+            return json.dumps({"success": True, "receipt": receipt}, ensure_ascii=False,
+                              sort_keys=True)
+
+        lower=_finite(args.get("lower"),"lower"); upper=_finite(args.get("upper"),"upper")
         if not lower<upper: raise JackalError("lower must be less than upper")
-        assurance=str(args.get("assurance", "")); request={"expression":expr,"lower":lower,"upper":upper,"assurance":assurance}
+        request={"expression":expr,"lower":lower,"upper":upper,"assurance":assurance}
         if assurance=="fast_estimate":
             panels=args.get("panels",200)
             if not isinstance(panels,int) or isinstance(panels,bool) or panels<2 or panels>1000000 or panels%2: raise JackalError("panels must be an even integer in 2..1000000")
@@ -345,7 +495,7 @@ def integrate(args: Mapping[str, Any], timeout: int = 180, max_chars: int = 8192
             tol=_finite(args.get("tolerance"),"tolerance")
             if tol<=0:raise JackalError("tolerance must be positive")
             request["tolerance"]=tol; argv=["integrate-adaptive" if assurance=="adaptive_estimate" else "integrate-bound",expr,_number(lower),_number(upper),_number(tol)]
-        else:raise JackalError("assurance must be fast_estimate, adaptive_estimate, or bounded")
+        else:raise JackalError("assurance must be fast_estimate, adaptive_estimate, bounded, or formal-bounded")
         raw=_invoke(argv,timeout)
         if not raw["released"]: return _finish(op,request,raw)
         fields=_fields(raw["stdout"])
@@ -363,7 +513,7 @@ def integrate(args: Mapping[str, Any], timeout: int = 180, max_chars: int = 8192
 
 def _formal_range_bound(expr: str, lower: str, upper: str, timeout: int) -> dict[str, Any]:
     """Snapshot the evaluator AND the proved checker into a private 0500
-    execution root, then run the upstream v1.2.0 shared release validator:
+    execution root, then run the upstream v1.3.0 shared release validator:
     emit certificate → proved checker ACCEPT → identity/TOCTOU/request bindings
     → formal-status gate → canonical embedded-certificate receipt → independent
     checker re-run. Returns both validator and formal receipts; raises
@@ -386,7 +536,7 @@ def _formal_range_bound(expr: str, lower: str, upper: str, timeout: int) -> dict
                 expr=expr, lo=lower, hi=upper, evaluator=str(ev), checker=str(ck),
                 expected_evaluator=APPROVED_SHA256, expected_checker=APPROVED_CHECKER_SHA256,
                 workdir=str(wd), formal_receipt_path=str(formal_path),
-                plugin_sha256=plugin_sha, release_epoch="v1.2.0")
+                plugin_sha256=plugin_sha, release_epoch="v1.3.0")
         except rv.ReleaseRefusal as r:
             raise JackalError(f"formal-release-refused:{r.cls}") from r
         formal_receipt = json.loads(formal_path.read_text())
@@ -503,10 +653,16 @@ def _recheck_formal_receipt(receipt: Mapping[str, Any]) -> list[str]:
         return errs + [f"formal verifier unavailable: {exc}"]
     try:
         adm = _admit_package()
+        is_gaussian = result.get("theorem") == GAUSSIAN_FORMAL_THEOREM
+        checker_path = adm["gaussian_checker"] if is_gaussian else adm["checker"]
+        evaluator_sha = (APPROVED_GAUSSIAN_PRODUCER_SHA256
+                         if is_gaussian else APPROVED_SHA256)
+        checker_sha = (APPROVED_GAUSSIAN_CHECKER_SHA256
+                       if is_gaussian else APPROVED_CHECKER_SHA256)
         out = vr.verify_receipt(
-            receipt=formal_receipt, checker=adm["checker"],
-            expected_evaluator=APPROVED_SHA256,
-            expected_checker=APPROVED_CHECKER_SHA256,
+            receipt=formal_receipt, checker=checker_path,
+            expected_evaluator=evaluator_sha,
+            expected_checker=checker_sha,
             inventory_path=PLUGIN_ROOT / "jackal_formal" / "formal_coverage_inventory.json",
             expected_plugin=_plugin_manifest_sha256())
     except vr.ReceiptRefusal as r:
@@ -520,12 +676,15 @@ def _recheck_formal_receipt(receipt: Mapping[str, Any]) -> list[str]:
             or request.get("lower") != canonical_req.get("input_lo")
             or request.get("upper") != canonical_req.get("input_hi")):
         errs.append("outer request does not match canonical formal receipt")
+    if is_gaussian and request.get("tolerance") != canonical_req.get("tolerance"):
+        errs.append("outer tolerance does not match canonical formal receipt")
     enc = result.get("enclosure") if isinstance(result.get("enclosure"), dict) else {}
     if [str(enc.get("lower")), str(enc.get("upper"))] != list(out["enclosure"]):
         errs.append("enclosure does not match checker-accepted enclosure")
     if result.get("request_commitment") != out["request_commitment"]:
         errs.append("request commitment does not match recomputation")
-    if result.get("expr_commitment") != formal_receipt.get("certificate", {}).get("sexp"):
+    if (not is_gaussian
+            and result.get("expr_commitment") != formal_receipt.get("certificate", {}).get("sexp")):
         errs.append("expr commitment does not match certificate")
     if result.get("certificate_sha256") != out["certificate_sha256"]:
         errs.append("certificate digest does not match checker input")
@@ -561,9 +720,15 @@ def verify(receipt: Any) -> dict[str, Any]:
     if status not in {"refused", "indeterminate"}:
         if isinstance(instrument,dict) and "evaluator" in instrument:
             ev=instrument.get("evaluator"); ck=instrument.get("checker")
-            if not (isinstance(ev,dict) and ev.get("sha256")==APPROVED_SHA256):
+            gaussian_formal = (status == "formal-bounded" and isinstance(result, dict)
+                               and result.get("theorem") == GAUSSIAN_FORMAL_THEOREM)
+            expected_ev = (APPROVED_GAUSSIAN_PRODUCER_SHA256
+                           if gaussian_formal else APPROVED_SHA256)
+            expected_ck = (APPROVED_GAUSSIAN_CHECKER_SHA256
+                           if gaussian_formal else APPROVED_CHECKER_SHA256)
+            if not (isinstance(ev,dict) and ev.get("sha256")==expected_ev):
                 errors.append("evaluator identity mismatch")
-            if not (isinstance(ck,dict) and ck.get("sha256")==APPROVED_CHECKER_SHA256):
+            if not (isinstance(ck,dict) and ck.get("sha256")==expected_ck):
                 errors.append("checker identity mismatch")
         else:
             if not (isinstance(instrument,dict)
@@ -583,9 +748,13 @@ def verify(receipt: Any) -> dict[str, Any]:
         if status=="formal-bounded":
             # A recomputed outer digest must NOT legitimize a formal claim that
             # is not actually checker-backed and fragment-covered (§487).
-            if result.get("theorem")!=FORMAL_THEOREM: errors.append("formal receipt missing/incorrect theorem id")
+            is_gaussian = result.get("theorem") == GAUSSIAN_FORMAL_THEOREM
+            if result.get("theorem") not in {FORMAL_THEOREM, GAUSSIAN_FORMAL_THEOREM}:
+                errors.append("formal receipt missing/incorrect theorem id")
             if not re.fullmatch(r"[0-9a-f]{64}", str(result.get("certificate_sha256",""))): errors.append("formal receipt missing certificate digest")
-            if result.get("cert_status")!="bounded": errors.append("formal receipt cert_status must be bounded")
+            expected_cert_status = "gaussian-formal-bounded" if is_gaussian else "bounded"
+            if result.get("cert_status")!=expected_cert_status:
+                errors.append(f"formal receipt cert_status must be {expected_cert_status}")
             if not (isinstance(instrument,dict) and "evaluator" in instrument and "checker" in instrument):
                 errors.append("formal receipt requires evaluator+checker identities")
             enc=result.get("enclosure")
@@ -596,6 +765,11 @@ def verify(receipt: Any) -> dict[str, Any]:
             except Exception: errors.append("malformed formal enclosure")
             ops=result.get("operators")
             if not isinstance(ops,list) or not ops: errors.append("formal receipt missing operators")
+            elif is_gaussian:
+                if sorted(ops) != ["exp", "mul", "neg", "pow2", "sub"]:
+                    errors.append("Gaussian formal receipt operator set mismatch")
+                if result.get("coverage_row_ids") != ["gaussian-exp-square-integral-v1"]:
+                    errors.append("Gaussian formal receipt coverage row mismatch")
             else:
                 try:
                     import sys as _s

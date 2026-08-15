@@ -6,16 +6,16 @@
 
 **JACKAL Verified turns Hermes Agent into an assurance-aware STEM computation system.** It combines seven typed native tools with a companion skill that teaches Hermes when to request exact arithmetic, a checked derivative, a numerical estimate, a **proof-carrying formal enclosure**, or an explicitly model-based result.
 
-**v2.0.0 — the formal lane is proof-carrying.** `jackal_range_bound` now releases `status=formal-bounded` only when a **Lean-proved certificate checker** (packaged alongside the evaluator) accepts the certificate the evaluator emitted for the exact request. Checker acceptance is connected by the theorem `cert_check_sound` to a `Runs`-derivation enclosure of the exact semantics over the mechanized operator fragment; anything outside that fragment refuses rather than releasing a value. Both binaries ship in one vendored, hash-verified release archive (byte-identical to the public jackal-calc v1.1.0 release asset), admitted into a private snapshot before use — a plain clone works offline. Weaker lanes (`exact`/`checked`/`estimated`/`model-based`) keep their epistemic class and can never be relabeled formal.
+**v2.2.0 — formal Gaussian integration is proof-carrying and zero-libm.** `jackal_integrate` now accepts `assurance=formal-bounded` only for canonical `exp(-A*(x-mu)^2)` with exact-square rational `A` and a domain covering the proved core. The pinned checker theorem `gaussian_integral_check_sound` binds source tokens, exact request rationals, result, tolerance, and certificate. Generic `exp`, non-square amplitudes, uncovered domains, and other formal integration requests refuse without falling back to conditional `bounded`. The existing `jackal_range_bound` proof lane and `cert_check_sound` remain intact.
 
-The plugin does not merely return numbers. It returns canonical `jackal-hermes-receipt-v2` receipts that bind the request commitment, epistemic status, result, residual non-claims, and exact evaluator + checker executable identities. A **formal receipt carries the exact certificate** the checker accepted; `jackal_verify_receipt` re-admits the pinned package and **re-runs the Lean-proved checker (`jackal_cert_check`) on those exact certificate bytes**, then binds every self-reported field — enclosure, request commitment, expression commitment, certificate digest, operator set, derived status — to what the checker actually accepted. No receipt-authored field is load-bearing, so a recomputed outer digest cannot forge a formal claim (this closes a false accept present through 2.0.1; see `CHANGELOG.md` 2.0.2). The checksum detects modification; it is not a signature or hostile-author authentication mechanism.
+The plugin does not merely return numbers. It returns canonical `jackal-hermes-receipt-v2` receipts that bind the request commitment, epistemic status, result, residual non-claims, and exact producer/evaluator/checker identities. A **formal receipt carries the exact certificate** the matching checker accepted; `jackal_verify_receipt` re-admits the pinned package and **re-runs `jackal_cert_check` or `jackal_gaussian_check` on those exact certificate bytes**, then binds every self-reported request, enclosure, certificate, coverage, theorem, and identity field to the verdict. No receipt-authored field is load-bearing, so a recomputed outer digest cannot forge a formal claim. The checksum detects modification; it is not a signature or hostile-author authentication mechanism.
 
 ```text
 natural-language request
         ↓
 Hermes automatically loads the companion skill
         ↓
-assurance selection: exact | checked | estimated | bounded | model-based
+assurance selection: exact | checked | estimated | bounded | formal-bounded | model-based
         ↓
 typed native plugin tool
         ↓
@@ -42,8 +42,8 @@ Language models can decide which computation is needed while still being unrelia
 | `jackal_exact` | Exact rationals, addition/multiplication/powers of large integers, factorials, and binomial coefficients | `exact` |
 | `jackal_evaluate` | Deterministic finite-real expression evaluation | `estimated` / IEEE-f64 |
 | `jackal_differentiate` | Symbolic differentiation released only after JACKAL's numeric sample check | `checked` |
-| `jackal_integrate` | Explicit `fast_estimate`, `adaptive_estimate`, or `bounded` integration | `estimated` or `bounded` |
-| `jackal_range_bound` | Certified superset of an expression's range over an interval | `bounded` |
+| `jackal_integrate` | Explicit estimate, conditional bound, or admitted-Gaussian formal proof lane | `estimated`, `bounded`, or `formal-bounded` |
+| `jackal_range_bound` | Proof-carrying superset of an expression's range over an interval | `formal-bounded` or refusal |
 | `jackal_claim_card` | Projectile-model result with assumptions, non-claims, canonical preimage, sensitivity, and fingerprint | `model-based` |
 | `jackal_verify_receipt` | Independent receipt digest and semantic validation | validation verdict |
 
@@ -54,6 +54,7 @@ Language models can decide which computation is needed while still being unrelia
 - `fast_estimate` — fixed-grid Simpson with a disclosed Richardson estimate;
 - `adaptive_estimate` — adaptive Simpson with refusal semantics, still not a mathematical bound;
 - `bounded` — outward-rounded interval enclosure under JACKAL's stated IEEE/libm model.
+- `formal-bounded` — zero-libm exact-rational certificate checked against `gaussian_integral_check_sound`; admitted Gaussian family only.
 
 A bounded request is **never silently downgraded**. If certification fails, the receipt says `refused` or `indeterminate`; it does not substitute a weaker number.
 
@@ -96,16 +97,16 @@ The public snippet does not pretend other agents can call Hermes tools directly.
 ### Verify the vendored public package
 
 ```bash
-shasum -a 256 pkg/jackal-v1.2.0-macos-arm64.tar.gz
+shasum -a 256 pkg/jackal-v1.3.0-macos-arm64.tar.gz
 ```
 
 Expected:
 
 ```text
-3b63e86bd9d2cffafa33dde813c40919cc754343db2232b1c33072a3ec41e0a7
+13e6a3cb6145522ffe8323bc01b84a505b8647c3f2017f43e4813c38e9b5a7ac
 ```
 
-The plugin verifies this archive plus its complete internal inventory, evaluator, checker, architecture, and modes before execution from a private snapshot.
+The plugin verifies this archive plus its complete internal inventory, evaluator, Gaussian producer, both checkers, architecture, and modes before execution from a private snapshot.
 
 ## Natural-language usage
 
@@ -121,16 +122,18 @@ Users do not normally call the skill or tool names themselves. In a new session,
 
 ### Certified integration
 
-> Compute a certified enclosure for `exp(-100000000*(x-0.1234567)^2)` from `0` to `1`, no wider than `1e-8`. Do not substitute an estimate if certification fails. Validate the receipt.
+> Compute a theorem-backed formal enclosure for `exp(-10000000000*(x-0.5000123456789)^2)` from `0` to `1`, no wider than `1e-12`. Do not substitute the conditional bounded lane if formal checking refuses. Validate the receipt.
 
-Representative bounded-lane result:
+Representative formal-lane result:
 
 ```text
-status=bounded
-enclosure=[0.00017724538401736711, 0.00017724538656304582]
-width=2.54567870147486e-12
+status=formal-bounded
+theorem=gaussian_integral_check_sound
+enclosure=[17724538509055099613/1000000000000000000000000,22155673136319/1250000000000000000]
+width=100387/1000000000000000000000000
 receipt_validation=valid
-instrument_sha256=820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c
+producer_sha256=20c24622b786940a8e82198f2364fb7593e761902fa0736289b179642f1e4306
+checker_sha256=11c741f04b811aa8621db4da5c5dc05e292ead8c0e6a854739f6068757470612
 ```
 
 ### Range analysis
@@ -179,10 +182,10 @@ See [`skills/jackal-verified-computation/references/receipt-contract.md`](skills
 - Seven curated tools; no generic command, endpoint, filesystem, or shell surface.
 - `subprocess.run` with an argument list and `shell=False`.
 - Restricted child environment.
-- Public JACKAL v1.2.0 package pinned by archive SHA-256, safe extraction, complete internal `SHA256SUMS`, evaluator/checker SHA-256, Mach-O arm64, and executable-mode checks before execution from a private snapshot.
+- Public JACKAL v1.3.0 package pinned by archive SHA-256, safe extraction, complete internal `SHA256SUMS`, evaluator/Gaussian-producer/two-checker SHA-256 identities, Mach-O arm64, and executable-mode checks before execution from a private snapshot.
 - Expression-length, output-size, and runtime bounds.
 - Finite-number admission and interval-order validation.
-- Explicit status vocabulary: `exact`, `estimated`, `checked`, `bounded`, `model-based`, `refused`, `indeterminate`.
+- Explicit status vocabulary: `exact`, `estimated`, `checked`, `bounded`, `formal-bounded`, `model-based`, `refused`, `indeterminate`.
 - Refusal-preserving behavior with no stale-success fallback.
 - Independent claim-card fingerprint recomputation.
 - No privileged Hermes capabilities and no core-tool overrides.
@@ -203,6 +206,7 @@ The regression suites cover:
 - a full 3,011-digit `2^10000` comparison;
 - checked exponent-tower differentiation;
 - bounded narrow-Gaussian integration;
+- theorem-backed narrow-Gaussian integration plus checker and recomputed-digest semantic/identity/coverage mutations;
 - fail-closed singular-range refusal;
 - independent claim-card fingerprint recomputation;
 - receipt tampering;
@@ -248,7 +252,7 @@ CI runs the unit/poison suite, manifest consistency checks, Python compilation, 
 ├── __init__.py                 # Hermes registration
 ├── schemas.py                  # model-visible typed schemas
 ├── tools.py                    # fail-closed adapter and receipt validator
-├── pkg/jackal-v1.2.0-macos-arm64.tar.gz  # evaluator + proved checker + formal verifier
+├── pkg/jackal-v1.3.0-macos-arm64.tar.gz  # evaluator + producer + two proved checkers + verifiers
 ├── jackal_formal/              # shared release validator/status/coverage gates
 ├── skills/
 │   └── jackal-verified-computation/
@@ -265,7 +269,7 @@ CI runs the unit/poison suite, manifest consistency checks, Python compilation, 
 
 ## Platform support
 
-The plugin supports **Apple Silicon macOS only** because the pinned JACKAL v1.2.0 package contains Mach-O arm64 evaluator/checker artifacts. It fails closed if the archive, manifest, inventory, architecture, modes, evaluator, checker, or plugin manifest differs from the pinned identity.
+The plugin supports **Apple Silicon macOS only** because the pinned JACKAL v1.3.0 package contains Mach-O arm64 evaluator/checker artifacts. It fails closed if the archive, manifest, inventory, architecture, modes, producer, evaluator, either checker, or plugin manifest differs from the pinned identity.
 
 Portable support should use one reviewed binary per platform with explicit OS/architecture selection and per-artifact digests. It must never fall back to an arbitrary `jackal` found on `PATH`.
 
@@ -276,7 +280,7 @@ JACKAL Verified makes strong but bounded claims:
 - `exact` means exact within the supported grammar, operation, and compute budget.
 - `checked` means sampled numerical challenge, not symbolic identity proof.
 - `bounded` means an enclosure conditional on JACKAL's stated IEEE basic-operation and ≤2 ULP libm model and a tested—not end-to-end mechanized—implementation.
-- `formal-bounded` means the independent v1.2 verifier re-ran the packaged proved checker on the canonical receipt's embedded certificate and the plugin re-bound the exact request/result/coverage/instrument identities; it still depends on the stated ModelTCB and does not prove source-to-native refinement.
+- `formal-bounded` means the independent v1.3 verifier re-ran the matching packaged proved checker on the canonical receipt's embedded certificate and the plugin re-bound the exact request/result/coverage/instrument identities. Range requests retain their recorded ModelTCB; the Gaussian lane is zero-libm but still depends on Lean/Mathlib, checker-build, executable-identity, codec, and wrapper TCB.
 - `model-based` means conditional on stated assumptions, not observed physical reality.
 - SHA-256 identifies and checksums bytes; it does not authenticate an author or prove mathematical validity.
 - Passing finite campaigns does not establish universal correctness.
@@ -285,13 +289,15 @@ The upstream JACKAL interval model includes Lean mechanization, but this plugin 
 
 ## Provenance
 
-The vendored package is the public JACKAL CALC `v1.2.0` release artifact:
+The vendored package is the JACKAL CALC `v1.3.0` artifact reproducibly built from the sealed upstream branch head:
 
 - Upstream: https://github.com/AnubisQuantumCipher/jackal-calc
-- Commit: `cc533906182c887a8617cc741b91b926bcb41e22`
-- Archive SHA-256: `3b63e86bd9d2cffafa33dde813c40919cc754343db2232b1c33072a3ec41e0a7`
+- Commit: `696e190388f7a720eb907b08affb9266fb3f5f50`
+- Archive SHA-256: `13e6a3cb6145522ffe8323bc01b84a505b8647c3f2017f43e4813c38e9b5a7ac`
 - Evaluator SHA-256: `820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c`
 - Proved checker SHA-256: `2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b`
+- Gaussian producer SHA-256: `20c24622b786940a8e82198f2364fb7593e761902fa0736289b179642f1e4306`
+- Gaussian checker SHA-256: `11c741f04b811aa8621db4da5c5dc05e292ead8c0e6a854739f6068757470612`
 - License: MIT
 
 See [`PROVENANCE.md`](PROVENANCE.md) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

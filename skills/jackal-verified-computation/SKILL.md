@@ -1,7 +1,7 @@
 ---
 name: jackal-verified-computation
 description: Use JACKAL for exact, bounded, or checked STEM work.
-version: 1.2.0
+version: 1.3.0
 author: Anubis Quantum Cipher contributors
 license: MIT
 platforms: [macos]
@@ -28,7 +28,7 @@ Use the profile-local `jackal-verified` plugin as a deterministic computational 
 ## Prerequisites
 
 - The `jackal-verified` native Hermes plugin is enabled in the active profile. When loaded from the plugin bundle, its explicit name is `jackal-verified:jackal-verified-computation`.
-- Its vendored public JACKAL v1.2.0 package, evaluator, proved checker, and plugin manifest must match the approved SHA-256 identities; any mismatch fails before computation.
+- Its vendored public JACKAL v1.3.0 package, evaluator, Gaussian producer, two proved checkers, and plugin manifest must match the approved SHA-256 identities; any mismatch fails before computation.
 - A new Hermes session may be required after plugin installation because tool schemas remain stable during a conversation.
 
 ## Assurance Selection
@@ -40,11 +40,12 @@ Use the profile-local `jackal-verified` plugin as a deterministic computational 
 | Symbolic derivative | `jackal_differentiate` | numerically checked derivative, not identity proof |
 | Fast exploratory integral | `jackal_integrate`, `fast_estimate` | grid-limited estimate |
 | Better numerical integral | `jackal_integrate`, `adaptive_estimate` | local estimate with refusal semantics |
-| Consequential integral | `jackal_integrate`, `bounded` | enclosure conditional on stated rounding/libm model |
+| General consequential integral | `jackal_integrate`, `bounded` | enclosure conditional on stated rounding/libm model |
+| Canonical narrow Gaussian `exp(-A*(x-mu)^2)` with exact-square rational `A` | `jackal_integrate`, `formal-bounded` | zero-libm theorem-backed enclosure when the proved checker accepts; otherwise refusal |
 | Possible values over an interval | `jackal_range_bound` | `formal-bounded` in the theorem-covered fragment; otherwise refusal |
 | Physical model output | `jackal_claim_card` | model-based result conditional on assumptions |
 
-When the user asks for "accurate," infer the consequence. Prefer `bounded` for money, safety, proofs, irreversible decisions, or thresholds. Never silently downgrade a bounded request.
+When the user asks for "accurate," infer the consequence. Prefer `formal-bounded` only when the request is in the admitted Gaussian family, otherwise `bounded` for money, safety, irreversible decisions, or thresholds. Never silently downgrade either strong request.
 
 ## Procedure
 
@@ -70,7 +71,7 @@ When the user asks for "accurate," infer the consequence. Prefer `bounded` for m
 
 - Fixed-grid estimates can miss narrow features even when refinement agrees. Use `bounded` for consequential integration.
 - Interval enclosures can be conservative; range supersets need not be tight or attained.
-- Ordinary `bounded` integration remains conditional on JACKAL's IEEE/libm model and a tested, not end-to-end mechanized, implementation. Do not transfer `formal-bounded` language from the separate range tool to integration.
+- Ordinary `bounded` integration remains conditional on JACKAL's IEEE/libm model and a tested, not end-to-end mechanized, implementation. `formal-bounded` integration applies only to checker-accepted `gaussian-exp-square-integral-v1`; generic `exp`, non-square amplitudes, uncovered domains, and other integrands refuse without fallback.
 - Symbolic numeric checking can miss domain-specific disagreement. Preserve domain caveats.
 - Claim-card fingerprints bind canonical bytes but do not validate the physical assumptions.
 - Plugin installation does not hot-add tools to an existing conversation. Start a new session after enabling it.
@@ -81,7 +82,7 @@ For a consequential receipt:
 
 1. Confirm `schema=jackal-hermes-receipt-v2`.
 2. Call `jackal_verify_receipt` and require `valid=true`.
-3. For `formal-bounded`, require a nested `jackal-formal-receipt-v1`, its embedded certificate, pinned evaluator/checker/plugin identities, theorem `cert_check_sound`, and checker-derived request/enclosure/operator bindings. Verification re-runs the proved checker on the embedded certificate; either outer digest alone is never sufficient.
+3. For `formal-bounded`, require a nested `jackal-formal-receipt-v1`, its embedded certificate, pinned producer/evaluator/checker/plugin identities, and checker-derived request/enclosure/coverage bindings. The theorem is `cert_check_sound` for range requests or `gaussian_integral_check_sound` for admitted Gaussian integration. Verification re-runs the matching proved checker; either outer digest alone is never sufficient.
 4. Confirm the returned status matches the requested assurance.
 5. For bounded integration, require ordered finite endpoints and width no greater than requested tolerance.
 6. For claim cards, require independent fingerprint recomputation.

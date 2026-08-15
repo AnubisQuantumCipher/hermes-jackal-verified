@@ -11,7 +11,7 @@ Use it automatically when deterministic arithmetic would improve reliability:
 - jackal_exact for exact fractions, factorials, combinations, powers, or large integers;
 - jackal_evaluate for ordinary finite IEEE-f64 expression evaluation;
 - jackal_differentiate for symbolic derivatives released as checked, not proved;
-- jackal_integrate with an explicit estimate or bounded assurance tier;
+- jackal_integrate with an explicit estimate, conditional bounded, or admitted-Gaussian formal-bounded assurance tier;
 - jackal_range_bound for formal-bounded possible-value, threshold, or denominator-zero questions in the declared fragment;
 - jackal_claim_card for the supported model with explicit assumptions;
 - jackal_verify_receipt before relying on consequential exact, bounded, formal-bounded, or model-based results.

@@ -164,7 +164,7 @@ def validate_release(*, expr: str, lo: str, hi: str, evaluator: str, checker: st
                      workdir: str | None = None, receipt_path: str | None = None,
                      formal_receipt_path: str | None = None,
                      plugin_sha256: str | None = None,
-                     release_epoch: str = "v1.2.0",
+                     release_epoch: str = "v1.3.0",
                      post_check_mutate=None) -> dict:
     """Run the full bound release pipeline. Returns a receipt dict on success;
     raises ReleaseRefusal (stable class) on any failure. `post_check_mutate` is
@@ -423,7 +423,7 @@ def _cli() -> int:
                     help="emit jackal-formal-receipt-v1 JSON (embedded cert; §7)")
     ap.add_argument("--plugin-sha256", default=None,
                     help="pin the Hermes plugin binary hash into the formal receipt")
-    ap.add_argument("--release-epoch", default="v1.2.0",
+    ap.add_argument("--release-epoch", default="v1.3.0",
                     help="release epoch label recorded in the formal receipt")
     ap.add_argument("--cert", default=None,
                     help="validate an EXISTING cert file (no emission); for controls")

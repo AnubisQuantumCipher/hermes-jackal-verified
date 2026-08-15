@@ -2,6 +2,25 @@
 
 All notable changes are documented here.
 
+## 2.2.0 — 2026-08-15
+
+### Added — zero-libm proof-carrying Gaussian integration
+
+- Re-pinned the vendored archive to JACKAL `v1.3.0`, SHA-256
+  `13e6a3cb6145522ffe8323bc01b84a505b8647c3f2017f43e4813c38e9b5a7ac`.
+  It adds producer `20c24622…`, checker `11c741f0…`, theorem
+  `gaussian_integral_check_sound`, and the `gaussian-exp-square-integral-v1`
+  coverage row while preserving the existing evaluator/range-checker identities.
+- Added `jackal_integrate` assurance `formal-bounded`. It releases only canonical
+  `exp(-A*(x-mu)^2)` requests with exact-square rational `A`, a domain covering
+  the proved core, checker-accepted exact-rational output, tolerance compliance,
+  and fully reverified `jackal-formal-receipt-v1` evidence.
+- Unsupported formal integration requests refuse without falling back to the
+  conditional floating-point/libm `bounded` lane.
+- Extended outer receipt verification to dispatch the matching proved checker,
+  bind tolerance/coverage/producer/checker identities, and reject recomputed-
+  digest semantic, theorem, identity, and certificate mutations.
+
 ## 2.1.0 — 2026-08-15
 
 ### Added — upstream v1.2.0 formal-receipt closure
