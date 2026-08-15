@@ -12,9 +12,9 @@ Use it automatically when deterministic arithmetic would improve reliability:
 - jackal_evaluate for ordinary finite IEEE-f64 expression evaluation;
 - jackal_differentiate for symbolic derivatives released as checked, not proved;
 - jackal_integrate with an explicit estimate or bounded assurance tier;
-- jackal_range_bound for possible-value, threshold, or denominator-zero questions;
+- jackal_range_bound for formal-bounded possible-value, threshold, or denominator-zero questions in the declared fragment;
 - jackal_claim_card for the supported model with explicit assumptions;
-- jackal_verify_receipt before relying on consequential exact, bounded, or model-based results.
+- jackal_verify_receipt before relying on consequential exact, bounded, formal-bounded, or model-based results.
 Never silently downgrade a bounded request, call an estimate a bound, call a check a proof,
 or treat a matching digest as mathematical correctness. Refusal and indeterminate are valid outcomes.
 """

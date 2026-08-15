@@ -7,7 +7,7 @@ This document binds the public plugin release to its upstream computation instru
 ```text
 JACKAL source commit
 → pinned Anubis compiler and reproducible upstream build
-→ public JACKAL v1.1.1 release archive
+→ public JACKAL v1.2.0 release archive
 → archive manifest + evaluator/checker identities
 → native Hermes plugin adapter
 → formal/poison suites + A→B→A gate
@@ -20,26 +20,26 @@ JACKAL source commit
 | Field | Value |
 |---|---|
 | Upstream repository | `https://github.com/AnubisQuantumCipher/jackal-calc` |
-| Upstream release | `v1.1.1` |
-| Source commit | `fd1ac8584e463a2ace3c32cfdc6b6a4a77851087` |
+| Upstream release | `v1.2.0` |
+| Source commit | `cc533906182c887a8617cc741b91b926bcb41e22` |
 | `jackal_calc.anb` SHA-256 | `5d43df8de01adb86bb10a0a6cea28fb79faf03cd58be51654c3fa88c653e4a40` |
-| Release asset | `jackal-v1.1.1-macos-arm64.tar.gz` |
+| Release asset | `jackal-v1.2.0-macos-arm64.tar.gz` |
 | Architecture | Mach-O 64-bit arm64 |
-| Archive size | 39,912,160 bytes |
-| Archive SHA-256 | `8ed047183bdd6259fc3d9b22ab87003389eabf9c4da1722024848c016fc4ec09` |
+| Archive size | 39,929,946 bytes |
+| Archive SHA-256 | `3b63e86bd9d2cffafa33dde813c40919cc754343db2232b1c33072a3ec41e0a7` |
 | Evaluator SHA-256 | `820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c` |
 | Proved checker SHA-256 | `2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b` |
 | License | MIT |
 
 Upstream release URL:
 
-`https://github.com/AnubisQuantumCipher/jackal-calc/releases/tag/v1.1.1`
+`https://github.com/AnubisQuantumCipher/jackal-calc/releases/tag/v1.2.0`
 
 The upstream release includes `RELEASE-SHA256SUMS`; the archive contains a complete internal `SHA256SUMS`. Anonymous download, GitHub asset metadata, and the vendored plugin bytes agree on the archive digest.
 
 ## Reproducibility inherited from JACKAL
 
-JACKAL's own `PROVENANCE.md` records the content-addressed Anubis compiler pin `anubis-a733565f237d` and byte-identical evaluator builds. The v1.1.1 archive was also built twice byte-for-byte identically. This plugin does not rebuild JACKAL during installation; it vendors and verifies that public release archive.
+JACKAL's own `PROVENANCE.md` records the content-addressed Anubis compiler pin `anubis-a733565f237d` and byte-identical evaluator builds. The v1.2.0 archive was built twice byte-for-byte identically with a fixed-metadata ustar writer. This plugin does not rebuild JACKAL during installation; it vendors and verifies that public release archive.
 
 The plugin verifies the archive, safe extraction, complete internal inventory, evaluator/checker digests, Mach-O arm64 architecture, and modes before execution from a private snapshot. A mismatch produces no computation result.
 
@@ -138,5 +138,5 @@ FRESH_INSTALL_PASS tools=7 skills=1 prompt_sections=1 exact=3/10 receipt_valid=t
 - The plugin does not prove universal correctness of JACKAL, Anubis, Python, Hermes, IEEE-754, or platform libm.
 - Plugin tests establish the tested adapter behavior, not correctness for every expression.
 - JACKAL's bounded lane is conditional on its disclosed arithmetic/libm model and tested implementation.
-- The upstream Lean development mechanizes the interval model, not the entire source-to-binary plugin chain.
+- The upstream Lean development mechanizes checker soundness for the declared fragment. The native evaluator is an untrusted certificate producer; the compiler/runtime and Lean kernel remain recorded TCB surfaces rather than universally proved components.
 - SHA-256 establishes byte identity and receipt integrity, not semantic truth by itself.

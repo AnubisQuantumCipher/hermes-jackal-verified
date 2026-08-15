@@ -87,7 +87,8 @@ def main() -> int:
     poison("hermes-changed-request", lambda t: t["request"].__setitem__("expression", "x^999"))
     poison("hermes-arbitrary-cert-digest", lambda t: t["result"].__setitem__("certificate_sha256", "d" * 64))
     poison("hermes-arbitrary-request-commitment", lambda t: t["result"].__setitem__("request_commitment", "deadbeef" * 8))
-    poison("hermes-stripped-certificate", lambda t: t["result"].pop("certificate", None))
+    poison("hermes-stripped-certificate",
+           lambda t: t["result"]["formal_receipt"]["certificate"].pop("bytes_b64", None))
     # A genuine certificate for a DIFFERENT true request cannot be re-labeled as
     # this one: swap in the base cert but claim a wider [0,10] enclosure.
     poison("substituted-enclosure-claim", lambda t: t["result"].__setitem__("enclosure", {"lower": "0", "upper": "10"}))

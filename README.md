@@ -96,13 +96,13 @@ The public snippet does not pretend other agents can call Hermes tools directly.
 ### Verify the vendored public package
 
 ```bash
-shasum -a 256 pkg/jackal-v1.1.1-macos-arm64.tar.gz
+shasum -a 256 pkg/jackal-v1.2.0-macos-arm64.tar.gz
 ```
 
 Expected:
 
 ```text
-8ed047183bdd6259fc3d9b22ab87003389eabf9c4da1722024848c016fc4ec09
+3b63e86bd9d2cffafa33dde813c40919cc754343db2232b1c33072a3ec41e0a7
 ```
 
 The plugin verifies this archive plus its complete internal inventory, evaluator, checker, architecture, and modes before execution from a private snapshot.
@@ -168,7 +168,7 @@ Validation is deliberately two-layered:
 
 1. **Integrity:** schema, exact keyset, canonical digest, and instrument identity.
 2. **Semantics:** operation/status compatibility, required result fields, non-release invariants, ordered finite enclosures, requested-tolerance compliance, and claim-card fingerprint/model consistency.
-3. **Formal re-check:** `formal-bounded` receipts carry the exact certificate; validation re-admits the pinned package, re-runs the proved checker on those bytes, and binds the request, enclosure, commitments, operators, theorem, and executable identities to the checker verdict.
+3. **Formal re-check:** `formal-bounded` receipts carry the canonical nested `jackal-formal-receipt-v1`; validation re-admits the pinned package, runs the independent verifier, re-runs the proved checker on its embedded certificate, and binds the request, enclosure, commitments, operators, coverage, theorem, and evaluator/checker/plugin identities to the checker verdict.
 
 A recomputed outer digest does not make a semantically malformed or forged formal result valid. The digest is an unkeyed integrity checksum, not author authentication; formal validity comes from re-executing the proved checker.
 
@@ -179,7 +179,7 @@ See [`skills/jackal-verified-computation/references/receipt-contract.md`](skills
 - Seven curated tools; no generic command, endpoint, filesystem, or shell surface.
 - `subprocess.run` with an argument list and `shell=False`.
 - Restricted child environment.
-- Public JACKAL v1.1.1 package pinned by archive SHA-256, safe extraction, complete internal `SHA256SUMS`, evaluator/checker SHA-256, Mach-O arm64, and executable-mode checks before execution from a private snapshot.
+- Public JACKAL v1.2.0 package pinned by archive SHA-256, safe extraction, complete internal `SHA256SUMS`, evaluator/checker SHA-256, Mach-O arm64, and executable-mode checks before execution from a private snapshot.
 - Expression-length, output-size, and runtime bounds.
 - Finite-number admission and interval-order validation.
 - Explicit status vocabulary: `exact`, `estimated`, `checked`, `bounded`, `model-based`, `refused`, `indeterminate`.
@@ -248,7 +248,7 @@ CI runs the unit/poison suite, manifest consistency checks, Python compilation, 
 ├── __init__.py                 # Hermes registration
 ├── schemas.py                  # model-visible typed schemas
 ├── tools.py                    # fail-closed adapter and receipt validator
-├── pkg/jackal-v1.1.1-macos-arm64.tar.gz  # evaluator + proved checker
+├── pkg/jackal-v1.2.0-macos-arm64.tar.gz  # evaluator + proved checker + formal verifier
 ├── jackal_formal/              # shared release validator/status/coverage gates
 ├── skills/
 │   └── jackal-verified-computation/
@@ -265,7 +265,7 @@ CI runs the unit/poison suite, manifest consistency checks, Python compilation, 
 
 ## Platform support
 
-The plugin supports **Apple Silicon macOS only** because the pinned JACKAL v1.1.1 package contains Mach-O arm64 evaluator/checker artifacts. It fails closed if the archive, manifest, inventory, architecture, modes, evaluator, or checker differs from the pinned identity.
+The plugin supports **Apple Silicon macOS only** because the pinned JACKAL v1.2.0 package contains Mach-O arm64 evaluator/checker artifacts. It fails closed if the archive, manifest, inventory, architecture, modes, evaluator, checker, or plugin manifest differs from the pinned identity.
 
 Portable support should use one reviewed binary per platform with explicit OS/architecture selection and per-artifact digests. It must never fall back to an arbitrary `jackal` found on `PATH`.
 
@@ -276,7 +276,7 @@ JACKAL Verified makes strong but bounded claims:
 - `exact` means exact within the supported grammar, operation, and compute budget.
 - `checked` means sampled numerical challenge, not symbolic identity proof.
 - `bounded` means an enclosure conditional on JACKAL's stated IEEE basic-operation and ≤2 ULP libm model and a tested—not end-to-end mechanized—implementation.
-- `formal-bounded` means the packaged proved checker accepted the carried certificate and the plugin re-bound the exact request/result identities; it still depends on the stated ModelTCB and does not prove source-to-native refinement.
+- `formal-bounded` means the independent v1.2 verifier re-ran the packaged proved checker on the canonical receipt's embedded certificate and the plugin re-bound the exact request/result/coverage/instrument identities; it still depends on the stated ModelTCB and does not prove source-to-native refinement.
 - `model-based` means conditional on stated assumptions, not observed physical reality.
 - SHA-256 identifies and checksums bytes; it does not authenticate an author or prove mathematical validity.
 - Passing finite campaigns does not establish universal correctness.
@@ -285,11 +285,11 @@ The upstream JACKAL interval model includes Lean mechanization, but this plugin 
 
 ## Provenance
 
-The vendored package is the public JACKAL CALC `v1.1.1` release artifact:
+The vendored package is the public JACKAL CALC `v1.2.0` release artifact:
 
 - Upstream: https://github.com/AnubisQuantumCipher/jackal-calc
-- Commit: `fd1ac8584e463a2ace3c32cfdc6b6a4a77851087`
-- Archive SHA-256: `8ed047183bdd6259fc3d9b22ab87003389eabf9c4da1722024848c016fc4ec09`
+- Commit: `cc533906182c887a8617cc741b91b926bcb41e22`
+- Archive SHA-256: `3b63e86bd9d2cffafa33dde813c40919cc754343db2232b1c33072a3ec41e0a7`
 - Evaluator SHA-256: `820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c`
 - Proved checker SHA-256: `2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b`
 - License: MIT

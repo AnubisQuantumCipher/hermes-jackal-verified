@@ -15,21 +15,22 @@ from typing import Any, Mapping
 PLUGIN_ROOT = Path(__file__).resolve().parent
 BINARY = PLUGIN_ROOT / "bin" / "jackal-native"
 CHECKER = PLUGIN_ROOT / "bin" / "jackal_cert_check"
-# v1.1.1 formal package epoch: the evaluator emits schema-v2 certificates the packaged
-# proved checker requires. Both identities are load-bearing and pinned.
+# v1.2.0 formal-receipt package epoch. Evaluator and checker identities are
+# unchanged; the package adds the canonical embedded-certificate receipt and
+# independent verifier shared with the upstream wrapper and plugin.
 APPROVED_SHA256 = "820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c"
 APPROVED_CHECKER_SHA256 = "2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b"
 SCHEMA = "jackal-hermes-receipt-v2"
 FORMAL_THEOREM = "cert_check_sound"
 # The evaluator + proved checker ship inside ONE vendored, verified upstream
-# v1.1.1 release tarball (the 131 MB checker exceeds GitHub's 100 MB file limit
+# v1.2.0 release tarball (the 131 MB checker exceeds GitHub's 100 MB file limit
 # uncompressed; the tarball is 40 MB). It is admitted — hash-verified, safely
 # extracted, manifest-verified, per-binary SHA/arch/mode-verified — into a
 # private snapshot before either binary is executed. No LFS, no network fetch,
 # no stripping; a plain git clone carries everything (offline-capable).
-PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.1.1-macos-arm64.tar.gz"
-PKG_SHA256 = "8ed047183bdd6259fc3d9b22ab87003389eabf9c4da1722024848c016fc4ec09"
-PKG_DIRNAME = "jackal-v1.1.1-macos-arm64"
+PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.2.0-macos-arm64.tar.gz"
+PKG_SHA256 = "3b63e86bd9d2cffafa33dde813c40919cc754343db2232b1c33072a3ec41e0a7"
+PKG_DIRNAME = "jackal-v1.2.0-macos-arm64"
 MAX_OUTPUT_BYTES = 2_000_000
 MAX_INTEGER_DIGITS = 100_000
 MAX_EXPONENT = 1_000_000
@@ -57,6 +58,14 @@ def _sha(path: Path) -> str:
         for block in iter(lambda: f.read(1024 * 1024), b""):
             h.update(block)
     return h.hexdigest()
+
+
+def _plugin_manifest_sha256() -> str:
+    """Identity of the manifest that seals the complete native plugin tree."""
+    manifest = PLUGIN_ROOT / "MANIFEST.json"
+    if not manifest.is_file():
+        raise JackalError("plugin MANIFEST.json is missing")
+    return _sha(manifest)
 
 
 def _finite(value: Any, name: str) -> float:
@@ -354,38 +363,46 @@ def integrate(args: Mapping[str, Any], timeout: int = 180, max_chars: int = 8192
 
 def _formal_range_bound(expr: str, lower: str, upper: str, timeout: int) -> dict[str, Any]:
     """Snapshot the evaluator AND the proved checker into a private 0500
-    execution root, then run the shared release validator (the upstream v1.1.1
-    release path): emit certificate → proved checker ACCEPT → identity/TOCTOU/
-    request bindings → formal-status gate → `formal-bounded`. Returns the
-    validator receipt; raises JackalError on any refusal (no bounded fallback)."""
+    execution root, then run the upstream v1.2.0 shared release validator:
+    emit certificate → proved checker ACCEPT → identity/TOCTOU/request bindings
+    → formal-status gate → canonical embedded-certificate receipt → independent
+    checker re-run. Returns both validator and formal receipts; raises
+    JackalError on any refusal (no bounded fallback)."""
     import sys as _sys
     fdir = str(PLUGIN_ROOT / "jackal_formal")
     if fdir not in _sys.path:
         _sys.path.insert(0, fdir)
-    import base64 as _b64
     import release_validate as rv  # vendored, from jackal_formal/
+    import receipt_verify as vr  # vendored independent formal-receipt verifier
     adm = _admit_package()  # evaluator + checker from the verified private snapshot
     ev, ck = Path(adm["evaluator"]), Path(adm["checker"])
+    plugin_sha = _plugin_manifest_sha256()
     with tempfile.TemporaryDirectory(prefix="jackal-formal-") as tmp:
         wd = Path(tmp) / "run"
         wd.mkdir(mode=0o700)
+        formal_path = Path(tmp) / "formal-receipt.json"
         try:
             receipt = rv.validate_release(
                 expr=expr, lo=lower, hi=upper, evaluator=str(ev), checker=str(ck),
                 expected_evaluator=APPROVED_SHA256, expected_checker=APPROVED_CHECKER_SHA256,
-                workdir=str(wd))
+                workdir=str(wd), formal_receipt_path=str(formal_path),
+                plugin_sha256=plugin_sha, release_epoch="v1.2.0")
         except rv.ReleaseRefusal as r:
             raise JackalError(f"formal-release-refused:{r.cls}") from r
-        # Read the EXACT certificate the checker accepted, before the workdir is
-        # cleaned. It travels in the receipt so the public verifier can re-run the
-        # proved checker on it — a formal receipt must be independently
-        # re-checkable, not merely self-consistent (§487 false-accept repair).
-        cert_bytes = (wd / "cert.bytes").read_bytes()
+        formal_receipt = json.loads(formal_path.read_text())
+        try:
+            formal_verification = vr.verify_receipt(
+                receipt=formal_receipt, checker=str(ck),
+                expected_evaluator=APPROVED_SHA256,
+                expected_checker=APPROVED_CHECKER_SHA256,
+                inventory_path=PLUGIN_ROOT / "jackal_formal" / "formal_coverage_inventory.json",
+                expected_plugin=plugin_sha)
+        except vr.ReceiptRefusal as r:
+            raise JackalError(f"formal-receipt-refused:{r.cls}") from r
     if receipt.get("status") != "formal-bounded":
         raise JackalError("formal path did not yield formal-bounded")
-    if hashlib.sha256(cert_bytes).hexdigest() != receipt["certificate_sha256"]:
-        raise JackalError("embedded certificate digest mismatch")
-    receipt["certificate_b64"] = _b64.b64encode(cert_bytes).decode("ascii")
+    receipt["formal_receipt"] = formal_receipt
+    receipt["formal_verification"] = formal_verification
     return receipt
 
 
@@ -412,7 +429,9 @@ def range_bound(args: Mapping[str, Any], timeout: int = 180, max_chars: int = 81
                                   "checker_sha256": APPROVED_CHECKER_SHA256}}
             return _finish(op, request, raw)
         instrument = {"evaluator": {"name": "jackal-native", "sha256": rr["evaluator_sha256"]},
-                      "checker": {"name": "jackal_cert_check", "sha256": rr["checker_sha256"]}}
+                      "checker": {"name": "jackal_cert_check", "sha256": rr["checker_sha256"]},
+                      "plugin": {"name": "jackal-verified",
+                                 "sha256": rr["formal_verification"]["plugin_sha256"]}}
         result = {
             "status": "formal-bounded",
             "enclosure": {"lower": rr["certified_enclosure"][0], "upper": rr["certified_enclosure"][1]},
@@ -420,7 +439,7 @@ def range_bound(args: Mapping[str, Any], timeout: int = 180, max_chars: int = 81
             "expr_commitment": rr["expr_commitment"],
             "request_commitment": rr["request_commitment"],
             "certificate_sha256": rr["certificate_sha256"],
-            "certificate": rr["certificate_b64"],
+            "formal_receipt": rr["formal_receipt"],
             "cert_status": rr["cert_status"],
             "operators": rr["operators"],
             "theorem": FORMAL_THEOREM,
@@ -458,69 +477,66 @@ def claim_card(args: Mapping[str, Any], timeout: int = 180, max_chars: int = 819
 
 
 def _recheck_formal_receipt(receipt: Mapping[str, Any]) -> list[str]:
-    """Authoritative formal re-verification. Re-runs the PACKAGED PROVED CHECKER on
-    the certificate carried in the receipt, then binds every self-reported field to
-    what the checker actually accepted. A recomputed outer digest cannot launder a
-    formal claim here, because none of the receipt's own fields are trusted — the
-    truth comes from re-executing `jackal_cert_check` on the embedded bytes and
-    re-deriving the request commitment from the request (§487 false-accept repair)."""
-    import base64
+    """Authoritative v1.2 formal re-verification.
+
+    The native Hermes receipt carries the upstream canonical
+    ``jackal-formal-receipt-v1`` object.  Re-run the upstream independent
+    verifier on it, then bind the outer Hermes fields to the verifier-derived
+    request, enclosure, certificate, operator, and instrument identities.
+    """
     errs: list[str] = []
     result = receipt.get("result") if isinstance(receipt, dict) else None
     request = receipt.get("request") if isinstance(receipt, dict) else None
-    if not isinstance(result, dict) or not isinstance(request, dict):
+    instrument = receipt.get("instrument") if isinstance(receipt, dict) else None
+    if not isinstance(result, dict) or not isinstance(request, dict) or not isinstance(instrument, dict):
         return ["formal receipt malformed"]
-    cert_b64 = result.get("certificate")
-    if not isinstance(cert_b64, str) or not cert_b64:
-        return ["formal receipt missing embedded certificate"]
-    try:
-        cert_bytes = base64.b64decode(cert_b64, validate=True)
-    except Exception:
-        return ["embedded certificate is not valid base64"]
-    if hashlib.sha256(cert_bytes).hexdigest() != result.get("certificate_sha256"):
-        errs.append("certificate digest does not match embedded certificate")
-    expr = request.get("expression"); lo = request.get("lower"); hi = request.get("upper")
-    if not (isinstance(expr, str) and isinstance(lo, str) and isinstance(hi, str)):
-        return errs + ["formal request malformed"]
+    formal_receipt = result.get("formal_receipt")
+    if not isinstance(formal_receipt, dict):
+        return ["formal receipt missing canonical jackal-formal-receipt-v1 object"]
     import sys as _sys
     fdir = str(PLUGIN_ROOT / "jackal_formal")
     if fdir not in _sys.path:
         _sys.path.insert(0, fdir)
     try:
-        import release_validate as rv
+        import receipt_verify as vr
     except Exception as exc:
         return errs + [f"formal verifier unavailable: {exc}"]
     try:
         adm = _admit_package()
-        with tempfile.TemporaryDirectory(prefix="jackal-verify-") as tmp:
-            cp = Path(tmp) / "cert.bytes"
-            fd = os.open(str(cp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            try:
-                os.write(fd, cert_bytes)
-            finally:
-                os.close(fd)
-            out = rv.validate_cert_file(
-                cert_path=str(cp), expr=expr, lo=lo, hi=hi,
-                evaluator=adm["evaluator"], checker=adm["checker"],
-                expected_evaluator=APPROVED_SHA256, expected_checker=APPROVED_CHECKER_SHA256)
-    except rv.ReleaseRefusal as r:
-        return errs + [f"checker re-verification refused: {r.cls}"]
+        out = vr.verify_receipt(
+            receipt=formal_receipt, checker=adm["checker"],
+            expected_evaluator=APPROVED_SHA256,
+            expected_checker=APPROVED_CHECKER_SHA256,
+            inventory_path=PLUGIN_ROOT / "jackal_formal" / "formal_coverage_inventory.json",
+            expected_plugin=_plugin_manifest_sha256())
+    except vr.ReceiptRefusal as r:
+        return errs + [f"formal receipt re-verification refused: {r.cls}"]
     except Exception as exc:
         return errs + [f"checker re-verification failed: {exc}"]
-    # Bind every self-reported field to what the proved checker actually accepted.
+
+    # Bind every outer Hermes field to verifier-derived formal evidence.
+    canonical_req = formal_receipt.get("request", {})
+    if (request.get("expression") != canonical_req.get("expression")
+            or request.get("lower") != canonical_req.get("input_lo")
+            or request.get("upper") != canonical_req.get("input_hi")):
+        errs.append("outer request does not match canonical formal receipt")
     enc = result.get("enclosure") if isinstance(result.get("enclosure"), dict) else {}
-    if [str(enc.get("lower")), str(enc.get("upper"))] != list(out["certified_enclosure"]):
+    if [str(enc.get("lower")), str(enc.get("upper"))] != list(out["enclosure"]):
         errs.append("enclosure does not match checker-accepted enclosure")
     if result.get("request_commitment") != out["request_commitment"]:
         errs.append("request commitment does not match recomputation")
-    if result.get("expr_commitment") != out["expr_commitment"]:
+    if result.get("expr_commitment") != formal_receipt.get("certificate", {}).get("sexp"):
         errs.append("expr commitment does not match certificate")
     if result.get("certificate_sha256") != out["certificate_sha256"]:
         errs.append("certificate digest does not match checker input")
-    if sorted(result.get("operators") or []) != list(out["operators"]):
+    if sorted(result.get("operators") or []) != list(out["expression_operators"]):
         errs.append("operators do not match certificate")
-    if out.get("status") != "formal-bounded":
-        errs.append("checker did not derive formal-bounded")
+    if instrument.get("evaluator", {}).get("sha256") != out["evaluator_sha256"]:
+        errs.append("outer evaluator identity does not match formal verifier")
+    if instrument.get("checker", {}).get("sha256") != out["checker_sha256"]:
+        errs.append("outer checker identity does not match formal verifier")
+    if instrument.get("plugin", {}).get("sha256") != out["plugin_sha256"]:
+        errs.append("outer plugin identity does not match formal verifier")
     return errs
 
 

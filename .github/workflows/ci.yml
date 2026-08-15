@@ -22,12 +22,12 @@ jobs:
           python-version: "3.12"
       - name: Verify platform and pinned JACKAL package identity
         # v2 no longer tracks a single bin/jackal-native. It vendors the pinned
-        # upstream v1.1.1 release package and admits binaries from it (hash +
+        # upstream v1.2.0 release package and admits binaries from it (hash +
         # manifest + per-binary Mach-O/arch/mode). The hosted gate pins the
         # PACKAGE, which is what the plugin actually trusts.
         run: |
           test "$(uname -m)" = arm64
-          test "$(shasum -a 256 pkg/jackal-v1.1.1-macos-arm64.tar.gz | awk '{print $1}')" = "8ed047183bdd6259fc3d9b22ab87003389eabf9c4da1722024848c016fc4ec09"
+          test "$(shasum -a 256 pkg/jackal-v1.2.0-macos-arm64.tar.gz | awk '{print $1}')" = "3b63e86bd9d2cffafa33dde813c40919cc754343db2232b1c33072a3ec41e0a7"
       - name: Compile Python
         run: python3 -m compileall -q __init__.py schemas.py tools.py jackal_formal tests scripts
       - name: Run unit and admission suite

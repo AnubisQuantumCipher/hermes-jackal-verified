@@ -2,6 +2,25 @@
 
 All notable changes are documented here.
 
+## 2.1.0 — 2026-08-15
+
+### Added — upstream v1.2.0 formal-receipt closure
+
+- Re-pinned the vendored package to public JACKAL `v1.2.0`, archive SHA-256
+  `3b63e86bd9d2cffafa33dde813c40919cc754343db2232b1c33072a3ec41e0a7`.
+  Evaluator (`820c0722…`) and proved checker (`2186b43f…`) identities are
+  unchanged; the package adds the canonical `jackal-formal-receipt-v1`,
+  independent receipt verifier, bundled formal adapter, and v1.2 evidence.
+- `jackal_range_bound` now carries the upstream canonical formal receipt inside
+  `jackal-hermes-receipt-v2`. The native plugin manifest SHA-256 is bound as the
+  formal receipt's plugin identity.
+- `jackal_verify_receipt` invokes the upstream independent verifier, which
+  re-runs the pinned checker on the embedded certificate and re-derives request,
+  enclosure, operator, coverage, and evaluator/checker/plugin bindings. It then
+  cross-checks those results against the outer Hermes receipt.
+- Updated the companion skill to distinguish ordinary conditional `bounded`
+  integration from theorem-backed `formal-bounded` range analysis.
+
 ## 2.0.3 — 2026-08-14
 
 ### Fixed — immutable upstream package epoch

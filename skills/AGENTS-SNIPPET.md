@@ -10,15 +10,15 @@ JACKAL Verified is available through Hermes Agent's `jackal-verified` plugin. Ro
 - ordinary finite IEEE-f64 expression evaluation → `jackal_evaluate`;
 - symbolic derivatives → `jackal_differentiate`, reported as checked rather than proved;
 - integration → `jackal_integrate` with an explicit `fast_estimate`, `adaptive_estimate`, or `bounded` tier;
-- possible values, thresholds, and denominator-zero analysis → `jackal_range_bound`;
+- possible values, thresholds, and denominator-zero analysis → `jackal_range_bound`, released `formal-bounded` only inside the declared theorem-covered fragment;
 - supported physical models with assumptions → `jackal_claim_card`;
-- consequential exact, bounded, or model-based outputs → validate with `jackal_verify_receipt`.
+- consequential exact, bounded, formal-bounded, or model-based outputs → validate with `jackal_verify_receipt`.
 
 Never silently downgrade a bounded request. Never call an estimate a bound, a sampled check a proof, a model fingerprint physical truth, or a matching digest mathematical correctness. Treat `refused` and `indeterminate` as valid outcomes. Preserve the returned assumptions and non-claims.
 
 The approved public JACKAL package/evaluator/checker SHA-256 identities are:
 
-- package `8ed047183bdd6259fc3d9b22ab87003389eabf9c4da1722024848c016fc4ec09`;
+- package `3b63e86bd9d2cffafa33dde813c40919cc754343db2232b1c33072a3ec41e0a7`;
 - evaluator `820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c`;
 - proved checker `2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b`.
 
