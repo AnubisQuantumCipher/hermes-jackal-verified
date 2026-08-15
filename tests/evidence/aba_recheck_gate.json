@@ -1,34 +1,116 @@
 {
   "B_import_ok": true,
-  "forgeries": {
-    "arbitrary-cert-digest": {
-      "A_post_valid": false,
-      "A_pre_valid": false,
-      "B_valid_admitted": true
-    },
-    "arbitrary-request-commitment": {
-      "A_post_valid": false,
-      "A_pre_valid": false,
-      "B_valid_admitted": true
-    },
-    "changed-request": {
-      "A_post_valid": false,
-      "A_pre_valid": false,
-      "B_valid_admitted": true
-    },
-    "ordered-wrong-enclosure": {
-      "A_post_valid": false,
-      "A_pre_valid": false,
-      "B_valid_admitted": true
-    }
-  },
   "gate": "formal-recheck-master",
   "genuine": {
-    "A_post_valid": true,
-    "A_pre_valid": true
+    "exp_rat": {
+      "A_post_valid": true,
+      "A_pre_valid": true
+    },
+    "gaussian": {
+      "A_post_valid": true,
+      "A_pre_valid": true
+    },
+    "range": {
+      "A_post_valid": true,
+      "A_pre_valid": true
+    },
+    "sqrt_rat": {
+      "A_post_valid": true,
+      "A_pre_valid": true
+    }
+  },
+  "lanes": {
+    "exp_rat": {
+      "arbitrary-cert-digest": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      },
+      "arbitrary-request-commitment": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      },
+      "changed-request": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      },
+      "ordered-wrong-enclosure": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      }
+    },
+    "gaussian": {
+      "arbitrary-cert-digest": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      },
+      "arbitrary-request-commitment": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      },
+      "changed-request": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      },
+      "ordered-wrong-enclosure": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      }
+    },
+    "range": {
+      "arbitrary-cert-digest": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      },
+      "arbitrary-request-commitment": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      },
+      "changed-request": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      },
+      "ordered-wrong-enclosure": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      }
+    },
+    "sqrt_rat": {
+      "arbitrary-cert-digest": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      },
+      "arbitrary-request-commitment": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      },
+      "changed-request": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      },
+      "ordered-wrong-enclosure": {
+        "A_post_valid": false,
+        "A_pre_valid": false,
+        "B_valid_admitted": true
+      }
+    }
   },
   "restore_hash_verified": true,
-  "source_hash_mutated": "c65ddbf68736815f7910fb1984457519c57bab27d274c93c89f8d0a1c411c911",
-  "source_hash_post": "5cac4e6e5d0795b54312ca695f79a1fb47f54bfe42a8316dd48373b6fa9e5c58",
-  "source_hash_pre": "5cac4e6e5d0795b54312ca695f79a1fb47f54bfe42a8316dd48373b6fa9e5c58"
+  "source_hash_mutated": "b42f56feb6efb6d921cf676cb0aa9ffef871d620d5d02fd886027ebce2c8d816",
+  "source_hash_post": "c382de2d9dc48382fc0d6cfe2fa5a0c8d730e9b3c08722771bd9c6d5873cd208",
+  "source_hash_pre": "c382de2d9dc48382fc0d6cfe2fa5a0c8d730e9b3c08722771bd9c6d5873cd208"
 }

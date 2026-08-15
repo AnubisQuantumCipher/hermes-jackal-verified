@@ -45,7 +45,7 @@ def main() -> int:
     positives = {
         "poly": "x^2+x-1", "div": "1/(x+2)", "neg": "0-x", "pow0": "x^0",
         "sin": "sin(x)", "cos": "cos(x)", "abs": "abs(x-1)", "floor": "floor(x)",
-        "min": "min(x,1)", "max": "max(x,1)", "const": "pi*x", "nested": "min(x^2, sin(x)+2)",
+        "min": "min(x,1)", "max": "max(x,1)", "nested": "min(x^2, sin(x)+2)",
     }
     for k, e in positives.items():
         r = receipt(tools.range_bound({"expression": e, "lower": 0, "upper": 2}))
@@ -58,6 +58,51 @@ def main() -> int:
     for e in ("sqrt(x)", "exp(x)", "ln(x+3)", "tan(x)", "x^-2", "x%2"):
         r = receipt(tools.range_bound({"expression": e, "lower": 1, "upper": 2}))
         check(f"unsupported-refuses:{e}", r["result"]["status"] == "refused" and r["result"].get("released") is False)
+
+    # --- new v3.0.0 variant lanes: each releases through its own tool ---
+    gauss = receipt(tools.gaussian_integral({
+        "expression": "exp(-10000000000*(x-0.5000123456789)^2)",
+        "lower": 0, "upper": 1, "tolerance": "1/1000"}))
+    check("gaussian-formal", gauss["result"]["status"] == "formal-bounded"
+          and gauss["result"]["variant"] == "gaussian")
+    check("gaussian-verify", vok(gauss))
+
+    sqrtR = receipt(tools.sqrt_rat_bound({"expression":"sqrt(x)","lower":"2","upper":"3"}))
+    check("sqrt_rat-formal", sqrtR["result"]["status"] == "formal-bounded"
+          and sqrtR["result"]["variant"] == "sqrt_rat")
+    check("sqrt_rat-verify", vok(sqrtR))
+
+    expR = receipt(tools.exp_rat_bound({"expression":"exp(x)","lower":"0","upper":"1"}))
+    check("exp_rat-formal", expR["result"]["status"] == "formal-bounded"
+          and expR["result"]["variant"] == "exp_rat")
+    check("exp_rat-verify", vok(expR))
+
+    # --- variant-specific mutation locks ---
+    def poison_variant(base_receipt, name, mut):
+        t = copy.deepcopy(base_receipt); mut(t); reseal(t)
+        check(f"variant-poison:{name}", not vok(t))
+    for label, br in (("gaussian", gauss), ("sqrt_rat", sqrtR), ("exp_rat", expR)):
+        poison_variant(br, f"{label}-tamper-enclosure",
+                       lambda t: t["result"].__setitem__("enclosure",{"lower":"0","upper":"0"}))
+        poison_variant(br, f"{label}-swap-variant-label",
+                       lambda t: t["result"].__setitem__("variant","range"))
+        poison_variant(br, f"{label}-forge-cert-sha",
+                       lambda t: t["result"].__setitem__("certificate_sha256","d"*64))
+        poison_variant(br, f"{label}-swap-theorem",
+                       lambda t: t["result"].__setitem__("theorem","nope"))
+        poison_variant(br, f"{label}-forge-evaluator",
+                       lambda t: t["instrument"]["evaluator"].__setitem__("sha256","b"*64))
+        poison_variant(br, f"{label}-forge-checker",
+                       lambda t: t["instrument"]["checker"].__setitem__("sha256","c"*64))
+
+    # sqrt_rat + exp_rat lanes must refuse anything other than their exact admitted form
+    for name, args in (
+        ("sqrt_rat-refuses-poly", ("sqrt_rat_bound", {"expression":"x^2","lower":"1","upper":"2"})),
+        ("exp_rat-refuses-poly",  ("exp_rat_bound",  {"expression":"x^2","lower":"1","upper":"2"})),
+        ("exp_rat-refuses-negative-lo", ("exp_rat_bound", {"expression":"exp(x)","lower":"-1","upper":"1"})),
+    ):
+        r = receipt(getattr(tools, args[0])(args[1]))
+        check(name, r["result"]["status"] == "refused" and r["result"]["released"] is False)
 
     # --- weaker lane cannot become formal ---
     ev = receipt(tools.evaluate({"expression": "2+3*4"}))

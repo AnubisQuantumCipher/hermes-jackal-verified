@@ -1,0 +1,3605 @@
+// JACKAL CALC — a pocket laboratory for programmers and scientists.
+// Safe-mode, deterministic, offline. Invoke with arguments after `--`.
+
+fn positive_abs(value: i64) -> i64
+    requires(value > -9223372036854775807)
+    ensures(result >= 0)
+{
+    if value < 0 { return -value; }
+    return value;
+}
+
+fn gcd_safe(a: i64, b: i64) -> i64
+    requires(a > -9223372036854775807)
+    requires(b > -9223372036854775807)
+{
+    let x = positive_abs(a);
+    let y = positive_abs(b);
+    while y != 0 {
+        let remainder = x % y;
+        x = y;
+        y = remainder;
+    }
+    return x;
+}
+
+fn hex_digit(value) {
+    return char_at("0123456789ABCDEF", value);
+}
+
+fn hex_unsigned(value) {
+    if value == 0 { return "0"; }
+    let n = value;
+    let text = "";
+    while n > 0 {
+        text = hex_digit(n % 16) + text;
+        n = n / 16;
+    }
+    return text;
+}
+
+fn format_hex(value) {
+    if value < 0 { return "-0x" + hex_unsigned(positive_abs(value)); }
+    return "0x" + hex_unsigned(value);
+}
+
+fn binary_unsigned(value) {
+    if value == 0 { return "0"; }
+    let n = value;
+    let text = "";
+    while n > 0 {
+        text = str(n % 2) + text;
+        n = n / 2;
+    }
+    return text;
+}
+
+fn format_binary(value) {
+    if value < 0 { return "-0b" + binary_unsigned(positive_abs(value)); }
+    return "0b" + binary_unsigned(value);
+}
+
+fn usage() uses(io.print) {
+    print("JACKAL CALC :: CLAIM-AWARE STEM ENGINE");
+    print("trust:      claim-card self-test measure-mul uncertain-ohm kinetic-sensitivity");
+    print("numerical:  matrix2 solve2 integrate-x2 derivative-x3");
+    print("expression: eval integrate integrate-adaptive derivative solve   (variable x, ^ = power)");
+    print("certified:  integrate-bound range-bound   (interval enclosures under a stated f64 model)");
+    print("proof-carrying: range-bound-cert   (emits a Lean-checker-verifiable enclosure certificate)");
+    print("symbolic:   diff \"x^2*sin(x)\"   (numerically-checked d/dx)");
+    print("exact-rat:  rat \"0.1 + 0.2\"   (exact rational arithmetic)");
+    print("worksheet:  worksheet \"a = 5; b = a^2; a+b\"   (variables persist across ;)");
+    print("exact-int:  big-add big-mul big-pow big-fact big-ncr   (arbitrary precision)");
+    print("science+:   ph dilute relativity decibel-power blackbody");
+    print("science:    add sub mul div pow sqrt cbrt sin cos tan sin-deg hypot ln log10 exp");
+    print("math:       quadratic lerp percent-error ncr gcd lcm fact prime");
+    print("vectors:    dot cross norm3");
+    print("data:       stats describe linreg");
+    print("engineering: convert ohm parallel-r");
+    print("physics:    kinetic projectile photon orbit ideal-gas molarity");
+    print("programmer: hex bin band bor bxor shl shr");
+    print("knowledge:  constants maturity   (maturity = per-command epistemic grades)");
+    print("example:    jackal quadratic 1 -3 2");
+}
+
+fn require_arity(argv, count) {
+    if len(argv) != count {
+        panic("wrong number of arguments; run with help");
+    }
+}
+
+// Strict numeric ingestion. The language's `parse_float`/`parse_int` are
+// documented-lenient — malformed text yields 0, and "nan"/"inf" parse to
+// literal NaN/inf. For a fail-closed calculator both are silent-wrong-value
+// hazards, so every CLI number enters through these: garbage and non-finite
+// values are refused at the boundary, before any lane can compute on them.
+fn strict_float(text) {
+    match parse_float_opt(text) {
+        Some(v) => {
+            if v != v { panic("not a finite number: '${text}'; fail closed"); }
+            if v > 1.7976931348623157e308 || v < -1.7976931348623157e308 {
+                panic("not a finite number: '${text}'; fail closed");
+            }
+            return v;
+        },
+        None => panic("not a valid number: '${text}'; fail closed"),
+    }
+}
+
+fn strict_int(text) {
+    match parse_int_opt(text) {
+        Some(v) => v,
+        None => panic("not a valid integer: '${text}'; fail closed"),
+    }
+}
+
+fn unary_float(argv) {
+    require_arity(argv, 2);
+    return strict_float(argv[1]);
+}
+
+fn binary_float_left(argv) {
+    require_arity(argv, 3);
+    return strict_float(argv[1]);
+}
+
+fn binary_float_right(argv) {
+    return strict_float(argv[2]);
+}
+
+fn binary_int_left(argv) {
+    require_arity(argv, 3);
+    return strict_int(argv[1]);
+}
+
+fn binary_int_right(argv) {
+    return strict_int(argv[2]);
+}
+
+fn shift_count(argv) {
+    let count = binary_int_right(argv);
+    if count < 0 || count > 63 {
+        panic("shift count must be within 0..63 on the i64 register model; fail closed");
+    }
+    return count;
+}
+
+fn rounded(value, places) {
+    // round() saturates non-finite/oversized floats to i64::MAX, which would
+    // LAUNDER inf into plausible finite garbage (9223372.036854776) before the
+    // number_text gate could refuse it. Fail closed on non-finite input, and
+    // return oversized-but-finite values unchanged: beyond 2^53 the scaled
+    // float has no fractional resolution, so identity IS the exact rounding.
+    if value != value { panic("rounded: non-finite value (NaN); fail closed"); }
+    if value > 1.7976931348623157e308 || value < -1.7976931348623157e308 {
+        panic("rounded: non-finite value (inf); fail closed");
+    }
+    let scale = pow(10.0, places);
+    let scaled = value * scale;
+    if scaled >= 9007199254740992.0 || scaled <= -9007199254740992.0 { return value; }
+    return round(scaled) / scale;
+}
+
+// Central finite gate: every numeric printer refuses NaN/inf. A stable hash or
+// a printed number must never launder a non-finite computation (field-tested:
+// `add nan 1` and `molarity 1 0` used to print NaN/inf at exit 0).
+fn refuse_non_finite(value) {
+    if value != value { panic("non-finite value (NaN) reached output; fail closed — check inputs"); }
+    if value > 1.7976931348623157e308 || value < -1.7976931348623157e308 {
+        panic("non-finite value (inf) reached output; fail closed — check inputs");
+    }
+    return value;
+}
+
+// Integer rendering is only valid inside the exactly-representable range:
+// int() saturates at i64::MAX, so 2^63 once printed as 9223372036854775807
+// (off by one — a silently wrong digit string). Beyond 2^53 the float form
+// is the honest rendering.
+fn integer_renderable(value) {
+    return value == trunc(value)
+        && value < 9007199254740992.0 && value > -9007199254740992.0;
+}
+
+fn print_number(value) uses(io.print) {
+    refuse_non_finite(value);
+    if integer_renderable(value) {
+        print(int(value));
+    } else {
+        print(value);
+    }
+}
+
+fn number_text(value) {
+    refuse_non_finite(value);
+    if integer_renderable(value) { return str(int(value)); }
+    return str(value);
+}
+
+fn stats(argv) uses(io.print) {
+    if len(argv) < 2 { panic("stats requires at least one value"); }
+    let first = strict_float(argv[1]);
+    let total = 0.0;
+    let low = first;
+    let high = first;
+    let i = 1;
+    while i < len(argv) {
+        let value = strict_float(argv[i]);
+        total = total + value;
+        if value < low { low = value; }
+        if value > high { high = value; }
+        i = i + 1;
+    }
+    let count = len(argv) - 1;
+    print("n=${count} sum=${number_text(total)} mean=${number_text(total / count)} min=${number_text(low)} max=${number_text(high)}");
+}
+
+// ---------------------------------------------------------------------------
+// MA'AT STEM CORE — domain models and numerical algorithms, all in Anubis.
+// ---------------------------------------------------------------------------
+
+struct Vec3 {
+    x: float,
+    y: float,
+    z: float,
+}
+
+struct Regression {
+    slope: float,
+    intercept: float,
+    correlation: float,
+}
+
+enum PrimeVerdict {
+    Prime(i64),
+    Composite { value: i64, divisor: i64 },
+    OutsideDomain(i64),
+}
+
+fn arg_float(argv, index) {
+    return strict_float(argv[index]);
+}
+
+fn arg_int(argv, index) {
+    return strict_int(argv[index]);
+}
+
+fn vec3(argv, offset) {
+    return Vec3 {
+        x: arg_float(argv, offset),
+        y: arg_float(argv, offset + 1),
+        z: arg_float(argv, offset + 2),
+    };
+}
+
+fn dot3(a, b) {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+fn cross3(a, b) {
+    return Vec3 {
+        x: a.y * b.z - a.z * b.y,
+        y: a.z * b.x - a.x * b.z,
+        z: a.x * b.y - a.y * b.x,
+    };
+}
+
+fn norm_vec3(v) {
+    return sqrt(dot3(v, v));
+}
+
+fn vec_text(v) {
+    return "[${number_text(v.x)},${number_text(v.y)},${number_text(v.z)}]";
+}
+
+fn quadratic(argv) uses(io.print) {
+    require_arity(argv, 4);
+    let a = arg_float(argv, 1);
+    let b = arg_float(argv, 2);
+    let c = arg_float(argv, 3);
+    if a == 0.0 { panic("quadratic coefficient a must be nonzero"); }
+    let discriminant = b * b - 4.0 * a * c;
+    if discriminant >= 0.0 {
+        let root = sqrt(discriminant);
+        let first = (-b + root) / (2.0 * a);
+        let second = (-b - root) / (2.0 * a);
+        print("roots=${number_text(first)},${number_text(second)} discriminant=${number_text(discriminant)}");
+    } else {
+        let real = -b / (2.0 * a);
+        let imaginary = sqrt(-discriminant) / abs(2.0 * a);
+        print("complex roots: real=${number_text(real)} imaginary=${number_text(imaginary)}");
+    }
+}
+
+fn choose(n, r) {
+    if n < 0 || r < 0 || r > n { panic("nCr requires 0 <= r <= n"); }
+    let k = r;
+    if n - r < k { k = n - r; }
+    let limit = 9223372036854775807;
+    let result = 1;
+    let i = 1;
+    while i <= k {
+        let factor = n - k + i;
+        let g = gcd_safe(factor, i);
+        let reduced_factor = factor / g;
+        let reduced_step = i / g;
+        // reduced_step divides result exactly, so partial is a true binomial prefix;
+        // prefixes are nondecreasing, so this guard fires iff C(n,r) itself exceeds i64.
+        let partial = result / reduced_step;
+        if partial > limit / reduced_factor {
+            panic("nCr overflow: C(${n},${r}) exceeds i64; fail closed rather than wrap");
+        }
+        result = partial * reduced_factor;
+        i = i + 1;
+    }
+    return result;
+}
+
+fn prime_verdict(value) {
+    if value < 2 { return PrimeVerdict::OutsideDomain(value); }
+    if value == 2 { return PrimeVerdict::Prime(value); }
+    if value % 2 == 0 { return PrimeVerdict::Composite { value: value, divisor: 2 }; }
+    let divisor = 3;
+    while divisor <= value / divisor {
+        if value % divisor == 0 {
+            return PrimeVerdict::Composite { value: value, divisor: divisor };
+        }
+        divisor = divisor + 2;
+    }
+    return PrimeVerdict::Prime(value);
+}
+
+fn print_prime(value) uses(io.print) {
+    match prime_verdict(value) {
+        PrimeVerdict::Prime(n) => print("${n} is prime"),
+        PrimeVerdict::Composite { value: n, divisor: d } => print("${n} is composite; factor=${d}"),
+        PrimeVerdict::OutsideDomain(n) => print("${n} is outside the prime domain"),
+    }
+}
+
+fn sorted_samples(argv, start) {
+    let values = [];
+    let i = start;
+    while i < len(argv) {
+        push(values, arg_float(argv, i));
+        i = i + 1;
+    }
+    return sort(values);
+}
+
+fn median(values) {
+    let n = len(values);
+    if n == 0 { panic("median requires data"); }
+    let middle = n / 2;
+    if n % 2 == 1 { return values[middle]; }
+    return (values[middle - 1] + values[middle]) / 2.0;
+}
+
+fn describe(argv) uses(io.print) {
+    if len(argv) < 2 { panic("describe requires data"); }
+    let values = sorted_samples(argv, 1);
+    let total = 0.0;
+    for value in values { total = total + value; }
+    let mean = total / len(values);
+    let squared = 0.0;
+    for value in values {
+        let delta = value - mean;
+        squared = squared + delta * delta;
+    }
+    let variance = squared / len(values);
+    let span = values[len(values) - 1] - values[0];
+    print("n=${len(values)} mean=${number_text(mean)} median=${number_text(median(values))} variance=${number_text(variance)} sd=${number_text(sqrt(variance))} range=${number_text(span)}");
+}
+
+fn linear_regression(argv) {
+    if len(argv) < 5 || (len(argv) - 1) % 2 != 0 { panic("linreg requires x y pairs"); }
+    let n = (len(argv) - 1) / 2;
+    let sx = 0.0;
+    let sy = 0.0;
+    let sxx = 0.0;
+    let syy = 0.0;
+    let sxy = 0.0;
+    let i = 1;
+    while i < len(argv) {
+        let x = arg_float(argv, i);
+        let y = arg_float(argv, i + 1);
+        sx = sx + x;
+        sy = sy + y;
+        sxx = sxx + x * x;
+        syy = syy + y * y;
+        sxy = sxy + x * y;
+        i = i + 2;
+    }
+    let denominator = n * sxx - sx * sx;
+    let corr_denominator = sqrt((n * sxx - sx * sx) * (n * syy - sy * sy));
+    if denominator == 0.0 || corr_denominator == 0.0 { panic("linreg requires varying x and y"); }
+    let slope = (n * sxy - sx * sy) / denominator;
+    return Regression {
+        slope: slope,
+        intercept: (sy - slope * sx) / n,
+        correlation: (n * sxy - sx * sy) / corr_denominator,
+    };
+}
+
+fn print_regression(argv) uses(io.print) {
+    let fit = linear_regression(argv);
+    print("y=${number_text(fit.slope)}*x+${number_text(fit.intercept)} r=${number_text(fit.correlation)} r2=${number_text(fit.correlation * fit.correlation)}");
+}
+
+fn convert_unit(value, source, target) {
+    if source == target { return value; }
+    // Length, SI base metre.
+    if source == "km" && target == "m" { return value * 1000.0; }
+    if source == "m" && target == "km" { return value / 1000.0; }
+    if source == "cm" && target == "m" { return value / 100.0; }
+    if source == "m" && target == "cm" { return value * 100.0; }
+    if source == "in" && target == "m" { return value * 0.0254; }
+    if source == "m" && target == "in" { return value / 0.0254; }
+    if source == "ft" && target == "m" { return value * 0.3048; }
+    if source == "m" && target == "ft" { return value / 0.3048; }
+    // Mass, SI base kilogram.
+    if source == "kg" && target == "g" { return value * 1000.0; }
+    if source == "g" && target == "kg" { return value / 1000.0; }
+    if source == "lb" && target == "kg" { return value * 0.45359237; }
+    if source == "kg" && target == "lb" { return value / 0.45359237; }
+    // Temperature.
+    if source == "C" && target == "F" { return value * 9.0 / 5.0 + 32.0; }
+    if source == "F" && target == "C" { return (value - 32.0) * 5.0 / 9.0; }
+    if source == "C" && target == "K" { return value + 273.15; }
+    if source == "K" && target == "C" { return value - 273.15; }
+    // Pressure and energy.
+    if source == "atm" && target == "Pa" { return value * 101325.0; }
+    if source == "Pa" && target == "atm" { return value / 101325.0; }
+    if source == "bar" && target == "Pa" { return value * 100000.0; }
+    if source == "Pa" && target == "bar" { return value / 100000.0; }
+    if source == "kWh" && target == "J" { return value * 3600000.0; }
+    if source == "J" && target == "kWh" { return value / 3600000.0; }
+    panic("unsupported or dimension-mismatched conversion: ${source} -> ${target}");
+}
+
+fn print_conversion(argv) uses(io.print) {
+    require_arity(argv, 4);
+    print("${number_text(convert_unit(arg_float(argv, 1), argv[2], argv[3]))} ${argv[3]}");
+}
+
+fn print_ohm(argv) uses(io.print) {
+    require_arity(argv, 4);
+    let mode = argv[1];
+    let first = arg_float(argv, 2);
+    let second = arg_float(argv, 3);
+    let voltage = 0.0;
+    let current = 0.0;
+    let resistance = 0.0;
+    if mode == "v" {
+        voltage = first;
+        resistance = second;
+        current = voltage / resistance;
+    } else if mode == "i" {
+        current = first;
+        resistance = second;
+        voltage = current * resistance;
+    } else if mode == "r" {
+        voltage = first;
+        current = second;
+        resistance = voltage / current;
+    } else {
+        panic("ohm mode must be v, i, or r");
+    }
+    print("voltage=${number_text(voltage)} V current=${number_text(current)} A resistance=${number_text(resistance)} ohm power=${number_text(voltage * current)} W");
+}
+
+fn projectile(argv) uses(io.print) {
+    require_arity(argv, 4);
+    let speed = arg_float(argv, 1);
+    let angle = arg_float(argv, 2) * pi() / 180.0;
+    let gravity = arg_float(argv, 3);
+    if gravity <= 0.0 { panic("gravity must be positive"); }
+    let flight = 2.0 * speed * sin(angle) / gravity;
+    let distance = speed * speed * sin(2.0 * angle) / gravity;
+    let height = speed * speed * sin(angle) * sin(angle) / (2.0 * gravity);
+    print("range=${number_text(distance)} m time=${number_text(flight)} s max-height=${number_text(height)} m");
+}
+
+fn orbit(argv) uses(io.print) {
+    require_arity(argv, 3);
+    let radius = arg_float(argv, 1);
+    let mu = arg_float(argv, 2);
+    if radius <= 0.0 || mu <= 0.0 { panic("orbit radius and gravitational parameter must be positive"); }
+    let speed = sqrt(mu / radius);
+    let period = 2.0 * pi() * sqrt(radius * radius * radius / mu);
+    print("speed=${number_text(speed)} m/s period=${number_text(period)} s");
+}
+
+// ---------------------------------------------------------------------------
+// JACKAL 10× — measured quantities, numerical lab, and claim-aware output.
+// ---------------------------------------------------------------------------
+
+struct Measurement {
+    value: float,
+    uncertainty: float,
+    unit: string,
+}
+
+struct Matrix2 {
+    a: float,
+    b: float,
+    c: float,
+    d: float,
+}
+
+enum SpectrumBand {
+    Ultraviolet,
+    Visible,
+    Infrared,
+}
+
+fn measurement(value, uncertainty, unit) {
+    if uncertainty < 0.0 { panic("measurement uncertainty must be nonnegative"); }
+    return Measurement { value: value, uncertainty: uncertainty, unit: unit };
+}
+
+fn relative_uncertainty(item) {
+    if item.value == 0.0 { panic("relative uncertainty undefined at zero"); }
+    return abs(item.uncertainty / item.value);
+}
+
+fn multiply_measurements(left, right, output_unit) {
+    let value = left.value * right.value;
+    let relative = relative_uncertainty(left) + relative_uncertainty(right);
+    return Measurement {
+        value: value,
+        uncertainty: abs(value) * relative,
+        unit: output_unit,
+    };
+}
+
+fn divide_measurements(numerator, denominator, output_unit) {
+    if denominator.value == 0.0 { panic("measurement division by zero"); }
+    let value = numerator.value / denominator.value;
+    let relative = relative_uncertainty(numerator) + relative_uncertainty(denominator);
+    return Measurement {
+        value: value,
+        uncertainty: abs(value) * relative,
+        unit: output_unit,
+    };
+}
+
+fn measurement_text(item) {
+    let relative = relative_uncertainty(item) * 100.0;
+    return "${number_text(item.value)} ± ${number_text(rounded(item.uncertainty, 12.0))} ${item.unit} (${number_text(rounded(relative, 12.0))}%)";
+}
+
+fn matrix2(argv, offset) {
+    return Matrix2 {
+        a: arg_float(argv, offset),
+        b: arg_float(argv, offset + 1),
+        c: arg_float(argv, offset + 2),
+        d: arg_float(argv, offset + 3),
+    };
+}
+
+fn determinant2(matrix) {
+    return matrix.a * matrix.d - matrix.b * matrix.c;
+}
+
+fn inverse2(matrix) {
+    let determinant = determinant2(matrix);
+    if determinant == 0.0 { panic("singular matrix has no inverse"); }
+    return Matrix2 {
+        a: matrix.d / determinant,
+        b: -matrix.b / determinant,
+        c: -matrix.c / determinant,
+        d: matrix.a / determinant,
+    };
+}
+
+fn matrix_text(matrix) {
+    return "[${number_text(matrix.a)},${number_text(matrix.b)};${number_text(matrix.c)},${number_text(matrix.d)}]";
+}
+
+fn solve_linear2(argv) uses(io.print) {
+    require_arity(argv, 7);
+    let a = arg_float(argv, 1);
+    let b = arg_float(argv, 2);
+    let p = arg_float(argv, 3);
+    let c = arg_float(argv, 4);
+    let d = arg_float(argv, 5);
+    let q = arg_float(argv, 6);
+    let determinant = a * d - b * c;
+    if determinant == 0.0 { panic("linear system is singular"); }
+    let x = (p * d - b * q) / determinant;
+    let y = (a * q - p * c) / determinant;
+    let residual1 = abs(a * x + b * y - p);
+    let residual2 = abs(c * x + d * y - q);
+    let residual = max(residual1, residual2);
+    print("x=${number_text(x)} y=${number_text(y)} residual=${number_text(residual)}");
+}
+
+fn integrate_square_simpson(start, finish, panels) {
+    if panels <= 0 || panels % 2 != 0 { panic("Simpson integration requires a positive even panel count"); }
+    let width = (finish - start) / panels;
+    let total = start * start + finish * finish;
+    let i = 1;
+    while i < panels {
+        let x = start + i * width;
+        let weight = if i % 2 == 0 { 2.0 } else { 4.0 };
+        total = total + weight * x * x;
+        i = i + 1;
+    }
+    return total * width / 3.0;
+}
+
+fn derivative_cube(value, step) {
+    if step <= 0.0 { panic("derivative step must be positive"); }
+    return (pow(value + step, 3.0) - pow(value - step, 3.0)) / (2.0 * step);
+}
+
+fn spectrum_band(wavelength_nm) {
+    if wavelength_nm < 380.0 { return SpectrumBand::Ultraviolet; }
+    if wavelength_nm <= 750.0 { return SpectrumBand::Visible; }
+    return SpectrumBand::Infrared;
+}
+
+fn spectrum_text(band) {
+    return match band {
+        SpectrumBand::Ultraviolet => "ultraviolet",
+        SpectrumBand::Visible => "visible",
+        SpectrumBand::Infrared => "infrared",
+    };
+}
+
+fn require_finite_admission(value, name) {
+    if value != value || value > 1.7976931348623157e308 || value < -1.7976931348623157e308 {
+        panic("claim-card admission: ${name} must be finite; a fingerprint is not an accept verdict; fail closed");
+    }
+}
+
+fn projectile_claim_card(argv) uses(io.print) {
+    require_arity(argv, 5);
+    if argv[1] != "projectile" { panic("claim-card currently supports projectile"); }
+    let speed = arg_float(argv, 2);
+    let angle_degrees = arg_float(argv, 3);
+    let gravity = arg_float(argv, 4);
+    // Admission before fingerprinting: NaN compares false against every guard,
+    // so an explicit finite gate is required — a fingerprint authenticates
+    // canonical bytes; it must never read as an accept verdict for garbage.
+    require_finite_admission(speed, "speed");
+    require_finite_admission(angle_degrees, "angle");
+    require_finite_admission(gravity, "gravity");
+    if speed < 0.0 || gravity <= 0.0 { panic("invalid projectile claim inputs"); }
+    let angle = angle_degrees * pi() / 180.0;
+    let distance = speed * speed * sin(2.0 * angle) / gravity;
+    let flight = 2.0 * speed * sin(angle) / gravity;
+    let height = speed * speed * sin(angle) * sin(angle) / (2.0 * gravity);
+    let canonical = "jackal-claim-v1|ideal-projectile|speed=${speed}|angle-deg=${angle_degrees}|gravity=${gravity}|range=${distance}|time=${flight}|height=${height}";
+    print("JACKAL CLAIM CARD v1");
+    print("status=model-based");
+    print("model=ideal-projectile");
+    print("inputs.speed=${number_text(speed)} m/s inputs.angle=${number_text(angle_degrees)} deg inputs.gravity=${number_text(gravity)} m/s2");
+    print("assumptions=same elevation; vacuum; constant gravity; point mass");
+    print("observed.range=${number_text(distance)} m observed.time=${number_text(flight)} s observed.max-height=${number_text(height)} m");
+    print("sensitivity.speed=2 sensitivity.gravity=-1");
+    print("non-claims=no drag; no wind; no terrain; no uncertainty inferred");
+    print("canonical=${canonical}");
+    print("fingerprint.sha256=${hash_sha256(canonical)}");
+}
+
+// ---------------------------------------------------------------------------
+// JACKAL EXPRESSION ENGINE — tokenizer, recursive-descent parser, evaluator.
+// Grammar:  expr  := term (('+'|'-') term)*
+//           term  := unary (('*'|'/'|'%') unary)*
+//           unary := '-' unary | power
+//           power := atom ('^' unary)?          -- right-associative
+//           atom  := NUMBER | CONST | 'x' | FN '(' expr {',' expr} ')' | '(' expr ')'
+// Unary minus binds looser than '^', so -3^2 = -9 (calculator convention).
+// Deliberately stricter than the language's IEEE leniency: division/modulo by
+// zero and non-finite results fail closed instead of returning inf/NaN.
+// ---------------------------------------------------------------------------
+
+struct Token {
+    kind: string,
+    num: float,
+    text: string,
+    at: i64,
+}
+
+struct EvalState {
+    value: float,
+    next: i64,
+}
+
+struct ArgsState {
+    values: list,
+    next: i64,
+}
+
+fn char_in(set, ch) {
+    let i = 0;
+    while i < len(set) {
+        if char_at(set, i) == ch { return true; }
+        i = i + 1;
+    }
+    return false;
+}
+
+fn is_digit_char(ch) { return char_in("0123456789", ch); }
+fn is_alpha_char(ch) { return char_in("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_", ch); }
+
+fn make_token(kind, num, text, at) {
+    return Token { kind: kind, num: num, text: text, at: at };
+}
+
+fn tokenize(source) {
+    let tokens = [];
+    let i = 0;
+    while i < len(source) {
+        let ch = char_at(source, i);
+        if ch == " " || ch == "\t" { i = i + 1; continue; }
+        if is_digit_char(ch) {
+            let start = i;
+            let text = "";
+            while i < len(source) && is_digit_char(char_at(source, i)) {
+                text = text + char_at(source, i);
+                i = i + 1;
+            }
+            if i < len(source) && char_at(source, i) == "." {
+                text = text + ".";
+                i = i + 1;
+                if i >= len(source) || !is_digit_char(char_at(source, i)) {
+                    panic("expression error: digits must follow the decimal point at offset ${i}");
+                }
+                while i < len(source) && is_digit_char(char_at(source, i)) {
+                    text = text + char_at(source, i);
+                    i = i + 1;
+                }
+            }
+            if i < len(source) && (char_at(source, i) == "e" || char_at(source, i) == "E") {
+                let j = i + 1;
+                if j < len(source) && (char_at(source, j) == "+" || char_at(source, j) == "-") { j = j + 1; }
+                if j < len(source) && is_digit_char(char_at(source, j)) {
+                    text = text + char_at(source, i);
+                    i = i + 1;
+                    if char_at(source, i) == "+" || char_at(source, i) == "-" {
+                        text = text + char_at(source, i);
+                        i = i + 1;
+                    }
+                    while i < len(source) && is_digit_char(char_at(source, i)) {
+                        text = text + char_at(source, i);
+                        i = i + 1;
+                    }
+                }
+            }
+            push(tokens, make_token("num", parse_float(text), text, start));
+            continue;
+        }
+        if is_alpha_char(ch) {
+            let start = i;
+            let text = "";
+            while i < len(source) && (is_alpha_char(char_at(source, i)) || is_digit_char(char_at(source, i))) {
+                text = text + char_at(source, i);
+                i = i + 1;
+            }
+            push(tokens, make_token("ident", 0.0, text, start));
+            continue;
+        }
+        if char_in("+-*/%^", ch) { push(tokens, make_token("op", 0.0, ch, i)); i = i + 1; continue; }
+        if ch == "(" { push(tokens, make_token("lparen", 0.0, "(", i)); i = i + 1; continue; }
+        if ch == ")" { push(tokens, make_token("rparen", 0.0, ")", i)); i = i + 1; continue; }
+        if ch == "," { push(tokens, make_token("comma", 0.0, ",", i)); i = i + 1; continue; }
+        if ch == "=" { push(tokens, make_token("assign", 0.0, "=", i)); i = i + 1; continue; }
+        panic("expression error: unsupported character '${ch}' at offset ${i}");
+    }
+    push(tokens, make_token("end", 0.0, "", len(source)));
+    return tokens;
+}
+
+fn is_constant_name(name) {
+    return name == "pi" || name == "e" || name == "tau" || name == "c" || name == "g0"
+        || name == "h" || name == "na" || name == "kb" || name == "r";
+}
+
+fn constant_value(name) {
+    if name == "pi" { return pi(); }
+    if name == "e" { return e(); }
+    if name == "tau" { return 2.0 * pi(); }
+    if name == "c" { return 299792458.0; }
+    if name == "g0" { return 9.80665; }
+    if name == "h" { return 6.62607015e-34; }
+    if name == "na" { return 6.02214076e23; }
+    if name == "kb" { return 1.380649e-23; }
+    if name == "r" { return 8.31446261815324; }
+    panic("unknown constant: ${name}");
+}
+
+fn expect_arity_fn(name, values, count, at) {
+    if len(values) != count {
+        panic("expression error: ${name} expects ${count} argument(s), got ${len(values)} at offset ${at}");
+    }
+}
+
+fn apply_function(name, values, at) {
+    if name == "sin" { expect_arity_fn(name, values, 1, at); return sin(values[0]); }
+    if name == "cos" { expect_arity_fn(name, values, 1, at); return cos(values[0]); }
+    if name == "tan" { expect_arity_fn(name, values, 1, at); return tan(values[0]); }
+    if name == "asin" { expect_arity_fn(name, values, 1, at); return asin(values[0]); }
+    if name == "acos" { expect_arity_fn(name, values, 1, at); return acos(values[0]); }
+    if name == "atan" { expect_arity_fn(name, values, 1, at); return atan(values[0]); }
+    if name == "sqrt" { expect_arity_fn(name, values, 1, at); return sqrt(values[0]); }
+    if name == "cbrt" { expect_arity_fn(name, values, 1, at); return cbrt(values[0]); }
+    if name == "ln" { expect_arity_fn(name, values, 1, at); return ln(values[0]); }
+    if name == "log10" { expect_arity_fn(name, values, 1, at); return log10(values[0]); }
+    if name == "log2" { expect_arity_fn(name, values, 1, at); return log2(values[0]); }
+    if name == "exp" { expect_arity_fn(name, values, 1, at); return exp(values[0]); }
+    if name == "abs" { expect_arity_fn(name, values, 1, at); return abs(values[0]); }
+    if name == "floor" { expect_arity_fn(name, values, 1, at); return 0.0 + floor(values[0]); }
+    if name == "ceil" { expect_arity_fn(name, values, 1, at); return 0.0 + ceil(values[0]); }
+    if name == "round" { expect_arity_fn(name, values, 1, at); return 0.0 + round(values[0]); }
+    if name == "trunc" { expect_arity_fn(name, values, 1, at); return 0.0 + trunc(values[0]); }
+    if name == "hypot" { expect_arity_fn(name, values, 2, at); return hypot(values[0], values[1]); }
+    if name == "pow" { expect_arity_fn(name, values, 2, at); return pow(values[0], values[1]); }
+    if name == "atan2" { expect_arity_fn(name, values, 2, at); return atan2(values[0], values[1]); }
+    if name == "min" { expect_arity_fn(name, values, 2, at); return min(values[0], values[1]); }
+    if name == "max" { expect_arity_fn(name, values, 2, at); return max(values[0], values[1]); }
+    panic("expression error: unknown function '${name}' at offset ${at}");
+}
+
+fn map_has_key(m, key) {
+    for k in m {
+        if k == key { return true; }
+    }
+    return false;
+}
+
+fn parse_call_args(tokens, pos, env) {
+    // pos points at the lparen.
+    let values = [];
+    let cursor = pos + 1;
+    if tokens[cursor].kind == "rparen" { return ArgsState { values: values, next: cursor + 1 }; }
+    let state = parse_expr(tokens, cursor, env);
+    push(values, state.value);
+    cursor = state.next;
+    while tokens[cursor].kind == "comma" {
+        state = parse_expr(tokens, cursor + 1, env);
+        push(values, state.value);
+        cursor = state.next;
+    }
+    if tokens[cursor].kind != "rparen" {
+        let bad = tokens[cursor];
+        panic("expression error: expected ')' at offset ${bad.at}");
+    }
+    return ArgsState { values: values, next: cursor + 1 };
+}
+
+fn parse_atom(tokens, pos, env) {
+    let token = tokens[pos];
+    if token.kind == "num" { return EvalState { value: token.num, next: pos + 1 }; }
+    if token.kind == "lparen" {
+        let inner = parse_expr(tokens, pos + 1, env);
+        let closing = tokens[inner.next];
+        if closing.kind != "rparen" { panic("expression error: expected ')' at offset ${closing.at}"); }
+        return EvalState { value: inner.value, next: inner.next + 1 };
+    }
+    if token.kind == "ident" {
+        let follower = tokens[pos + 1];
+        if follower.kind == "lparen" {
+            let args = parse_call_args(tokens, pos + 1, env);
+            return EvalState { value: apply_function(token.text, args.values, token.at), next: args.next };
+        }
+        if map_has_key(env, token.text) {
+            return EvalState { value: get(env, token.text, 0.0), next: pos + 1 };
+        }
+        if is_constant_name(token.text) {
+            return EvalState { value: constant_value(token.text), next: pos + 1 };
+        }
+        if token.text == "x" { panic("expression error: variable x is only bound inside integrate/derivative/solve"); }
+        panic("expression error: unknown identifier '${token.text}' at offset ${token.at}");
+    }
+    if token.kind == "end" { panic("expression error: unexpected end of expression"); }
+    panic("expression error: unexpected '${token.text}' at offset ${token.at}");
+}
+
+fn parse_power(tokens, pos, env) {
+    let base = parse_atom(tokens, pos, env);
+    if tokens[base.next].kind == "op" && tokens[base.next].text == "^" {
+        let exponent = parse_unary(tokens, base.next + 1, env);
+        return EvalState { value: pow(base.value, exponent.value), next: exponent.next };
+    }
+    return base;
+}
+
+fn parse_unary(tokens, pos, env) {
+    if tokens[pos].kind == "op" && tokens[pos].text == "-" {
+        let inner = parse_unary(tokens, pos + 1, env);
+        return EvalState { value: -inner.value, next: inner.next };
+    }
+    return parse_power(tokens, pos, env);
+}
+
+fn parse_term(tokens, pos, env) {
+    let state = parse_unary(tokens, pos, env);
+    while tokens[state.next].kind == "op"
+        && (tokens[state.next].text == "*" || tokens[state.next].text == "/" || tokens[state.next].text == "%") {
+        let operator = tokens[state.next].text;
+        let right = parse_unary(tokens, state.next + 1, env);
+        if operator == "*" {
+            state = EvalState { value: state.value * right.value, next: right.next };
+        } else if operator == "/" {
+            if right.value == 0.0 { panic("expression error: division by zero; fail closed"); }
+            state = EvalState { value: state.value / right.value, next: right.next };
+        } else {
+            if right.value == 0.0 { panic("expression error: modulo by zero; fail closed"); }
+            state = EvalState { value: state.value % right.value, next: right.next };
+        }
+    }
+    return state;
+}
+
+fn parse_expr(tokens, pos, env) {
+    let state = parse_term(tokens, pos, env);
+    while tokens[state.next].kind == "op"
+        && (tokens[state.next].text == "+" || tokens[state.next].text == "-") {
+        let operator = tokens[state.next].text;
+        let right = parse_term(tokens, state.next + 1, env);
+        if operator == "+" {
+            state = EvalState { value: state.value + right.value, next: right.next };
+        } else {
+            state = EvalState { value: state.value - right.value, next: right.next };
+        }
+    }
+    return state;
+}
+
+fn require_finite(value, source) {
+    if value != value { panic("expression produced NaN (IEEE domain violation); fail closed: ${source}"); }
+    if value > 1.7976931348623157e308 || value < -1.7976931348623157e308 {
+        panic("expression produced a non-finite value; fail closed: ${source}");
+    }
+}
+
+fn evaluate_expression(source, env) {
+    if len(source) == 0 { panic("expression error: empty expression"); }
+    let tokens = tokenize(source);
+    let state = parse_expr(tokens, 0, env);
+    if tokens[state.next].kind != "end" {
+        let leftover = tokens[state.next];
+        panic("expression error: unexpected '${leftover.text}' at offset ${leftover.at}");
+    }
+    require_finite(state.value, source);
+    return state.value;
+}
+
+fn simpson_general(source, start, finish, panels) {
+    if panels <= 0 || panels % 2 != 0 { panic("Simpson integration requires a positive even panel count"); }
+    let width = (finish - start) / panels;
+    let total = evaluate_expression(source, { "x": start }) + evaluate_expression(source, { "x": finish });
+    let i = 1;
+    while i < panels {
+        let xv = start + i * width;
+        let weight = if i % 2 == 0 { 2.0 } else { 4.0 };
+        total = total + weight * evaluate_expression(source, { "x": xv });
+        i = i + 1;
+    }
+    return total * width / 3.0;
+}
+
+fn is_function_name(name) {
+    return name == "sin" || name == "cos" || name == "tan" || name == "asin" || name == "acos"
+        || name == "atan" || name == "sqrt" || name == "cbrt" || name == "ln" || name == "log10"
+        || name == "log2" || name == "exp" || name == "abs" || name == "floor" || name == "ceil"
+        || name == "round" || name == "trunc" || name == "hypot" || name == "pow" || name == "atan2"
+        || name == "min" || name == "max";
+}
+
+fn is_reserved_name(name) {
+    return is_constant_name(name) || is_function_name(name);
+}
+
+fn statement_is_blank(statement) {
+    let i = 0;
+    while i < len(statement) {
+        let ch = char_at(statement, i);
+        if ch != " " && ch != "\t" { return false; }
+        i = i + 1;
+    }
+    return true;
+}
+
+// Worksheet mode: semicolon-separated statements, `name = expr` assignments persist
+// into later statements. Reserved names (constants, functions) cannot be shadowed.
+fn run_worksheet(source) uses(io.print) {
+    let env = {};
+    let statements = [];
+    let current = "";
+    let i = 0;
+    while i < len(source) {
+        let ch = char_at(source, i);
+        if ch == ";" { push(statements, current); current = ""; } else { current = current + ch; }
+        i = i + 1;
+    }
+    push(statements, current);
+    let evaluated = 0;
+    for statement in statements {
+        if statement_is_blank(statement) { continue; }
+        let tokens = tokenize(statement);
+        if len(tokens) >= 3 && tokens[0].kind == "ident" && tokens[1].kind == "assign" {
+            let name = tokens[0].text;
+            if is_reserved_name(name) { panic("worksheet error: cannot assign to reserved name '${name}'"); }
+            let state = parse_expr(tokens, 2, env);
+            if tokens[state.next].kind != "end" {
+                let leftover = tokens[state.next];
+                panic("expression error: unexpected '${leftover.text}' at offset ${leftover.at}");
+            }
+            require_finite(state.value, statement);
+            env[name] = state.value;
+            print("${name} = ${number_text(state.value)}");
+        } else {
+            let state = parse_expr(tokens, 0, env);
+            if tokens[state.next].kind != "end" {
+                let leftover = tokens[state.next];
+                panic("expression error: unexpected '${leftover.text}' at offset ${leftover.at}");
+            }
+            require_finite(state.value, statement);
+            print(number_text(state.value));
+        }
+        evaluated = evaluated + 1;
+    }
+    if evaluated == 0 { panic("worksheet error: no statements"); }
+}
+
+// ---------------------------------------------------------------------------
+// JACKAL EXACT INTEGER ENGINE — arbitrary-precision nonnegative integers as
+// little-endian base-1e9 limb lists. Every result is exact; compute budgets
+// fail closed. Limb products stay within i64: (1e9-1)^2 + 2e9 < 2^63.
+// ---------------------------------------------------------------------------
+
+struct BigDivState {
+    quotient: list,
+    remainder: i64,
+}
+
+fn digit_value(ch) {
+    let digits = "0123456789";
+    let i = 0;
+    while i < 10 {
+        if char_at(digits, i) == ch { return i; }
+        i = i + 1;
+    }
+    panic("big-integer input must be decimal digits only");
+}
+
+fn big_normalize(a) {
+    while len(a) > 1 && a[len(a) - 1] == 0 { pop(a); }
+    return a;
+}
+
+fn big_from_text(text) {
+    if len(text) == 0 { panic("big-integer input must be decimal digits only"); }
+    let limbs = [];
+    let end = len(text);
+    while end > 0 {
+        let start = end - 9;
+        if start < 0 { start = 0; }
+        let value = 0;
+        let j = start;
+        while j < end {
+            value = value * 10 + digit_value(char_at(text, j));
+            j = j + 1;
+        }
+        push(limbs, value);
+        end = start;
+    }
+    return big_normalize(limbs);
+}
+
+fn zero_padded9(limb) {
+    let text = str(limb);
+    while len(text) < 9 { text = "0" + text; }
+    return text;
+}
+
+fn big_to_text(a) {
+    let text = str(a[len(a) - 1]);
+    let i = len(a) - 2;
+    while i >= 0 {
+        text = text + zero_padded9(a[i]);
+        i = i - 1;
+    }
+    return text;
+}
+
+// SMT-proven carry-split invariants: the checker discharges these contracts
+// statically, so every limb the adder emits is machine-proven to be a valid
+// base-1e9 digit.
+fn base_low(total: i64) -> i64
+    requires(total >= 0)
+    ensures(result >= 0)
+    ensures(result < 1000000000)
+{
+    return total % 1000000000;
+}
+
+fn base_high(total: i64) -> i64
+    requires(total >= 0)
+    ensures(result >= 0)
+    ensures(result <= total)
+{
+    return total / 1000000000;
+}
+
+fn big_add(a, b) {
+    let result = [];
+    let carry = 0;
+    let i = 0;
+    while i < len(a) || i < len(b) || carry > 0 {
+        let total = carry;
+        if i < len(a) { total = total + a[i]; }
+        if i < len(b) { total = total + b[i]; }
+        push(result, base_low(total));
+        carry = base_high(total);
+        i = i + 1;
+    }
+    if len(result) == 0 { push(result, 0); }
+    return result;
+}
+
+fn big_mul_small(a, k) {
+    // k is bounded by the compute-budget caps (<= 10000), so limb*k fits i64 easily.
+    let result = [];
+    let carry = 0;
+    let i = 0;
+    while i < len(a) {
+        let total = a[i] * k + carry;
+        push(result, total % 1000000000);
+        carry = total / 1000000000;
+        i = i + 1;
+    }
+    while carry > 0 {
+        push(result, carry % 1000000000);
+        carry = carry / 1000000000;
+    }
+    if len(result) == 0 { push(result, 0); }
+    return big_normalize(result);
+}
+
+fn big_mul(a, b) {
+    let result = [];
+    let t = 0;
+    while t < len(a) + len(b) { push(result, 0); t = t + 1; }
+    let i = 0;
+    while i < len(a) {
+        let carry = 0;
+        let j = 0;
+        while j < len(b) {
+            let current = result[i + j] + a[i] * b[j] + carry;
+            result[i + j] = current % 1000000000;
+            carry = current / 1000000000;
+            j = j + 1;
+        }
+        let k = i + len(b);
+        while carry > 0 {
+            let current = result[k] + carry;
+            result[k] = current % 1000000000;
+            carry = current / 1000000000;
+            k = k + 1;
+        }
+        i = i + 1;
+    }
+    return big_normalize(result);
+}
+
+fn big_divmod_small(a, d) {
+    if d <= 0 { panic("big-integer division requires a positive small divisor"); }
+    let quotient = [];
+    let t = 0;
+    while t < len(a) { push(quotient, 0); t = t + 1; }
+    let remainder = 0;
+    let i = len(a) - 1;
+    while i >= 0 {
+        let current = remainder * 1000000000 + a[i];
+        quotient[i] = current / d;
+        remainder = current % d;
+        i = i - 1;
+    }
+    return BigDivState { quotient: big_normalize(quotient), remainder: remainder };
+}
+
+fn big_fact(n) {
+    if n < 0 || n > 10000 { panic("big-fact requires 0 <= n <= 10000 (compute budget); fail closed"); }
+    let result = [1];
+    let k = 2;
+    while k <= n {
+        result = big_mul_small(result, k);
+        k = k + 1;
+    }
+    return result;
+}
+
+fn big_ncr(n, r) {
+    if n < 0 || r < 0 || r > n { panic("nCr requires 0 <= r <= n"); }
+    if n > 10000 { panic("big-ncr requires n <= 10000 (compute budget); fail closed"); }
+    let k = r;
+    if n - r < k { k = n - r; }
+    let result = [1];
+    let i = 1;
+    while i <= k {
+        result = big_mul_small(result, n - k + i);
+        let division = big_divmod_small(result, i);
+        if division.remainder != 0 { panic("internal invariant violated in big-ncr; fail closed"); }
+        result = division.quotient;
+        i = i + 1;
+    }
+    return result;
+}
+
+fn big_pow(base, exponent) {
+    if exponent < 0 { panic("big-pow requires exponent >= 0"); }
+    if exponent > 10000 { panic("big-pow exponent is capped at 10000 (compute budget); fail closed"); }
+    let result = [1];
+    let e = 0;
+    while e < exponent {
+        result = big_mul(result, base);
+        e = e + 1;
+    }
+    return result;
+}
+
+// ---------------------------------------------------------------------------
+// JACKAL SYMBOLIC CORE — AST parser over the shared tokenizer, plus walkers:
+// float evaluation (soft IEEE, used only as a verification prober), symbolic
+// differentiation with numeric self-verification, and conservative
+// simplification. Node encoding: heterogeneous lists —
+//   ["num", value, text] ["var", name] ["const", name] ["neg", u]
+//   ["add"|"sub"|"mul"|"div"|"mod"|"pow", l, r] ["call", name, [args...]]
+// ---------------------------------------------------------------------------
+
+struct AstState {
+    node: list,
+    next: i64,
+}
+
+struct DiffCheck {
+    points: i64,
+    max_dev: float,
+    skipped: i64,
+}
+
+fn function_arity(name) {
+    if name == "hypot" || name == "pow" || name == "atan2" || name == "min" || name == "max" { return 2; }
+    return 1;
+}
+
+fn ast_parse_call_args(tokens, pos) {
+    // pos points at the lparen; returns AstState whose node is the list of argument nodes.
+    let arguments = [];
+    let cursor = pos + 1;
+    if tokens[cursor].kind == "rparen" { return AstState { node: arguments, next: cursor + 1 }; }
+    let state = ast_parse_expr(tokens, cursor);
+    push(arguments, state.node);
+    cursor = state.next;
+    while tokens[cursor].kind == "comma" {
+        state = ast_parse_expr(tokens, cursor + 1);
+        push(arguments, state.node);
+        cursor = state.next;
+    }
+    if tokens[cursor].kind != "rparen" {
+        let bad = tokens[cursor];
+        panic("expression error: expected ')' at offset ${bad.at}");
+    }
+    return AstState { node: arguments, next: cursor + 1 };
+}
+
+fn ast_parse_atom(tokens, pos) {
+    let token = tokens[pos];
+    if token.kind == "num" { return AstState { node: ["num", token.num, token.text], next: pos + 1 }; }
+    if token.kind == "lparen" {
+        let inner = ast_parse_expr(tokens, pos + 1);
+        let closing = tokens[inner.next];
+        if closing.kind != "rparen" { panic("expression error: expected ')' at offset ${closing.at}"); }
+        return AstState { node: inner.node, next: inner.next + 1 };
+    }
+    if token.kind == "ident" {
+        let follower = tokens[pos + 1];
+        if follower.kind == "lparen" {
+            if !is_function_name(token.text) { panic("expression error: unknown function '${token.text}' at offset ${token.at}"); }
+            let args = ast_parse_call_args(tokens, pos + 1);
+            if len(args.node) != function_arity(token.text) {
+                panic("expression error: ${token.text} expects ${function_arity(token.text)} argument(s), got ${len(args.node)} at offset ${token.at}");
+            }
+            return AstState { node: ["call", token.text, args.node], next: args.next };
+        }
+        if is_constant_name(token.text) { return AstState { node: ["const", token.text], next: pos + 1 }; }
+        return AstState { node: ["var", token.text], next: pos + 1 };
+    }
+    if token.kind == "end" { panic("expression error: unexpected end of expression"); }
+    panic("expression error: unexpected '${token.text}' at offset ${token.at}");
+}
+
+fn ast_parse_power(tokens, pos) {
+    let base = ast_parse_atom(tokens, pos);
+    if tokens[base.next].kind == "op" && tokens[base.next].text == "^" {
+        let exponent = ast_parse_unary(tokens, base.next + 1);
+        return AstState { node: ["pow", base.node, exponent.node], next: exponent.next };
+    }
+    return base;
+}
+
+fn ast_parse_unary(tokens, pos) {
+    if tokens[pos].kind == "op" && tokens[pos].text == "-" {
+        let inner = ast_parse_unary(tokens, pos + 1);
+        return AstState { node: ["neg", inner.node], next: inner.next };
+    }
+    return ast_parse_power(tokens, pos);
+}
+
+fn ast_parse_term(tokens, pos) {
+    let state = ast_parse_unary(tokens, pos);
+    while tokens[state.next].kind == "op"
+        && (tokens[state.next].text == "*" || tokens[state.next].text == "/" || tokens[state.next].text == "%") {
+        let operator = tokens[state.next].text;
+        let right = ast_parse_unary(tokens, state.next + 1);
+        let tag = "mul";
+        if operator == "/" { tag = "div"; }
+        if operator == "%" { tag = "mod"; }
+        state = AstState { node: [tag, state.node, right.node], next: right.next };
+    }
+    return state;
+}
+
+fn ast_parse_expr(tokens, pos) {
+    let state = ast_parse_term(tokens, pos);
+    while tokens[state.next].kind == "op"
+        && (tokens[state.next].text == "+" || tokens[state.next].text == "-") {
+        let operator = tokens[state.next].text;
+        let right = ast_parse_term(tokens, state.next + 1);
+        let tag = "add";
+        if operator == "-" { tag = "sub"; }
+        state = AstState { node: [tag, state.node, right.node], next: right.next };
+    }
+    return state;
+}
+
+fn parse_ast(source) {
+    if len(source) == 0 { panic("expression error: empty expression"); }
+    let tokens = tokenize(source);
+    let state = ast_parse_expr(tokens, 0);
+    if tokens[state.next].kind != "end" {
+        let leftover = tokens[state.next];
+        panic("expression error: unexpected '${leftover.text}' at offset ${leftover.at}");
+    }
+    return state.node;
+}
+
+// Soft IEEE evaluator: never panics on domain issues (NaN/inf flow through) so it
+// can PROBE sample points. The strict fail-closed front door remains
+// evaluate_expression; this walker is used only to verify symbolic output.
+fn eval_ast(node, env) {
+    let tag = node[0];
+    if tag == "num" { return node[1]; }
+    if tag == "var" {
+        let name = node[1];
+        return get(env, name, 0.0 / 0.0);
+    }
+    if tag == "const" { return constant_value(node[1]); }
+    if tag == "neg" { return -eval_ast(node[1], env); }
+    if tag == "call" {
+        let arguments = node[2];
+        let values = [];
+        let i = 0;
+        while i < len(arguments) { push(values, eval_ast(arguments[i], env)); i = i + 1; }
+        return apply_function(node[1], values, 0);
+    }
+    let left = eval_ast(node[1], env);
+    let right = eval_ast(node[2], env);
+    if tag == "add" { return left + right; }
+    if tag == "sub" { return left - right; }
+    if tag == "mul" { return left * right; }
+    if tag == "div" { return left / right; }
+    if tag == "mod" { return left % right; }
+    if tag == "pow" { return pow(left, right); }
+    panic("internal error: unknown AST node '${tag}'");
+}
+
+fn collect_vars(node, acc) {
+    let tag = node[0];
+    if tag == "var" {
+        let name = node[1];
+        acc[name] = 1.5;
+        return acc;
+    }
+    if tag == "num" || tag == "const" { return acc; }
+    if tag == "neg" { return collect_vars(node[1], acc); }
+    if tag == "call" {
+        let arguments = node[2];
+        let i = 0;
+        while i < len(arguments) { acc = collect_vars(arguments[i], acc); i = i + 1; }
+        return acc;
+    }
+    acc = collect_vars(node[1], acc);
+    return collect_vars(node[2], acc);
+}
+
+fn ast_prec(node) {
+    let tag = node[0];
+    if tag == "add" || tag == "sub" { return 1; }
+    if tag == "mul" || tag == "div" || tag == "mod" { return 2; }
+    if tag == "neg" { return 3; }
+    if tag == "pow" { return 4; }
+    return 5;
+}
+
+fn ast_wrap(node, minimum) {
+    let text = ast_to_text(node);
+    if ast_prec(node) < minimum { return "(" + text + ")"; }
+    return text;
+}
+
+fn ast_to_text(node) {
+    let tag = node[0];
+    if tag == "num" {
+        // Echo the ORIGINAL literal text when present: the echo exists to catch
+        // transcription errors, so it must not round (e.g. 18-digit integers).
+        let text = node[2];
+        if len(text) > 0 { return text; }
+        return number_text(node[1]);
+    }
+    if tag == "var" || tag == "const" { return node[1]; }
+    if tag == "neg" { return "-" + ast_wrap(node[1], 4); }
+    if tag == "add" { return ast_wrap(node[1], 1) + "+" + ast_wrap(node[2], 1); }
+    if tag == "sub" { return ast_wrap(node[1], 1) + "-" + ast_wrap(node[2], 2); }
+    if tag == "mul" { return ast_wrap(node[1], 2) + "*" + ast_wrap(node[2], 3); }
+    if tag == "div" { return ast_wrap(node[1], 2) + "/" + ast_wrap(node[2], 3); }
+    if tag == "mod" { return ast_wrap(node[1], 2) + "%" + ast_wrap(node[2], 3); }
+    if tag == "pow" { return ast_wrap(node[1], 5) + "^" + ast_wrap(node[2], 3); }
+    let arguments = node[2];
+    let text = node[1] + "(";
+    let i = 0;
+    while i < len(arguments) {
+        if i > 0 { text = text + ","; }
+        text = text + ast_to_text(arguments[i]);
+        i = i + 1;
+    }
+    return text + ")";
+}
+
+fn ast_equal(a, b) {
+    if a[0] != b[0] { return false; }
+    let tag = a[0];
+    if tag == "num" { return a[1] == b[1]; }
+    if tag == "var" || tag == "const" { return a[1] == b[1]; }
+    if tag == "neg" { return ast_equal(a[1], b[1]); }
+    if tag == "call" {
+        if a[1] != b[1] { return false; }
+        let left_args = a[2];
+        let right_args = b[2];
+        if len(left_args) != len(right_args) { return false; }
+        let i = 0;
+        while i < len(left_args) {
+            if !ast_equal(left_args[i], right_args[i]) { return false; }
+            i = i + 1;
+        }
+        return true;
+    }
+    return ast_equal(a[1], b[1]) && ast_equal(a[2], b[2]);
+}
+
+fn mk_num(value) { return ["num", value, ""]; }
+
+fn mk_signed_num(value) {
+    if value < 0.0 { return ["neg", ["num", -value, ""]]; }
+    return ["num", value, ""];
+}
+
+fn ast_is_num(node, value) { return node[0] == "num" && node[1] == value; }
+
+// Conservative simplifier. Conventions documented in README: u^0 -> 1 and
+// 0^0 -> 1 follow the pow() library convention; u/u -> 1, u-u -> 0 and
+// 0*u -> 0 hold wherever u is defined (measure-zero caveats at singularities).
+fn simplify(node) {
+    let tag = node[0];
+    if tag == "num" || tag == "var" || tag == "const" { return node; }
+    if tag == "neg" {
+        let child = simplify(node[1]);
+        if child[0] == "num" { return mk_signed_num(-child[1]); }
+        if child[0] == "neg" { return child[1]; }
+        return ["neg", child];
+    }
+    if tag == "call" {
+        let arguments = node[2];
+        let out = [];
+        let i = 0;
+        while i < len(arguments) { push(out, simplify(arguments[i])); i = i + 1; }
+        return ["call", node[1], out];
+    }
+    let left = simplify(node[1]);
+    let right = simplify(node[2]);
+    // Literal division/modulo by a literal zero is undefined, not a removable
+    // singularity. Fail closed here so `diff` agrees with `eval`/`rat` instead
+    // of folding `0/0` to 0 (or `c/0` to a stray infinity) behind a caveat.
+    if (tag == "div" || tag == "mod") && right[0] == "num" && right[1] == 0.0 {
+        panic("d/dx: literal division by zero is undefined; fail closed (consistent with eval and rat)");
+    }
+    if left[0] == "num" && right[0] == "num" && tag != "mod" {
+        let folded = 0.0;
+        let can_fold = true;
+        if tag == "add" { folded = left[1] + right[1]; }
+        else if tag == "sub" { folded = left[1] - right[1]; }
+        else if tag == "mul" { folded = left[1] * right[1]; }
+        else if tag == "div" {
+            if right[1] == 0.0 { can_fold = false; } else { folded = left[1] / right[1]; }
+        }
+        else { folded = pow(left[1], right[1]); }
+        if can_fold && folded == folded && folded <= 1.7976931348623157e308 && folded >= -1.7976931348623157e308 {
+            return mk_signed_num(folded);
+        }
+    }
+    if tag == "add" {
+        if ast_is_num(left, 0.0) { return right; }
+        if ast_is_num(right, 0.0) { return left; }
+    }
+    if tag == "sub" {
+        if ast_is_num(right, 0.0) { return left; }
+        if ast_is_num(left, 0.0) { return simplify(["neg", right]); }
+        if ast_equal(left, right) { return mk_num(0.0); }
+    }
+    if tag == "mul" {
+        if ast_is_num(left, 0.0) || ast_is_num(right, 0.0) { return mk_num(0.0); }
+        if ast_is_num(left, 1.0) { return right; }
+        if ast_is_num(right, 1.0) { return left; }
+    }
+    if tag == "div" {
+        if ast_is_num(right, 1.0) { return left; }
+        if ast_is_num(left, 0.0) { return mk_num(0.0); }
+        if ast_equal(left, right) { return mk_num(1.0); }
+    }
+    if tag == "pow" {
+        if ast_is_num(right, 1.0) { return left; }
+        if ast_is_num(right, 0.0) { return mk_num(1.0); }
+        if ast_is_num(left, 1.0) { return mk_num(1.0); }
+    }
+    return [tag, left, right];
+}
+
+// True when the ORIGINAL parse tree contains a shape the simplifier collapses
+// under a where-defined convention (u/u -> 1, u-u -> 0, u^0 -> 1, 0*u -> 0).
+// The emitted derivative drops the original domain restriction at such points,
+// so `diff` prints a domain-caveat line whenever this fires.
+fn has_where_defined_convention(node) {
+    let tag = node[0];
+    if tag == "num" || tag == "var" || tag == "const" { return false; }
+    if tag == "neg" { return has_where_defined_convention(node[1]); }
+    if tag == "call" {
+        let arguments = node[2];
+        let i = 0;
+        while i < len(arguments) {
+            if has_where_defined_convention(arguments[i]) { return true; }
+            i = i + 1;
+        }
+        return false;
+    }
+    if tag == "div" && ast_equal(node[1], node[2]) { return true; }
+    if tag == "sub" && ast_equal(node[1], node[2]) { return true; }
+    if tag == "pow" && ast_is_num(node[2], 0.0) { return true; }
+    if tag == "mul" && (ast_is_num(node[1], 0.0) || ast_is_num(node[2], 0.0)) { return true; }
+    if has_where_defined_convention(node[1]) { return true; }
+    return has_where_defined_convention(node[2]);
+}
+
+// SOUND simplifier for the certified-bound lane. Unlike simplify(), it never
+// applies a where-defined convention that REMOVES a subterm (u/u -> 1,
+// u-u -> 0, 0*u -> 0, u^0 -> 1 are all excluded): removing a subterm can
+// launder a domain restriction out of the expression, and the bound lane's
+// C^2 justification relies on "the formula evaluates over the interval" being
+// equivalent to "the function is defined over the interval".
+//
+// It also performs NO num-num constant folding — none at all. Folding two
+// literals in bare f64 commits a rounding error at the magnitude of the
+// INTERMEDIATES (or amplified by the operation's condition number), which the
+// per-literal pad in iv_from_literal cannot cover: the adversarial review of
+// 2026-08-13 produced certified enclosures excluding the truth by arbitrary
+// amounts this way (1e16+1-1e16 folded to an "exact" 0; 2.3^100 folded with
+// x100-amplified literal rounding). Constant subtrees are left intact for the
+// interval evaluator, which handles them with outward pads. Every rule kept
+// here is a STRUCTURAL identity on all of R (x+0, x*1, x^1, --x) that commits
+// no arithmetic and preserves definedness in both directions.
+fn simplify_bound(node) {
+    let tag = node[0];
+    if tag == "num" || tag == "var" || tag == "const" { return node; }
+    if tag == "neg" {
+        let child = simplify_bound(node[1]);
+        if child[0] == "neg" { return child[1]; }
+        return ["neg", child];
+    }
+    if tag == "call" {
+        let arguments = node[2];
+        let out = [];
+        let i = 0;
+        while i < len(arguments) { push(out, simplify_bound(arguments[i])); i = i + 1; }
+        return ["call", node[1], out];
+    }
+    let left = simplify_bound(node[1]);
+    let right = simplify_bound(node[2]);
+    if (tag == "div" || tag == "mod") && right[0] == "num" && right[1] == 0.0 {
+        panic("d/dx: literal division by zero is undefined; fail closed (consistent with eval and rat)");
+    }
+    if tag == "add" {
+        if ast_is_num(left, 0.0) { return right; }
+        if ast_is_num(right, 0.0) { return left; }
+    }
+    if tag == "sub" {
+        if ast_is_num(right, 0.0) { return left; }
+        if ast_is_num(left, 0.0) { return simplify_bound(["neg", right]); }
+    }
+    if tag == "mul" {
+        if ast_is_num(left, 1.0) { return right; }
+        if ast_is_num(right, 1.0) { return left; }
+    }
+    if tag == "div" {
+        if ast_is_num(right, 1.0) { return left; }
+    }
+    if tag == "pow" {
+        if ast_is_num(right, 1.0) { return left; }
+    }
+    return [tag, left, right];
+}
+
+// Canonical s-expression serialization of the parse tree, for the
+// parser-correspondence gate (tests/parser_differential.py): JACKAL's real
+// parser output must match, byte for byte, the canonical Lean parser's output
+// on the same input (proofs/lean/JackalIv/Parser.lean). Numeric literals are
+// serialized as their ORIGINAL TOKEN TEXT so both sides must agree about the
+// same characters, not about a float rendering. Any drift in tokenization,
+// precedence, associativity, or lowering breaks the gate.
+fn ast_sexp(node) {
+    let tag = node[0];
+    if tag == "num" { return "(num " + node[2] + ")"; }
+    if tag == "var" { return "(var " + node[1] + ")"; }
+    if tag == "const" { return "(const " + node[1] + ")"; }
+    if tag == "neg" {
+        let inner = ast_sexp(node[1]);
+        return "(neg " + inner + ")";
+    }
+    if tag == "call" {
+        let arguments = node[2];
+        let text = "(call " + node[1];
+        let i = 0;
+        while i < len(arguments) {
+            let piece = ast_sexp(arguments[i]);
+            text = text + " " + piece;
+            i = i + 1;
+        }
+        return text + ")";
+    }
+    let left = ast_sexp(node[1]);
+    let right = ast_sexp(node[2]);
+    return "(" + tag + " " + left + " " + right + ")";
+}
+
+// True when every construct in the AST is one the symbolic differentiator has
+// an everywhere-valid rule for, so f' and f'' formulas can be built without
+// panicking and the Taylor-2 midpoint form may be attempted. The functions
+// excluded here (abs, floor, ceil, round, trunc, min, max, and '%') are
+// exactly the ones deriv() refuses.
+fn ast_smooth_ok(node) {
+    let tag = node[0];
+    if tag == "num" || tag == "var" || tag == "const" { return true; }
+    if tag == "neg" { return ast_smooth_ok(node[1]); }
+    if tag == "mod" { return false; }
+    if tag == "call" {
+        let name = node[1];
+        if name == "abs" || name == "floor" || name == "ceil" || name == "round"
+            || name == "trunc" || name == "min" || name == "max" { return false; }
+        let arguments = node[2];
+        let i = 0;
+        while i < len(arguments) {
+            if !ast_smooth_ok(arguments[i]) { return false; }
+            i = i + 1;
+        }
+        return true;
+    }
+    if !ast_smooth_ok(node[1]) { return false; }
+    return ast_smooth_ok(node[2]);
+}
+
+fn ast_const_value_or_nan(node) {
+    if node[0] == "num" { return node[1]; }
+    if node[0] == "const" { return constant_value(node[1]); }
+    if node[0] == "neg" { return -ast_const_value_or_nan(node[1]); }
+    return 0.0 / 0.0;
+}
+
+// NOTE: deriv is deliberately ONE self-recursive function, and every recursive
+// result is bound to a local before node construction. The pinned checker's
+// shape inference stack-overflows on (a) multi-function recursion cycles that
+// return raw lists and (b) recursive calls embedded in deeply nested list
+// literals — both verified by minimal probes. Struct returns and flat locals
+// are safe.
+fn deriv(node) {
+    let tag = node[0];
+    let target = node;
+    if tag == "call" && node[1] == "pow" {
+        let normalized = node[2];
+        target = ["pow", normalized[0], normalized[1]];
+        tag = "pow";
+    }
+    if tag == "num" || tag == "const" { return mk_num(0.0); }
+    if tag == "var" {
+        if target[1] == "x" { return mk_num(1.0); }
+        return mk_num(0.0);
+    }
+    if tag == "neg" {
+        let du = deriv(target[1]);
+        return ["neg", du];
+    }
+    if tag == "add" || tag == "sub" {
+        let du = deriv(target[1]);
+        let dv = deriv(target[2]);
+        return [tag, du, dv];
+    }
+    if tag == "mul" {
+        let u = target[1];
+        let v = target[2];
+        let du = deriv(u);
+        let dv = deriv(v);
+        let left = ["mul", du, v];
+        let right = ["mul", u, dv];
+        return ["add", left, right];
+    }
+    if tag == "div" {
+        let u = target[1];
+        let v = target[2];
+        let du = deriv(u);
+        let dv = deriv(v);
+        let left = ["mul", du, v];
+        let right = ["mul", u, dv];
+        let numerator = ["sub", left, right];
+        let denominator = ["pow", v, mk_num(2.0)];
+        return ["div", numerator, denominator];
+    }
+    if tag == "mod" { panic("d/dx: '%' is discontinuous and not differentiable; fail closed"); }
+    if tag == "pow" {
+        let base = target[1];
+        let exponent = target[2];
+        let du = deriv(base);
+        let c = ast_const_value_or_nan(exponent);
+        if c == c {
+            let coefficient = mk_signed_num(c);
+            let reduced = mk_signed_num(c - 1.0);
+            let power = ["pow", base, reduced];
+            let scaled = ["mul", coefficient, power];
+            return ["mul", scaled, du];
+        }
+        let dv = deriv(exponent);
+        let original = ["pow", base, exponent];
+        let log_base = ["call", "ln", [base]];
+        let log_part = ["mul", dv, log_base];
+        let ratio_top = ["mul", exponent, du];
+        let ratio = ["div", ratio_top, base];
+        let bracket = ["add", log_part, ratio];
+        return ["mul", original, bracket];
+    }
+    if tag == "call" {
+        let name = target[1];
+        let arguments = target[2];
+        if name == "hypot" {
+            let u = arguments[0];
+            let v = arguments[1];
+            let du = deriv(u);
+            let dv = deriv(v);
+            let left = ["mul", u, du];
+            let right = ["mul", v, dv];
+            let numerator = ["add", left, right];
+            let denominator = ["call", "hypot", [u, v]];
+            return ["div", numerator, denominator];
+        }
+        if name == "atan2" {
+            let u = arguments[0];
+            let v = arguments[1];
+            let du = deriv(u);
+            let dv = deriv(v);
+            let left = ["mul", v, du];
+            let right = ["mul", u, dv];
+            let numerator = ["sub", left, right];
+            let u2 = ["pow", u, mk_num(2.0)];
+            let v2 = ["pow", v, mk_num(2.0)];
+            let denominator = ["add", u2, v2];
+            return ["div", numerator, denominator];
+        }
+        if name == "abs" || name == "floor" || name == "ceil" || name == "round" || name == "trunc"
+            || name == "min" || name == "max" {
+            panic("d/dx: ${name} is not differentiable everywhere; fail closed rather than guess");
+        }
+        let u = arguments[0];
+        let du = deriv(u);
+        if name == "sin" {
+            let outer = ["call", "cos", [u]];
+            return ["mul", outer, du];
+        }
+        if name == "cos" {
+            let outer = ["call", "sin", [u]];
+            let product = ["mul", outer, du];
+            return ["neg", product];
+        }
+        if name == "tan" {
+            let outer = ["call", "cos", [u]];
+            let denominator = ["pow", outer, mk_num(2.0)];
+            return ["div", du, denominator];
+        }
+        if name == "asin" || name == "acos" {
+            let u2 = ["pow", u, mk_num(2.0)];
+            let inside = ["sub", mk_num(1.0), u2];
+            let root = ["call", "sqrt", [inside]];
+            let ratio = ["div", du, root];
+            if name == "asin" { return ratio; }
+            return ["neg", ratio];
+        }
+        if name == "atan" {
+            let u2 = ["pow", u, mk_num(2.0)];
+            let denominator = ["add", mk_num(1.0), u2];
+            return ["div", du, denominator];
+        }
+        if name == "sqrt" {
+            let root = ["call", "sqrt", [u]];
+            let denominator = ["mul", mk_num(2.0), root];
+            return ["div", du, denominator];
+        }
+        if name == "cbrt" {
+            let root = ["call", "cbrt", [u]];
+            let squared = ["pow", root, mk_num(2.0)];
+            let denominator = ["mul", mk_num(3.0), squared];
+            return ["div", du, denominator];
+        }
+        if name == "ln" { return ["div", du, u]; }
+        if name == "log10" {
+            let denominator = ["mul", u, mk_num(2.302585092994046)];
+            return ["div", du, denominator];
+        }
+        if name == "log2" {
+            let denominator = ["mul", u, mk_num(0.6931471805599453)];
+            return ["div", du, denominator];
+        }
+        if name == "exp" {
+            let outer = ["call", "exp", [u]];
+            return ["mul", outer, du];
+        }
+        panic("d/dx: no rule for function '${name}'; fail closed");
+    }
+    panic("internal error: unknown AST node '${tag}'");
+}
+
+// Every symbolic derivative must pass its own numeric check before it is
+// printed: Richardson-extrapolated central differences at sample points
+// (h = 1e-5 and h/2, combined as (4*fine - coarse)/3 to cancel the h^2
+// truncation term), skipping points outside the domain. The extrapolation
+// matters: a bare fixed-step difference refused provably-correct rules on
+// stiff compositions like cos(exp(x^3)), where the integrand oscillates
+// hundreds of radians per unit at the outer sample points.
+fn verify_derivative(ast, derived) {
+    let bindings = collect_vars(ast, {});
+    let samples = [-2.6, -1.7, -1.1, -0.6, 0.3, 0.9, 1.4, 1.8, 2.7];
+    let step = 0.00001;
+    let used = 0;
+    let skipped = 0;
+    let worst = 0.0;
+    let i = 0;
+    while i < len(samples) {
+        let xv = samples[i];
+        i = i + 1;
+        let env = bindings;
+        env["x"] = xv;
+        let sym = eval_ast(derived, env);
+        let env_hi = bindings;
+        env_hi["x"] = xv + step;
+        let env_lo = bindings;
+        env_lo["x"] = xv - step;
+        let f_hi = eval_ast(ast, env_hi);
+        let f_lo = eval_ast(ast, env_lo);
+        let coarse = (f_hi - f_lo) / (2.0 * step);
+        let half = step / 2.0;
+        let env_h2 = bindings;
+        env_h2["x"] = xv + half;
+        let env_l2 = bindings;
+        env_l2["x"] = xv - half;
+        let f_h2 = eval_ast(ast, env_h2);
+        let f_l2 = eval_ast(ast, env_l2);
+        let fine = (f_h2 - f_l2) / (2.0 * half);
+        let numeric = (4.0 * fine - coarse) / 3.0;
+        if sym != sym || numeric != numeric { continue; }
+        if abs(sym) > 1000000000000.0 || abs(numeric) > 1000000000000.0 { continue; }
+        // Validate the instrument before the number: the probe must first
+        // agree with ITSELF. If the h and h/2 central differences disagree
+        // beyond 1% of scale, the probe is unreliable at this point (pole
+        // adjacency, extreme stiffness) — skip it rather than let a broken
+        // instrument condemn a correct derivative. The criterion never reads
+        // the symbolic candidate, so it cannot launder a wrong rule through;
+        // wrong rules are still caught at every point where the probe
+        // converges, and the >=3-point floor below still refuses when nothing
+        // is verifiable. (Field-adjudicated 2026-08-13: a nested-tan
+        // composition was refused not because the derivative was wrong but
+        // because the probe diverged at pole-adjacent sample points.)
+        let probe_scale = max(1.0, abs(fine));
+        if abs(fine - coarse) / probe_scale > 0.01 { skipped = skipped + 1; continue; }
+        let scale = max(1.0, abs(sym));
+        let deviation = abs(sym - numeric) / scale;
+        if deviation > worst { worst = deviation; }
+        used = used + 1;
+    }
+    if used < 3 { panic("d/dx: could not verify the derivative numerically on enough sample points; fail closed"); }
+    if worst > 0.0001 { panic("d/dx: symbolic result failed numeric verification (max deviation ${worst}); fail closed"); }
+    return DiffCheck { points: used, max_dev: worst, skipped: skipped };
+}
+
+// ---------------------------------------------------------------------------
+// JACKAL EXACT RATIONAL ENGINE — big-integer gcd/division and canonical
+// rationals: gcd-reduced, den > 0, sign on a flag, zero as 0/1.
+// ---------------------------------------------------------------------------
+
+struct BigDivmod {
+    quotient: list,
+    remainder: list,
+}
+
+struct Rational {
+    neg: bool,
+    num: list,
+    den: list,
+}
+
+fn big_is_zero(a) { return len(a) == 1 && a[0] == 0; }
+
+fn big_cmp(a, b) {
+    if len(a) != len(b) {
+        if len(a) > len(b) { return 1; }
+        return -1;
+    }
+    let i = len(a) - 1;
+    while i >= 0 {
+        if a[i] != b[i] {
+            if a[i] > b[i] { return 1; }
+            return -1;
+        }
+        i = i - 1;
+    }
+    return 0;
+}
+
+fn big_sub(a, b) {
+    if big_cmp(a, b) < 0 { panic("internal error: big_sub underflow; fail closed"); }
+    let result = [];
+    let borrow = 0;
+    let i = 0;
+    while i < len(a) {
+        let current = a[i] - borrow;
+        if i < len(b) { current = current - b[i]; }
+        if current < 0 { current = current + 1000000000; borrow = 1; } else { borrow = 0; }
+        push(result, current);
+        i = i + 1;
+    }
+    return big_normalize(result);
+}
+
+fn big_is_even(a) { return a[0] % 2 == 0; }
+
+fn big_half(a) { return big_divmod_small(a, 2).quotient; }
+
+fn big_gcd(a, b) {
+    if big_is_zero(a) { return b; }
+    if big_is_zero(b) { return a; }
+    let x = a;
+    let y = b;
+    let shift = 0;
+    while big_is_even(x) && big_is_even(y) {
+        x = big_half(x);
+        y = big_half(y);
+        shift = shift + 1;
+    }
+    while big_is_even(x) { x = big_half(x); }
+    while true {
+        while big_is_even(y) { y = big_half(y); }
+        if big_cmp(x, y) > 0 {
+            let swap = x;
+            x = y;
+            y = swap;
+        }
+        y = big_sub(y, x);
+        if big_is_zero(y) { break; }
+    }
+    let s = 0;
+    while s < shift {
+        x = big_add(x, x);
+        s = s + 1;
+    }
+    return x;
+}
+
+// Schoolbook base-10 long division: one decimal digit at a time, quotient digit
+// found by compare-and-subtract (at most 9 rounds). Correctness-first; the
+// compute-budget caps keep operand sizes sane.
+fn big_divmod(a, b) {
+    if big_is_zero(b) { panic("exact division by zero; fail closed"); }
+    if big_cmp(a, b) < 0 { return BigDivmod { quotient: [0], remainder: a }; }
+    let digits = big_to_text(a);
+    let remainder = [0];
+    let quotient_text = "";
+    let i = 0;
+    while i < len(digits) {
+        remainder = big_mul_small(remainder, 10);
+        remainder = big_add(remainder, [digit_value(char_at(digits, i))]);
+        let q = 0;
+        while big_cmp(remainder, b) >= 0 {
+            remainder = big_sub(remainder, b);
+            q = q + 1;
+        }
+        quotient_text = quotient_text + str(q);
+        i = i + 1;
+    }
+    return BigDivmod { quotient: big_from_text(quotient_text), remainder: remainder };
+}
+
+fn rat_make(neg, num, den) {
+    if big_is_zero(den) { panic("exact division by zero; fail closed"); }
+    if big_is_zero(num) { return Rational { neg: false, num: [0], den: [1] }; }
+    let g = big_gcd(num, den);
+    let reduced_num = big_divmod(num, g).quotient;
+    let reduced_den = big_divmod(den, g).quotient;
+    return Rational { neg: neg, num: reduced_num, den: reduced_den };
+}
+
+fn rat_neg(a) {
+    let num = a.num;
+    if big_is_zero(num) { return a; }
+    let flag = a.neg;
+    return Rational { neg: !flag, num: a.num, den: a.den };
+}
+
+fn rat_add_impl(a, b) {
+    let left = big_mul(a.num, b.den);
+    let right = big_mul(b.num, a.den);
+    let den = big_mul(a.den, b.den);
+    let a_neg = a.neg;
+    let b_neg = b.neg;
+    if a_neg == b_neg { return rat_make(a_neg, big_add(left, right), den); }
+    let comparison = big_cmp(left, right);
+    if comparison == 0 { return rat_make(false, [0], [1]); }
+    if comparison > 0 { return rat_make(a_neg, big_sub(left, right), den); }
+    return rat_make(b_neg, big_sub(right, left), den);
+}
+
+fn rat_sub(a, b) { return rat_add_impl(a, rat_neg(b)); }
+
+fn rat_mul(a, b) {
+    let a_neg = a.neg;
+    let b_neg = b.neg;
+    return rat_make(a_neg != b_neg, big_mul(a.num, b.num), big_mul(a.den, b.den));
+}
+
+fn rat_div(a, b) {
+    let b_num = b.num;
+    if big_is_zero(b_num) { panic("exact division by zero; fail closed"); }
+    let a_neg = a.neg;
+    let b_neg = b.neg;
+    return rat_make(a_neg != b_neg, big_mul(a.num, b.den), big_mul(a.den, b.num));
+}
+
+fn rat_pow(a, exponent) {
+    if exponent == 0 { return Rational { neg: false, num: [1], den: [1] }; }
+    let flip = exponent < 0;
+    let e = exponent;
+    if flip { e = -e; }
+    if e > 10000 { panic("rat: exponent is capped at 10000 (compute budget); fail closed"); }
+    let a_num = a.num;
+    if flip && big_is_zero(a_num) { panic("exact division by zero; fail closed"); }
+    let num = [1];
+    let den = [1];
+    let i = 0;
+    while i < e {
+        num = big_mul(num, a.num);
+        den = big_mul(den, a.den);
+        i = i + 1;
+    }
+    let base_neg = a.neg;
+    let neg = base_neg && e % 2 == 1;
+    if flip { return rat_make(neg, den, num); }
+    return rat_make(neg, num, den);
+}
+
+fn rat_from_num_text(text) {
+    // text is a validated numeric literal from the tokenizer: digits [. digits] [e[+-]digits]
+    let mantissa = "";
+    let frac_digits = 0;
+    let exp_value = 0;
+    let exp_neg = false;
+    let seen_dot = false;
+    let i = 0;
+    let n = len(text);
+    while i < n {
+        let ch = char_at(text, i);
+        if ch == "." { seen_dot = true; i = i + 1; continue; }
+        if ch == "e" || ch == "E" {
+            i = i + 1;
+            if i < n && (char_at(text, i) == "+" || char_at(text, i) == "-") {
+                if char_at(text, i) == "-" { exp_neg = true; }
+                i = i + 1;
+            }
+            while i < n {
+                exp_value = exp_value * 10 + digit_value(char_at(text, i));
+                i = i + 1;
+            }
+            break;
+        }
+        mantissa = mantissa + ch;
+        if seen_dot { frac_digits = frac_digits + 1; }
+        i = i + 1;
+    }
+    if exp_value > 10000 { panic("rat: exponent is capped at 10000 (compute budget); fail closed"); }
+    let shift = exp_value;
+    if exp_neg { shift = -shift; }
+    let power = shift - frac_digits;
+    let num = big_from_text(mantissa);
+    let den = [1];
+    if power > 0 { num = big_mul(num, big_pow([10], power)); }
+    if power < 0 { den = big_pow([10], -power); }
+    return rat_make(false, num, den);
+}
+
+fn rat_exponent_value(node) {
+    if node[0] == "neg" { return -rat_exponent_value(node[1]); }
+    if node[0] == "num" {
+        let text = node[2];
+        if len(text) > 5 { panic("rat: exponent is capped at 10000 (compute budget); fail closed"); }
+        let i = 0;
+        while i < len(text) {
+            let ch = char_at(text, i);
+            if ch == "." || ch == "e" || ch == "E" { panic("rat: ^ requires an integer exponent in exact mode; fail closed"); }
+            i = i + 1;
+        }
+        return parse_int(text);
+    }
+    panic("rat: ^ requires an integer exponent in exact mode; fail closed");
+}
+
+fn rat_eval_ast(node) {
+    let tag = node[0];
+    if tag == "num" { return rat_from_num_text(node[2]); }
+    if tag == "neg" { return rat_neg(rat_eval_ast(node[1])); }
+    if tag == "add" { return rat_add_impl(rat_eval_ast(node[1]), rat_eval_ast(node[2])); }
+    if tag == "sub" { return rat_sub(rat_eval_ast(node[1]), rat_eval_ast(node[2])); }
+    if tag == "mul" { return rat_mul(rat_eval_ast(node[1]), rat_eval_ast(node[2])); }
+    if tag == "div" { return rat_div(rat_eval_ast(node[1]), rat_eval_ast(node[2])); }
+    if tag == "pow" { return rat_pow(rat_eval_ast(node[1]), rat_exponent_value(node[2])); }
+    panic("rat: exact mode supports integers, decimals, + - * / ^ with integer exponents, and parentheses only; fail closed");
+}
+
+fn rat_to_text(r) {
+    let sign = "";
+    let r_neg = r.neg;
+    if r_neg { sign = "-"; }
+    if big_to_text(r.den) == "1" { return sign + big_to_text(r.num); }
+    return sign + big_to_text(r.num) + "/" + big_to_text(r.den);
+}
+
+// ---------------------------------------------------------------------------
+// JACKAL PROOF-CARRYING CERTIFIED EVALUATOR (range-bound-cert).
+// An EXACT-RATIONAL interval evaluation over the expression tree that emits a
+// canonical certificate (parsed + checked by the mechanized Lean checker
+// `jackal_cert_check`, whose soundness theorem `cert_check_sound` proves the
+// certificate induces a `Runs` derivation, hence a true enclosure under the
+// stated model TCB). Everything the checker verifies stays in exact ℚ so the
+// pad relations hold with equality. The admitted certified fragment is the
+// exact-ℚ operators plus sin/cos (universal [-1,1]) plus named constants;
+// true-transcendental operators (sqrt/exp/ln/atan/asin/acos/hypot/atan2/tan/
+// cbrt/log10/log2/%) FAIL CLOSED — they are outside this bridge's model.
+// ---------------------------------------------------------------------------
+
+fn rat_zero() { return Rational { neg: false, num: [0], den: [1] }; }
+fn rat_one() { return Rational { neg: false, num: [1], den: [1] }; }
+
+fn rat_int(n) {
+    if n < 0 { return rat_neg(rat_from_num_text(str(-n))); }
+    return rat_from_num_text(str(n));
+}
+
+fn rat_abs(r) { return Rational { neg: false, num: r.num, den: r.den }; }
+
+// -1 if a<b, 0 if a==b, 1 if a>b.
+fn rat_cmp(a, b) {
+    let d = rat_sub(a, b);
+    if big_is_zero(d.num) { return 0; }
+    if d.neg { return -1; }
+    return 1;
+}
+
+fn rat_min(a, b) { if rat_cmp(a, b) <= 0 { return a; } return b; }
+fn rat_max(a, b) { if rat_cmp(a, b) >= 0 { return a; } return b; }
+fn rat_min4(a, b, c, d) { return rat_min(rat_min(a, b), rat_min(c, d)); }
+fn rat_max4(a, b, c, d) { return rat_max(rat_max(a, b), rat_max(c, d)); }
+
+// Outward pad, EXACT ℚ: pad(v) = ε|v| + τ with ε = 1e-15, τ = 1e-300 (the
+// model constants of Model.lean). padLoQ v = v − pad v ; padHiQ v = v + pad v.
+fn cert_eps() { return Rational { neg: false, num: [1], den: big_pow([10], 15) }; }
+fn cert_tau() { return Rational { neg: false, num: [1], den: big_pow([10], 300) }; }
+fn cert_pad(v) { return rat_add_impl(rat_mul(cert_eps(), rat_abs(v)), cert_tau()); }
+fn cert_pad_lo(v) { return rat_sub(v, cert_pad(v)); }
+fn cert_pad_hi(v) { return rat_add_impl(v, cert_pad(v)); }
+
+// Integer-valued rationals for floor/ceil/round(half-away)/trunc(toward zero).
+fn rat_floor(r) {
+    let q = big_divmod(r.num, r.den);
+    if big_is_zero(q.remainder) { if r.neg { return rat_neg(Rational { neg: false, num: q.quotient, den: [1] }); } return Rational { neg: false, num: q.quotient, den: [1] }; }
+    // non-integer: floor(-p/q) = -(floor_div)-1
+    if r.neg { return rat_neg(Rational { neg: false, num: big_add(q.quotient, [1]), den: [1] }); }
+    return Rational { neg: false, num: q.quotient, den: [1] };
+}
+fn rat_ceil(r) { return rat_neg(rat_floor(rat_neg(r))); }
+fn rat_trunc(r) {
+    let q = big_divmod(r.num, r.den);
+    if r.neg { return rat_neg(Rational { neg: false, num: q.quotient, den: [1] }); }
+    return Rational { neg: false, num: q.quotient, den: [1] };
+}
+// Round half away from zero (C round): trunc(x + sign*1/2).
+fn rat_round_away(r) {
+    let half = Rational { neg: r.neg, num: [1], den: [2] };
+    return rat_trunc(rat_add_impl(r, half));
+}
+
+// mignitude / magnitude of an interval [l,u] (for even powers).
+fn rat_mig(l, u) {
+    if rat_cmp(l, rat_zero()) <= 0 && rat_cmp(u, rat_zero()) >= 0 { return rat_zero(); }
+    return rat_min(rat_abs(l), rat_abs(u));
+}
+fn rat_mag(l, u) { return rat_max(rat_abs(l), rat_abs(u)); }
+
+// Node-line + interval carrier threaded through the recursive evaluator.
+struct CE {
+    lo: Rational,
+    hi: Rational,
+    id: i64,
+    nodes: list,
+    next: i64,
+}
+
+fn cert_pair(lo, hi) { return rat_to_text(lo) + "," + rat_to_text(hi); }
+
+fn cert_leaf_line(id, op, out_lo, out_hi, extra) {
+    return "node " + str(id) + " " + op + " children[] out[" + cert_pair(out_lo, out_hi) + "]" + extra;
+}
+
+// The recursive exact-ℚ certified evaluator. Returns this node's interval,
+// its assigned id, the accumulated node lines, and the next free id. Children
+// are evaluated (and assigned ids) before the parent, so every child id is
+// strictly below its parent id — exactly the codec's well-formedness rule.
+fn cert_eval(node, xlo, xhi, nodes, next) {
+    let tag = node[0];
+    if tag == "num" {
+        let r = rat_from_num_text(node[2]);
+        let line = cert_leaf_line(next, "num_exact", r, r, " val " + rat_to_text(r) + " name " + node[2]);
+        return CE { lo: r, hi: r, id: next, nodes: push_str(nodes, line), next: next + 1 };
+    }
+    if tag == "var" {
+        if node[1] != "x" { panic("range-bound-cert: only x is bound; fail closed"); }
+        let line = cert_leaf_line(next, "var", xlo, xhi, " name x");
+        return CE { lo: xlo, hi: xhi, id: next, nodes: push_str(nodes, line), next: next + 1 };
+    }
+    if tag == "const" {
+        // Named constant: a rational approximation is a DECLARED-VALUE TCB fact
+        // (ConstTCB: within δ0 of the true real). We emit a 30-digit rational.
+        let approx = cert_const_rat(node[1]);
+        let out_lo = cert_pad_lo(approx);
+        let out_hi = cert_pad_hi(approx);
+        let extra = " val " + rat_to_text(approx) + " f[" + cert_pair(approx, approx) + "] name " + node[1];
+        let line = "node " + str(next) + " const_rounded children[] out[" + cert_pair(out_lo, out_hi) + "]" + extra;
+        return CE { lo: out_lo, hi: out_hi, id: next, nodes: push_str(nodes, line), next: next + 1 };
+    }
+    if tag == "neg" {
+        let c = cert_eval(node[1], xlo, xhi, nodes, next);
+        let out_lo = rat_neg(c.hi);
+        let out_hi = rat_neg(c.lo);
+        let line = "node " + str(c.next) + " neg children[" + str(c.id) + "] out[" + cert_pair(out_lo, out_hi) + "]";
+        return CE { lo: out_lo, hi: out_hi, id: c.next, nodes: push_str(c.nodes, line), next: c.next + 1 };
+    }
+    if tag == "add" || tag == "sub" || tag == "mul" || tag == "div" {
+        let l = cert_eval(node[1], xlo, xhi, nodes, next);
+        let r = cert_eval(node[2], xlo, xhi, l.nodes, l.next);
+        return cert_binary(tag, l, r);
+    }
+    if tag == "call" {
+        return cert_call(node, xlo, xhi, nodes, next);
+    }
+    if tag == "pow" {
+        return cert_pow(node, xlo, xhi, nodes, next);
+    }
+    panic("range-bound-cert: unsupported construct '" + tag + "'; fail closed (outside the certified fragment)");
+}
+
+fn cert_binary(tag, l, r) {
+    let id = r.next;
+    if tag == "add" {
+        let flo = rat_add_impl(l.lo, r.lo);
+        let fhi = rat_add_impl(l.hi, r.hi);
+        let out_lo = cert_pad_lo(flo);
+        let out_hi = cert_pad_hi(fhi);
+        let line = "node " + str(id) + " add children[" + str(l.id) + "," + str(r.id) + "] out[" + cert_pair(out_lo, out_hi) + "] f[" + cert_pair(flo, fhi) + "]";
+        return CE { lo: out_lo, hi: out_hi, id: id, nodes: push_str(r.nodes, line), next: id + 1 };
+    }
+    if tag == "sub" {
+        let flo = rat_sub(l.lo, r.hi);
+        let fhi = rat_sub(l.hi, r.lo);
+        let out_lo = cert_pad_lo(flo);
+        let out_hi = cert_pad_hi(fhi);
+        let line = "node " + str(id) + " sub children[" + str(l.id) + "," + str(r.id) + "] out[" + cert_pair(out_lo, out_hi) + "] f[" + cert_pair(flo, fhi) + "]";
+        return CE { lo: out_lo, hi: out_hi, id: id, nodes: push_str(r.nodes, line), next: id + 1 };
+    }
+    if tag == "mul" {
+        let p1 = rat_mul(l.lo, r.lo);
+        let p2 = rat_mul(l.lo, r.hi);
+        let p3 = rat_mul(l.hi, r.lo);
+        let p4 = rat_mul(l.hi, r.hi);
+        let out_lo = cert_pad_lo(rat_min4(p1, p2, p3, p4));
+        let out_hi = cert_pad_hi(rat_max4(p1, p2, p3, p4));
+        let pstr = rat_to_text(p1) + "," + rat_to_text(p2) + "," + rat_to_text(p3) + "," + rat_to_text(p4);
+        let line = "node " + str(id) + " mul children[" + str(l.id) + "," + str(r.id) + "] out[" + cert_pair(out_lo, out_hi) + "] p[" + pstr + "]";
+        return CE { lo: out_lo, hi: out_hi, id: id, nodes: push_str(r.nodes, line), next: id + 1 };
+    }
+    // div: zero-free denominator guard.
+    let dsign = 0;
+    if rat_cmp(r.lo, rat_zero()) > 0 { dsign = 1; }
+    else if rat_cmp(r.hi, rat_zero()) < 0 { dsign = -1; }
+    else { panic("range-bound-cert: division by an interval containing zero; fail closed"); }
+    let q1 = rat_div(l.lo, r.lo);
+    let q2 = rat_div(l.lo, r.hi);
+    let q3 = rat_div(l.hi, r.lo);
+    let q4 = rat_div(l.hi, r.hi);
+    let out_lo = cert_pad_lo(rat_min4(q1, q2, q3, q4));
+    let out_hi = cert_pad_hi(rat_max4(q1, q2, q3, q4));
+    let qstr = rat_to_text(q1) + "," + rat_to_text(q2) + "," + rat_to_text(q3) + "," + rat_to_text(q4);
+    let line = "node " + str(id) + " div children[" + str(l.id) + "," + str(r.id) + "] out[" + cert_pair(out_lo, out_hi) + "] p[" + qstr + "] den " + str(dsign);
+    return CE { lo: out_lo, hi: out_hi, id: id, nodes: push_str(r.nodes, line), next: id + 1 };
+}
+
+fn push_str(xs, s) { push(xs, s); return xs; }
+
+fn cert_const_rat(name) {
+    if name == "pi" { return rat_from_num_text("3.14159265358979323846264338327950288"); }
+    if name == "e" { return rat_from_num_text("2.71828182845904523536028747135266250"); }
+    if name == "tau" { return rat_from_num_text("6.28318530717958647692528676655900577"); }
+    panic("range-bound-cert: constant '" + name + "' is outside the certified fragment; fail closed");
+}
+
+fn cert_call(node, xlo, xhi, nodes, next) {
+    let name = node[1];
+    let args = node[2];
+    if name == "sin" || name == "cos" {
+        let c = cert_eval(args[0], xlo, xhi, nodes, next);
+        let out_lo = rat_int(-1);
+        let out_hi = rat_one();
+        let line = "node " + str(c.next) + " " + name + " children[" + str(c.id) + "] out[" + cert_pair(out_lo, out_hi) + "]";
+        return CE { lo: out_lo, hi: out_hi, id: c.next, nodes: push_str(c.nodes, line), next: c.next + 1 };
+    }
+    if name == "abs" {
+        let c = cert_eval(args[0], xlo, xhi, nodes, next);
+        let out_lo = rat_zero();
+        let out_hi = rat_zero();
+        if rat_cmp(c.lo, rat_zero()) >= 0 { out_lo = c.lo; out_hi = c.hi; }
+        else if rat_cmp(c.hi, rat_zero()) <= 0 { out_lo = rat_neg(c.hi); out_hi = rat_neg(c.lo); }
+        else { out_lo = rat_zero(); out_hi = rat_max(rat_neg(c.lo), c.hi); }
+        let line = "node " + str(c.next) + " abs children[" + str(c.id) + "] out[" + cert_pair(out_lo, out_hi) + "]";
+        return CE { lo: out_lo, hi: out_hi, id: c.next, nodes: push_str(c.nodes, line), next: c.next + 1 };
+    }
+    if name == "floor" || name == "ceil" || name == "round" || name == "trunc" {
+        let c = cert_eval(args[0], xlo, xhi, nodes, next);
+        let out_lo = cert_int_op(name, c.lo);
+        let out_hi = cert_int_op(name, c.hi);
+        let line = "node " + str(c.next) + " " + name + " children[" + str(c.id) + "] out[" + cert_pair(out_lo, out_hi) + "]";
+        return CE { lo: out_lo, hi: out_hi, id: c.next, nodes: push_str(c.nodes, line), next: c.next + 1 };
+    }
+    if name == "min" || name == "max" {
+        let l = cert_eval(args[0], xlo, xhi, nodes, next);
+        let r = cert_eval(args[1], xlo, xhi, l.nodes, l.next);
+        let id = r.next;
+        let out_lo = rat_min(l.lo, r.lo);
+        let out_hi = rat_min(l.hi, r.hi);
+        if name == "max" { out_lo = rat_max(l.lo, r.lo); out_hi = rat_max(l.hi, r.hi); }
+        let line = "node " + str(id) + " " + name + " children[" + str(l.id) + "," + str(r.id) + "] out[" + cert_pair(out_lo, out_hi) + "]";
+        return CE { lo: out_lo, hi: out_hi, id: id, nodes: push_str(r.nodes, line), next: id + 1 };
+    }
+    panic("range-bound-cert: function '" + name + "' is a true-transcendental outside the certified fragment; fail closed");
+}
+
+fn cert_int_op(name, r) {
+    if name == "floor" { return rat_floor(r); }
+    if name == "ceil" { return rat_ceil(r); }
+    if name == "round" { return rat_round_away(r); }
+    return rat_trunc(r);
+}
+
+// Integer exponent from the parser's exponent subtree (num or neg(num)).
+fn cert_exp_int(node) {
+    if node[0] == "neg" { return -cert_exp_int(node[1]); }
+    if node[0] == "num" {
+        let text = node[2];
+        let i = 0;
+        while i < len(text) {
+            let ch = char_at(text, i);
+            if ch == "." || ch == "e" || ch == "E" { panic("range-bound-cert: non-integer exponent outside the certified fragment; fail closed"); }
+            i = i + 1;
+        }
+        return parse_int(text);
+    }
+    panic("range-bound-cert: non-literal exponent outside the certified fragment; fail closed");
+}
+
+fn cert_pow(node, xlo, xhi, nodes, next) {
+    let n = cert_exp_int(node[2]);
+    if n < 0 { panic("range-bound-cert: negative integer powers not yet in the certified emitter; fail closed"); }
+    let exptok = ast_to_text(node[2]);
+    let c = cert_eval(node[1], xlo, xhi, nodes, next);
+    let id = c.next;
+    if n == 0 {
+        let out_lo = rat_one();
+        let out_hi = rat_one();
+        let line = "node " + str(id) + " powZero children[" + str(c.id) + "] out[" + cert_pair(out_lo, out_hi) + "] n 0 name " + exptok;
+        return CE { lo: out_lo, hi: out_hi, id: id, nodes: push_str(c.nodes, line), next: id + 1 };
+    }
+    let flo = rat_zero();
+    let fhi = rat_zero();
+    let op = "powOddPos";
+    if n % 2 == 0 {
+        op = "powEvenPos";
+        flo = rat_pow(rat_mig(c.lo, c.hi), n);
+        fhi = rat_pow(rat_mag(c.lo, c.hi), n);
+    } else {
+        flo = rat_pow(c.lo, n);
+        fhi = rat_pow(c.hi, n);
+    }
+    let out_lo = cert_pad_lo(flo);
+    let out_hi = cert_pad_hi(fhi);
+    let line = "node " + str(id) + " " + op + " children[" + str(c.id) + "] out[" + cert_pair(out_lo, out_hi) + "] f[" + cert_pair(flo, fhi) + "] n " + str(n) + " name " + exptok;
+    return CE { lo: out_lo, hi: out_hi, id: id, nodes: push_str(c.nodes, line), next: id + 1 };
+}
+
+fn cert_parse_rat(s) {
+    if len(s) > 0 && char_at(s, 0) == "-" {
+        let rest = "";
+        let i = 1;
+        while i < len(s) { rest = rest + char_at(s, i); i = i + 1; }
+        return rat_neg(rat_from_num_text(rest));
+    }
+    return rat_from_num_text(s);
+}
+
+// range-bound-cert <expr> <lo> <hi> [<evaluator-id-hex> <request-commit-b64>]
+// Emits a schema-v2 certificate. The engine DERIVES the soundness-relevant
+// fields itself (expr_commitment, input, nodes) — those are what the proved
+// checker adjudicates. The two runtime-PROVENANCE tokens (exe = the invoking
+// evaluator's own SHA-256, source = the release validator's request
+// commitment) are passed in explicitly and echoed verbatim; provenance is
+// enforced by the fail-closed release validator, never by the checker
+// (mission §270). Absent tokens emit empty fields, which the v2 validator
+// then refuses — a bare `range-bound-cert` is a diagnostic, not a release.
+fn run_range_bound_cert(argv) uses(io.print) {
+    if len(argv) != 4 && len(argv) != 6 {
+        panic("range-bound-cert requires <expr> <lo> <hi> [<evaluator-id> <request-commit>]");
+    }
+    let source = argv[1];
+    let xlo = cert_parse_rat(argv[2]);
+    let xhi = cert_parse_rat(argv[3]);
+    if rat_cmp(xlo, xhi) > 0 { panic("range-bound-cert requires lo <= hi"); }
+    let exe_id = "";
+    let req_commit = "";
+    if len(argv) == 6 { exe_id = argv[4]; req_commit = argv[5]; }
+    let f = simplify_bound(parse_ast(source));
+    let vars = collect_vars(f, {});
+    for nm in vars {
+        if nm != "x" { panic("range-bound-cert: unknown identifier '" + nm + "'; only x is bound"); }
+    }
+    let ce = cert_eval(f, xlo, xhi, [], 0);
+    print("jackal-eval-cert v2");
+    print("model jackal-iv-model-v1");
+    print("exe " + exe_id);
+    print("status bounded");
+    print("expr " + ast_sexp(f));
+    print("source " + req_commit);
+    print("input " + rat_to_text(xlo) + " " + rat_to_text(xhi));
+    print("root " + str(ce.id));
+    print("output " + rat_to_text(ce.lo) + " " + rat_to_text(ce.hi));
+    for line in ce.nodes { print(line); }
+    print("end");
+}
+
+// ---------------------------------------------------------------------------
+// JACKAL ADAPTIVE INTEGRATION — recursive adaptive Simpson with REFUSAL
+// semantics. Motivated by the verified narrow-Gaussian failure (a width~7e-4
+// peak between the samples of a 100-panel grid underestimated its own error
+// ~256x). A fixed 32-interval seed raises the resolution floor before
+// refinement (pure adaptivity can false-converge when a feature falls between
+// the first samples), and exhausting the evaluation budget or depth REFUSES
+// instead of printing unearned confidence. The estimate is still local, not a
+// proven bound: structure below seed/f64 resolution can still evade.
+// ---------------------------------------------------------------------------
+
+struct AdaptiveResult {
+    value: float,
+    error: float,
+    evals: i64,
+}
+
+fn adaptive_eval(source, at) {
+    return evaluate_expression(source, { "x": at });
+}
+
+fn adaptive_step(source, a, b, fa, fm, fb, whole, tol, depth, evals) {
+    if evals > 100000 {
+        panic("integrate-adaptive: evaluation budget (100000) exhausted before reaching tolerance; fail closed rather than print unearned confidence");
+    }
+    if depth > 48 {
+        panic("integrate-adaptive: subdivision depth (48) exhausted before reaching tolerance; integrand structure is below resolvable scale; fail closed");
+    }
+    let m = (a + b) / 2.0;
+    if m <= a || m >= b {
+        panic("integrate-adaptive: cannot subdivide below float64 resolution while still unconverged; fail closed");
+    }
+    let lm = (a + m) / 2.0;
+    let rm = (m + b) / 2.0;
+    let flm = adaptive_eval(source, lm);
+    let frm = adaptive_eval(source, rm);
+    let left = (fa + 4.0 * flm + fm) * (m - a) / 6.0;
+    let right = (fm + 4.0 * frm + fb) * (b - m) / 6.0;
+    let split = left + right;
+    let delta = split - whole;
+    if abs(delta) <= 15.0 * tol {
+        return AdaptiveResult { value: split + delta / 15.0, error: abs(delta) / 15.0, evals: evals + 2 };
+    }
+    let first = adaptive_step(source, a, m, fa, flm, fm, left, tol / 2.0, depth + 1, evals + 2);
+    let second = adaptive_step(source, m, b, fm, frm, fb, right, tol / 2.0, depth + 1, first.evals);
+    return AdaptiveResult { value: first.value + second.value, error: first.error + second.error, evals: second.evals };
+}
+
+// ---------------------------------------------------------------------------
+// JACKAL CERTIFIED INTERVAL ENGINE — outward-rounded interval arithmetic over
+// the expression AST, and an adaptive integrator whose output is a PROVEN
+// enclosure, not an estimate. Motivated by the 1,402-case field campaign
+// (2026-08-13): Richardson agreement is calibrated but cannot BOUND — a
+// feature narrower than every grid evades both grids. An interval enclosure
+// cannot be evaded: the range of f over any subinterval containing a feature
+// contains the feature.
+//
+// Rounding model (the residual trust assumptions, stated exactly):
+//   * every basic f64 op (+ - * /) is correctly rounded (<= 0.5 ulp) [IEEE-754];
+//   * every math-library call (sin, cos, exp, ln, ...) is within 2 ulp of the
+//     true real value, including argument reduction for large inputs;
+//   * every interval endpoint is padded OUTWARD by 1e-15 relative + 1e-300
+//     absolute (~4.5 ulp) after each operation, strictly exceeding both.
+// Under that model the printed enclosure provably contains the true real
+// value. Sin/cos ranges are additionally clamped to [-1,1] (always true) and
+// extremum tests are slack-widened so uncertainty about critical-point
+// positions can only WIDEN the enclosure. Division by an interval containing
+// zero, logs touching zero, tan near a pole, and non-finite intermediates all
+// REFUSE rather than guess. The implementation is tested (containment
+// campaign vs an independent oracle), not mechanized; that boundary is
+// documented in the README.
+// ---------------------------------------------------------------------------
+
+struct IBox {
+    ok: bool,
+    lo: float,
+    hi: float,
+    why: string,
+}
+
+fn iv_bad(why) {
+    return IBox { ok: false, lo: 0.0, hi: 0.0, why: why };
+}
+
+fn iv_exact(v) {
+    return IBox { ok: true, lo: v, hi: v, why: "" };
+}
+
+// Outward pad: after any operation whose endpoints carry rounding error, push
+// lo down and hi up by more than the worst-case error of the operation that
+// produced them. Refuses non-finite endpoints (before and after padding).
+fn iv_out(lo, hi) {
+    if lo != lo || hi != hi { return iv_bad("non-finite value in interval arithmetic"); }
+    if lo > 1.7976931348623157e308 || lo < -1.7976931348623157e308
+        || hi > 1.7976931348623157e308 || hi < -1.7976931348623157e308 {
+        return iv_bad("interval endpoint overflow");
+    }
+    let padded_lo = lo - (abs(lo) * 0.000000000000001 + 1.0e-300);
+    let padded_hi = hi + (abs(hi) * 0.000000000000001 + 1.0e-300);
+    if padded_lo < -1.7976931348623157e308 || padded_hi > 1.7976931348623157e308 {
+        return iv_bad("interval endpoint overflow");
+    }
+    return IBox { ok: true, lo: padded_lo, hi: padded_hi, why: "" };
+}
+
+fn iv_add(a, b) {
+    if !a.ok { return a; }
+    if !b.ok { return b; }
+    return iv_out(a.lo + b.lo, a.hi + b.hi);
+}
+
+fn iv_sub(a, b) {
+    if !a.ok { return a; }
+    if !b.ok { return b; }
+    return iv_out(a.lo - b.hi, a.hi - b.lo);
+}
+
+fn iv_neg(a) {
+    if !a.ok { return a; }
+    return IBox { ok: true, lo: -a.hi, hi: -a.lo, why: "" };
+}
+
+fn iv_mul(a, b) {
+    if !a.ok { return a; }
+    if !b.ok { return b; }
+    let p1 = a.lo * b.lo;
+    let p2 = a.lo * b.hi;
+    let p3 = a.hi * b.lo;
+    let p4 = a.hi * b.hi;
+    return iv_out(min(min(p1, p2), min(p3, p4)), max(max(p1, p2), max(p3, p4)));
+}
+
+fn iv_div(a, b) {
+    if !a.ok { return a; }
+    if !b.ok { return b; }
+    if b.lo <= 0.0 && b.hi >= 0.0 { return iv_bad("division by an interval containing zero"); }
+    let q1 = a.lo / b.lo;
+    let q2 = a.lo / b.hi;
+    let q3 = a.hi / b.lo;
+    let q4 = a.hi / b.hi;
+    return iv_out(min(min(q1, q2), min(q3, q4)), max(max(q1, q2), max(q3, q4)));
+}
+
+fn iv_abs(a) {
+    if !a.ok { return a; }
+    if a.lo >= 0.0 { return a; }
+    if a.hi <= 0.0 { return IBox { ok: true, lo: -a.hi, hi: -a.lo, why: "" }; }
+    return IBox { ok: true, lo: 0.0, hi: max(-a.lo, a.hi), why: "" };
+}
+
+fn iv_mag(a) { return max(abs(a.lo), abs(a.hi)); }
+
+fn iv_mig(a) {
+    if a.lo <= 0.0 && a.hi >= 0.0 { return 0.0; }
+    return min(abs(a.lo), abs(a.hi));
+}
+
+// x^n for integer n: dependency-aware (x*x over [-1,2] must give [0,4], not
+// [-2,4]). Even powers use mignitude/magnitude; odd powers are monotone.
+fn iv_pow_int(a, n) {
+    if !a.ok { return a; }
+    if n == 0 { return iv_exact(1.0); }
+    let m = n;
+    let invert = false;
+    if m < 0 { invert = true; m = -m; }
+    let fm = 0.0 + m;
+    let core = iv_exact(0.0);
+    if m % 2 == 0 {
+        core = iv_out(pow(iv_mig(a), fm), pow(iv_mag(a), fm));
+    } else {
+        core = iv_out(pow(a.lo, fm), pow(a.hi, fm));
+    }
+    if !core.ok { return iv_bad("overflow in x^n over the interval"); }
+    if invert {
+        return iv_div(iv_exact(1.0), core);
+    }
+    return core;
+}
+
+// General power via exp(e*ln(b)) — requires a certifiably positive base.
+fn iv_pow_general(b, e) {
+    if !b.ok { return b; }
+    if !e.ok { return e; }
+    if b.lo <= 0.0 { return iv_bad("x^y with non-integer or interval exponent requires a certifiably positive base"); }
+    let lnb = iv_ln(b);
+    let prod = iv_mul(e, lnb);
+    return iv_exp(prod);
+}
+
+fn iv_sqrt(a) {
+    if !a.ok { return a; }
+    if a.lo < 0.0 { return iv_bad("sqrt over an interval extending below zero"); }
+    let out = iv_out(sqrt(a.lo), sqrt(a.hi));
+    if !out.ok { return out; }
+    let lo = out.lo;
+    if lo < 0.0 { lo = 0.0; }
+    return IBox { ok: true, lo: lo, hi: out.hi, why: "" };
+}
+
+fn iv_cbrt(a) {
+    if !a.ok { return a; }
+    return iv_out(cbrt(a.lo), cbrt(a.hi));
+}
+
+fn iv_exp(a) {
+    if !a.ok { return a; }
+    return iv_out(exp(a.lo), exp(a.hi));
+}
+
+fn iv_ln(a) {
+    if !a.ok { return a; }
+    if a.lo <= 0.0 { return iv_bad("ln over an interval touching x <= 0"); }
+    return iv_out(ln(a.lo), ln(a.hi));
+}
+
+fn iv_log10(a) {
+    if !a.ok { return a; }
+    if a.lo <= 0.0 { return iv_bad("log10 over an interval touching x <= 0"); }
+    return iv_out(log10(a.lo), log10(a.hi));
+}
+
+fn iv_log2(a) {
+    if !a.ok { return a; }
+    if a.lo <= 0.0 { return iv_bad("log2 over an interval touching x <= 0"); }
+    return iv_out(log2(a.lo), log2(a.hi));
+}
+
+// Is there an integer k with offset + k*period inside [lo, hi]? Widened by a
+// slack that dominates every rounding error in the candidate positions, so a
+// "maybe" answers true — for extrema that only widens the enclosure (sound),
+// and for tan poles it refuses (sound). Callers guarantee width < 2*period.
+fn crit_in(lo, hi, offset, period) {
+    let slack = (abs(lo) + abs(hi)) * 0.000000000001 + 0.000000000001;
+    let k = 0.0 + floor((lo - offset) / period);
+    k = k - 1.0;
+    let step = 0.0;
+    while step < 5.0 {
+        let cand = offset + (k + step) * period;
+        if cand >= lo - slack && cand <= hi + slack { return true; }
+        step = step + 1.0;
+    }
+    return false;
+}
+
+fn iv_sin(a) {
+    if !a.ok { return a; }
+    let twopi = 6.283185307179586;
+    if a.hi - a.lo >= twopi { return IBox { ok: true, lo: -1.0, hi: 1.0, why: "" }; }
+    let s1 = sin(a.lo);
+    let s2 = sin(a.hi);
+    let out = iv_out(min(s1, s2), max(s1, s2));
+    if !out.ok { return out; }
+    let lo = out.lo;
+    let hi = out.hi;
+    if crit_in(a.lo, a.hi, 1.5707963267948966, twopi) { hi = 1.0; }
+    if crit_in(a.lo, a.hi, -1.5707963267948966, twopi) { lo = -1.0; }
+    if lo < -1.0 { lo = -1.0; }
+    if hi > 1.0 { hi = 1.0; }
+    return IBox { ok: true, lo: lo, hi: hi, why: "" };
+}
+
+fn iv_cos(a) {
+    if !a.ok { return a; }
+    let twopi = 6.283185307179586;
+    if a.hi - a.lo >= twopi { return IBox { ok: true, lo: -1.0, hi: 1.0, why: "" }; }
+    let s1 = cos(a.lo);
+    let s2 = cos(a.hi);
+    let out = iv_out(min(s1, s2), max(s1, s2));
+    if !out.ok { return out; }
+    let lo = out.lo;
+    let hi = out.hi;
+    if crit_in(a.lo, a.hi, 0.0, twopi) { hi = 1.0; }
+    if crit_in(a.lo, a.hi, 3.141592653589793, twopi) { lo = -1.0; }
+    if lo < -1.0 { lo = -1.0; }
+    if hi > 1.0 { hi = 1.0; }
+    return IBox { ok: true, lo: lo, hi: hi, why: "" };
+}
+
+fn iv_tan(a) {
+    if !a.ok { return a; }
+    let period = 3.141592653589793;
+    if a.hi - a.lo >= period { return iv_bad("tan over an interval containing a pole"); }
+    if crit_in(a.lo, a.hi, 1.5707963267948966, period) {
+        return iv_bad("tan over an interval that may contain a pole");
+    }
+    return iv_out(tan(a.lo), tan(a.hi));
+}
+
+fn iv_asin(a) {
+    if !a.ok { return a; }
+    if a.lo < -1.0 || a.hi > 1.0 { return iv_bad("asin over an interval not certifiably within [-1,1]"); }
+    return iv_out(asin(a.lo), asin(a.hi));
+}
+
+fn iv_acos(a) {
+    if !a.ok { return a; }
+    if a.lo < -1.0 || a.hi > 1.0 { return iv_bad("acos over an interval not certifiably within [-1,1]"); }
+    return iv_out(acos(a.hi), acos(a.lo));
+}
+
+fn iv_atan(a) {
+    if !a.ok { return a; }
+    return iv_out(atan(a.lo), atan(a.hi));
+}
+
+fn iv_floor_scalar(v) {
+    if v >= 9007199254740992.0 || v <= -9007199254740992.0 { return v; }
+    return 0.0 + floor(v);
+}
+
+fn iv_ceil_scalar(v) {
+    if v >= 9007199254740992.0 || v <= -9007199254740992.0 { return v; }
+    return 0.0 + ceil(v);
+}
+
+fn iv_round_scalar(v) {
+    if v >= 9007199254740992.0 || v <= -9007199254740992.0 { return v; }
+    return 0.0 + round(v);
+}
+
+fn iv_trunc_scalar(v) {
+    if v >= 9007199254740992.0 || v <= -9007199254740992.0 { return v; }
+    return 0.0 + trunc(v);
+}
+
+fn iv_hypot(a, b) {
+    if !a.ok { return a; }
+    if !b.ok { return b; }
+    return iv_out(hypot(iv_mig(a), iv_mig(b)), hypot(iv_mag(a), iv_mag(b)));
+}
+
+fn iv_atan2(y, x) {
+    if !y.ok { return y; }
+    if !x.ok { return x; }
+    if x.lo <= 0.0 { return iv_bad("atan2 is certified only over a strictly positive x-interval in this lane"); }
+    return iv_atan(iv_div(y, x));
+}
+
+fn iv_min(a, b) {
+    if !a.ok { return a; }
+    if !b.ok { return b; }
+    return IBox { ok: true, lo: min(a.lo, b.lo), hi: min(a.hi, b.hi), why: "" };
+}
+
+fn iv_max(a, b) {
+    if !a.ok { return a; }
+    if !b.ok { return b; }
+    return IBox { ok: true, lo: max(a.lo, b.lo), hi: max(a.hi, b.hi), why: "" };
+}
+
+// Literals: an integer-valued f64 within the exact-integer range IS the value
+// the user wrote — no pad. Any other literal (0.1, 1e-3, internal non-integer
+// coefficients like ln(10)) is the correctly-rounded f64 of the intended
+// value, within 0.5 ulp — pad covers it.
+fn iv_from_literal(v) {
+    if v == trunc(v) && v < 9007199254740992.0 && v > -9007199254740992.0 {
+        return iv_exact(v);
+    }
+    return iv_out(v, v);
+}
+
+// Interval evaluation of an expression AST over x in [xlo, xhi]. Returns a
+// certified SUPERSET of { f(x) : x in [xlo, xhi] } under the rounding model,
+// or a refusal. Single self-recursive function returning a struct (the pinned
+// checker's shape inference requires this shape; see deriv()).
+fn ieval(node, xlo, xhi) {
+    let tag = node[0];
+    if tag == "num" { return iv_from_literal(node[1]); }
+    if tag == "const" { return iv_from_literal(constant_value(node[1])); }
+    if tag == "var" {
+        let var_name = node[1];
+        if var_name == "x" { return IBox { ok: true, lo: xlo, hi: xhi, why: "" }; }
+        return iv_bad("unknown identifier '${var_name}' (only x is bound)");
+    }
+    if tag == "neg" {
+        let inner = ieval(node[1], xlo, xhi);
+        return iv_neg(inner);
+    }
+    if tag == "call" {
+        let name = node[1];
+        let arguments = node[2];
+        let first = ieval(arguments[0], xlo, xhi);
+        if len(arguments) == 2 {
+            let second = ieval(arguments[1], xlo, xhi);
+            if name == "hypot" { return iv_hypot(first, second); }
+            if name == "pow" {
+                if second.ok && second.lo == second.hi && second.lo == trunc(second.lo)
+                    && second.lo <= 4096.0 && second.lo >= -4096.0 {
+                    return iv_pow_int(first, int(second.lo));
+                }
+                return iv_pow_general(first, second);
+            }
+            if name == "atan2" { return iv_atan2(first, second); }
+            if name == "min" { return iv_min(first, second); }
+            if name == "max" { return iv_max(first, second); }
+            return iv_bad("no certified interval model for '${name}'");
+        }
+        if name == "sin" { return iv_sin(first); }
+        if name == "cos" { return iv_cos(first); }
+        if name == "tan" { return iv_tan(first); }
+        if name == "asin" { return iv_asin(first); }
+        if name == "acos" { return iv_acos(first); }
+        if name == "atan" { return iv_atan(first); }
+        if name == "sqrt" { return iv_sqrt(first); }
+        if name == "cbrt" { return iv_cbrt(first); }
+        if name == "ln" { return iv_ln(first); }
+        if name == "log10" { return iv_log10(first); }
+        if name == "log2" { return iv_log2(first); }
+        if name == "exp" { return iv_exp(first); }
+        if name == "abs" { return iv_abs(first); }
+        if !first.ok { return first; }
+        if name == "floor" { return IBox { ok: true, lo: iv_floor_scalar(first.lo), hi: iv_floor_scalar(first.hi), why: "" }; }
+        if name == "ceil" { return IBox { ok: true, lo: iv_ceil_scalar(first.lo), hi: iv_ceil_scalar(first.hi), why: "" }; }
+        if name == "round" { return IBox { ok: true, lo: iv_round_scalar(first.lo), hi: iv_round_scalar(first.hi), why: "" }; }
+        if name == "trunc" { return IBox { ok: true, lo: iv_trunc_scalar(first.lo), hi: iv_trunc_scalar(first.hi), why: "" }; }
+        return iv_bad("no certified interval model for '${name}'");
+    }
+    let left = ieval(node[1], xlo, xhi);
+    let right = ieval(node[2], xlo, xhi);
+    if tag == "add" { return iv_add(left, right); }
+    if tag == "sub" { return iv_sub(left, right); }
+    if tag == "mul" { return iv_mul(left, right); }
+    if tag == "div" { return iv_div(left, right); }
+    if tag == "mod" { return iv_bad("'%' has no certified interval model; fail closed"); }
+    if tag == "pow" {
+        if right.ok && right.lo == right.hi && right.lo == trunc(right.lo)
+            && right.lo <= 4096.0 && right.lo >= -4096.0 {
+            return iv_pow_int(left, int(right.lo));
+        }
+        return iv_pow_general(left, right);
+    }
+    return iv_bad("internal error: unknown AST node '${tag}'");
+}
+
+// ---------------------------------------------------------------------------
+// JACKAL CERTIFIED INTEGRATION — adaptive bisection where each accepted
+// subinterval contributes a PROVEN enclosure of its integral:
+//   range form   : h * F([a,b])                             — always valid;
+//   Taylor-2 form: h*F(m) + h^3/24 * F''([a,b])             — valid when the
+//     symbolic f, f', f'' formulas all interval-evaluate over the closed
+//     subinterval (each elementary rule holds on the open domain where its
+//     own formula is defined, so success certifies f in C^2 there);
+//   Taylor-4 form: h*F(m) + h^3/24*F''(m) + h^5/1920*F''''([a,b]) — same
+//     argument with the chain f..f'''' certifying C^4. The odd Taylor terms
+//     integrate to zero about the midpoint; the even-term constants are
+//     integral(t^2/2) = h^3/24 and integral(t^4/24) = h^5/1920 over
+//     [-h/2, h/2].
+// Every successful form is an enclosure, so intersecting them is one
+// (disjointness would be an internal soundness bug and panics). Refusal
+// semantics throughout: budget, depth, or f64-resolution exhaustion REFUSES
+// rather than prints. Derivative formulas above a size cap are simply not
+// used (degrade to a lower form) — a cost decision, never a soundness one.
+// ---------------------------------------------------------------------------
+
+struct BoundResult {
+    lo: float,
+    hi: float,
+    nodes: i64,
+    taylored: i64,
+    ranged: i64,
+}
+
+fn ast_size(node) {
+    let tag = node[0];
+    if tag == "num" || tag == "var" || tag == "const" { return 1; }
+    if tag == "neg" { return 1 + ast_size(node[1]); }
+    if tag == "call" {
+        let arguments = node[2];
+        let total = 1;
+        let i = 0;
+        while i < len(arguments) { total = total + ast_size(arguments[i]); i = i + 1; }
+        return total;
+    }
+    return 1 + ast_size(node[1]) + ast_size(node[2]);
+}
+
+fn iv_intersect_enclosures(piece, candidate) {
+    let ilo = max(piece.lo, candidate.lo);
+    let ihi = min(piece.hi, candidate.hi);
+    if ilo > ihi {
+        panic("integrate-bound: internal soundness invariant violated (disjoint enclosures); fail closed");
+    }
+    return IBox { ok: true, lo: ilo, hi: ihi, why: "" };
+}
+
+// taylor_degree: 0 = range only, 2 = chain f..f'' available, 4 = chain f..f''''.
+fn bound_step(f, f1, f2, f3, f4, taylor_degree, a_edge, b_edge, span, tol, depth, nodes) {
+    if nodes > 60000 {
+        panic("integrate-bound: subdivision budget (60000 subintervals) exhausted before certifying the requested tolerance; fail closed rather than print an unearned bound (try a larger tolerance, or integrate-adaptive for a non-certified estimate)");
+    }
+    let F = ieval(f, a_edge, b_edge);
+    if depth > 60 {
+        if !F.ok {
+            panic("integrate-bound: cannot certify: ${F.why} persists after 60 subdivision levels near x=${number_text(a_edge)}; the integrand is not certifiably bounded on the requested interval; fail closed");
+        }
+        panic("integrate-bound: subdivision depth (60) exhausted before certifying the requested tolerance; integrand structure is below certifiable scale; fail closed");
+    }
+    let h = b_edge - a_edge;
+    let local_tol = tol * h / span;
+    let hI = iv_out(h, h);
+    let piece = iv_bad("uncomputed");
+    let used_taylor = false;
+    if F.ok {
+        piece = iv_mul(hI, F);
+    }
+    if taylor_degree >= 2 && F.ok && piece.ok {
+        // The Taylor forms' odd terms cancel about the EXACT real midpoint
+        // c = (a+b)/2, but the float m = fl((a+b)/2) differs from c by up to
+        // half an ulp — and the neglected f'(m)*h*(c-m) term is not covered
+        // by any magnitude-relative pad (adversarial review 2026-08-13:
+        // a sin interval with midpoint near pi excluded the truth by 426x
+        // the enclosure width). Evaluating the midpoint terms over the
+        // outward-padded midpoint INTERVAL [m-pad, m+pad], which provably
+        // contains c, restores the theorem: the enclosure of f over that
+        // interval contains f(c), and likewise for f''.
+        let m = (a_edge + b_edge) / 2.0;
+        let mI = iv_out(m, m);
+        let Fm = ieval(f, mI.lo, mI.hi);
+        let F1 = ieval(f1, a_edge, b_edge);
+        let F2 = ieval(f2, a_edge, b_edge);
+        if mI.ok && Fm.ok && F1.ok && F2.ok {
+            let h3 = iv_mul(hI, iv_mul(hI, hI));
+            let base = iv_mul(hI, Fm);
+            let tried4 = false;
+            if taylor_degree >= 4 {
+                let F2m = ieval(f2, mI.lo, mI.hi);
+                let F3 = ieval(f3, a_edge, b_edge);
+                let F4 = ieval(f4, a_edge, b_edge);
+                if F2m.ok && F3.ok && F4.ok {
+                    let h5 = iv_mul(h3, iv_mul(hI, hI));
+                    let mid_term = iv_div(iv_mul(h3, F2m), iv_exact(24.0));
+                    let rem4 = iv_div(iv_mul(h5, F4), iv_exact(1920.0));
+                    if mid_term.ok && rem4.ok {
+                        let t4 = iv_add(base, iv_add(mid_term, rem4));
+                        if t4.ok {
+                            piece = iv_intersect_enclosures(piece, t4);
+                            used_taylor = true;
+                            tried4 = true;
+                        }
+                    }
+                }
+            }
+            if !tried4 {
+                let rem2 = iv_div(iv_mul(h3, F2), iv_exact(24.0));
+                if rem2.ok {
+                    let t2 = iv_add(base, rem2);
+                    if t2.ok {
+                        piece = iv_intersect_enclosures(piece, t2);
+                        used_taylor = true;
+                    }
+                }
+            }
+        }
+    }
+    if piece.ok {
+        // 0.9 headroom leaves room for accumulation padding so the final
+        // enclosure still meets the REQUESTED tolerance.
+        if piece.hi - piece.lo <= 0.9 * local_tol {
+            let t_count = 0;
+            let r_count = 0;
+            if used_taylor { t_count = 1; } else { r_count = 1; }
+            return BoundResult { lo: piece.lo, hi: piece.hi, nodes: nodes + 1, taylored: t_count, ranged: r_count };
+        }
+    }
+    let mid = (a_edge + b_edge) / 2.0;
+    if mid <= a_edge || mid >= b_edge {
+        if !F.ok {
+            panic("integrate-bound: cannot certify: ${F.why} persists at float64 resolution near x=${number_text(a_edge)}; the integrand is not certifiably bounded on the requested interval; fail closed");
+        }
+        panic("integrate-bound: cannot subdivide below float64 resolution while the local enclosure still exceeds tolerance; fail closed");
+    }
+    let first = bound_step(f, f1, f2, f3, f4, taylor_degree, a_edge, mid, span, tol, depth + 1, nodes + 1);
+    let second = bound_step(f, f1, f2, f3, f4, taylor_degree, mid, b_edge, span, tol, depth + 1, first.nodes);
+    let left_piece = IBox { ok: true, lo: first.lo, hi: first.hi, why: "" };
+    let right_piece = IBox { ok: true, lo: second.lo, hi: second.hi, why: "" };
+    let summed = iv_add(left_piece, right_piece);
+    if !summed.ok {
+        panic("integrate-bound: non-finite accumulation; fail closed");
+    }
+    return BoundResult { lo: summed.lo, hi: summed.hi, nodes: second.nodes, taylored: first.taylored + second.taylored, ranged: first.ranged + second.ranged };
+}
+
+fn run_native_self_test() uses(io.print) {
+    let a = Vec3 { x: 1.0, y: 2.0, z: 3.0 };
+    let b = Vec3 { x: 4.0, y: 5.0, z: 6.0 };
+    let cross = cross3(a, b);
+
+    assert(positive_abs(-42) == 42);
+    assert(gcd_safe(462, 1071) == 21);
+    assert(format_hex(255) == "0xFF");
+    assert(format_binary(42) == "0b101010");
+    assert(choose(10, 3) == 120);
+    assert(choose(62, 31) == 465428353255261088);
+    assert(choose(66, 33) == 7219428434016265740);
+    assert(dot3(a, b) == 32.0);
+    assert(cross.x == -3.0);
+    assert(cross.y == 6.0);
+    assert(cross.z == -3.0);
+    assert(norm_vec3(Vec3 { x: 2.0, y: 3.0, z: 6.0 }) == 7.0);
+    assert(median([2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0]) == 4.5);
+    assert(convert_unit(1.0, "km", "m") == 1000.0);
+    assert(convert_unit(212.0, "F", "C") == 100.0);
+    assert(convert_unit(1.0, "atm", "Pa") == 101325.0);
+    assert(rounded(1.9999999999999927, 12.0) == 2.0);
+    match prime_verdict(104729) {
+        PrimeVerdict::Prime(n) => assert(n == 104729),
+        PrimeVerdict::Composite { value: _, divisor: _ } => panic("prime self-test failed"),
+        PrimeVerdict::OutsideDomain(_) => panic("prime domain self-test failed"),
+    }
+    match prime_verdict(221) {
+        PrimeVerdict::Composite { value: n, divisor: d } => { assert(n == 221); assert(d == 13); },
+        PrimeVerdict::Prime(_) => panic("composite self-test failed"),
+        PrimeVerdict::OutsideDomain(_) => panic("composite domain self-test failed"),
+    }
+    assert(abs(0.5 * 2.0 * pow(3.0, 2.0) - 9.0) < 0.000000000001);
+
+    let measured_area = multiply_measurements(
+        measurement(12.0, 0.1, "m"),
+        measurement(3.0, 0.05, "m"),
+        "m2"
+    );
+    assert(measured_area.value == 36.0);
+    assert(rounded(measured_area.uncertainty, 12.0) == 0.9);
+    assert(rounded(relative_uncertainty(measured_area) * 100.0, 12.0) == 2.5);
+    let resistance = divide_measurements(
+        measurement(12.0, 0.1, "V"),
+        measurement(3.0, 0.05, "A"),
+        "ohm"
+    );
+    assert(resistance.value == 4.0);
+    assert(rounded(resistance.uncertainty, 12.0) == 0.1);
+    let matrix = Matrix2 { a: 1.0, b: 2.0, c: 3.0, d: 4.0 };
+    let inverse = inverse2(matrix);
+    assert(determinant2(matrix) == -2.0);
+    assert(inverse.a == -2.0 && inverse.b == 1.0 && inverse.c == 1.5 && inverse.d == -0.5);
+    assert(rounded(integrate_square_simpson(0.0, 3.0, 100), 12.0) == 9.0);
+    assert(abs(derivative_cube(2.0, 0.001) - 12.0) < 0.000002);
+    match spectrum_band(501.5) {
+        SpectrumBand::Visible => assert(true),
+        SpectrumBand::Ultraviolet => panic("spectrum self-test failed"),
+        SpectrumBand::Infrared => panic("spectrum self-test failed"),
+    }
+    assert(len(hash_sha256("jackal-claim-v1")) == 64);
+    assert(spectrum_text(SpectrumBand::Infrared) == "infrared");
+
+    assert(evaluate_expression("2+3*4", {}) == 14.0);
+    assert(evaluate_expression("(2+3)*4", {}) == 20.0);
+    assert(evaluate_expression("2^10", {}) == 1024.0);
+    assert(evaluate_expression("-3^2", {}) == -9.0);
+    assert(evaluate_expression("2^-3", {}) == 0.125);
+    assert(evaluate_expression("sqrt(16)+cbrt(27)", {}) == 7.0);
+    assert(evaluate_expression("hypot(3,4)", {}) == 5.0);
+    assert(evaluate_expression("sin(pi/2)", {}) == 1.0);
+    assert(evaluate_expression("x^2+1", { "x": 3.0 }) == 10.0);
+    assert(evaluate_expression("1.5e2", {}) == 150.0);
+    assert(rounded(simpson_general("x^2", 0.0, 3.0, 100), 12.0) == 9.0);
+
+    assert(evaluate_expression("a*b", { "a": 3.0, "b": 4.0 }) == 12.0);
+    assert(big_to_text(big_from_text("00123")) == "123");
+    assert(big_to_text(big_add(big_from_text("999999999999999999"), big_from_text("1"))) == "1000000000000000000");
+    assert(big_to_text(big_mul(big_from_text("111111111"), big_from_text("111111111"))) == "12345678987654321");
+    assert(big_to_text(big_fact(20)) == "2432902008176640000");
+    assert(big_to_text(big_ncr(62, 31)) == "465428353255261088");
+    assert(big_to_text(big_pow(big_from_text("2"), 64)) == "18446744073709551616");
+    let division_check = big_divmod_small(big_from_text("1000000000000000000"), 7);
+    assert(big_to_text(division_check.quotient) == "142857142857142857");
+    assert(division_check.remainder == 1);
+
+    assert(ast_to_text(simplify(deriv(simplify(parse_ast("x^2"))))) == "2*x");
+    assert(ast_to_text(simplify(deriv(simplify(parse_ast("sin(x)"))))) == "cos(x)");
+    assert(ast_to_text(simplify(deriv(simplify(parse_ast("ln(x)"))))) == "1/x");
+    assert(ast_to_text(simplify(deriv(simplify(parse_ast("x^x"))))) == "x^x*(ln(x)+1)");
+    assert(eval_ast(parse_ast("2*x+1"), { "x": 3.0 }) == evaluate_expression("2*x+1", { "x": 3.0 }));
+    assert(rat_to_text(rat_eval_ast(parse_ast("1/3 + 1/6"))) == "1/2");
+    assert(rat_to_text(rat_eval_ast(parse_ast("0.1 + 0.2"))) == "3/10");
+    assert(rat_to_text(rat_eval_ast(parse_ast("(2/3)^-2"))) == "9/4");
+    assert(rat_to_text(rat_eval_ast(parse_ast("1/3 - 1/3"))) == "0");
+    assert(big_to_text(big_gcd(big_from_text("462"), big_from_text("1071"))) == "21");
+    let big_division = big_divmod(big_from_text("123456789123456789"), big_from_text("987654321"));
+    assert(big_to_text(big_division.quotient) == "124999998");
+    assert(big_to_text(big_division.remainder) == "973765431");
+
+    // Certified interval engine: enclosures must contain, refusals must fire.
+    let sin_range = ieval(parse_ast("sin(x)"), 0.0, 3.141592653589793);
+    assert(sin_range.ok);
+    assert(sin_range.lo <= 0.0 && sin_range.lo >= -0.000001);
+    assert(sin_range.hi == 1.0);
+    let sq_range = ieval(parse_ast("x^2"), -1.0, 2.0);
+    assert(sq_range.ok);
+    assert(sq_range.lo <= 0.0 && sq_range.lo >= -0.000001);
+    assert(sq_range.hi >= 4.0 && sq_range.hi <= 4.000001);
+    let div_range = ieval(parse_ast("1/x"), -1.0, 1.0);
+    assert(!div_range.ok);
+    let ln_range = ieval(parse_ast("ln(x)"), 0.0, 1.0);
+    assert(!ln_range.ok);
+    let tan_range = ieval(parse_ast("tan(x)"), 1.0, 2.0);
+    assert(!tan_range.ok);
+    assert(ast_to_text(simplify_bound(parse_ast("x/x"))) == "x/x");
+    assert(ast_smooth_ok(parse_ast("sin(x)+x^3")));
+    assert(!ast_smooth_ok(parse_ast("abs(x)")));
+    let bf = simplify_bound(parse_ast("x^2"));
+    let bf1 = simplify_bound(deriv(bf));
+    let bf2 = simplify_bound(deriv(bf1));
+    let bf3 = simplify_bound(deriv(bf2));
+    let bf4 = simplify_bound(deriv(bf3));
+    let bres = bound_step(bf, bf1, bf2, bf3, bf4, 4, 0.0, 1.0, 1.0, 0.000001, 0, 0);
+    assert(bres.lo <= 0.3333333333333333 && bres.hi >= 0.3333333333333333);
+    assert(bres.hi - bres.lo <= 0.000001);
+
+    // Regressions from the 2026-08-13 adversarial review. (1) Constant
+    // folding must never launder f64 rounding into "exact" literals: the
+    // enclosure of 1e16+1-1e16 must contain the true value 1 (the fold once
+    // certified [0,0]). (2) Expanding the Taylor forms about the FLOAT
+    // midpoint must not break containment: this sin interval's float midpoint
+    // sits near pi where the neglected f'(m)*h*(c-m) term once pushed the
+    // certified enclosure 426x its own width away from the truth
+    // (-8.537274556592414e-18, mpmath 60dps). (3) number_text must not
+    // saturate 2^63 into a wrong digit string.
+    let fold_probe = ieval(simplify_bound(parse_ast("1e16+1-1e16")), 0.0, 1.0);
+    assert(fold_probe.ok);
+    assert(fold_probe.lo <= 1.0 && fold_probe.hi >= 1.0);
+    let mid_f = simplify_bound(parse_ast("sin(x)"));
+    let mid_f1 = simplify_bound(deriv(mid_f));
+    let mid_f2 = simplify_bound(deriv(mid_f1));
+    let mid_f3 = simplify_bound(deriv(mid_f2));
+    let mid_f4 = simplify_bound(deriv(mid_f3));
+    let mid_res = bound_step(mid_f, mid_f1, mid_f2, mid_f3, mid_f4, 4,
+        3.141092653589793, 3.1420926535898106,
+        3.1420926535898106 - 3.141092653589793, 0.000001, 0, 0);
+    assert(mid_res.lo <= -8.537274556592414e-18);
+    assert(mid_res.hi >= -8.537274556592414e-18);
+    assert(number_text(9223372036854775808.0) != "9223372036854775807");
+    print("self-test: 83/83 Anubis-native invariants pass");
+}
+
+fn main() uses(io.print) {
+    let argv = args();
+    if len(argv) == 0 || argv[0] == "help" || argv[0] == "--help" {
+        usage();
+        return;
+    }
+
+    let op = argv[0];
+
+    if op == "self-test" { run_native_self_test(); return; }
+
+    // JACKAL 10×: measurement intelligence and auditable models.
+    if op == "measure-mul" {
+        require_arity(argv, 6);
+        let left = measurement(arg_float(argv, 1), arg_float(argv, 2), "left");
+        let right = measurement(arg_float(argv, 3), arg_float(argv, 4), "right");
+        print(measurement_text(multiply_measurements(left, right, argv[5])));
+        return;
+    }
+    if op == "uncertain-ohm" {
+        require_arity(argv, 5);
+        let voltage = measurement(arg_float(argv, 1), arg_float(argv, 2), "V");
+        let current = measurement(arg_float(argv, 3), arg_float(argv, 4), "A");
+        let resistance = divide_measurements(voltage, current, "ohm");
+        print("resistance=${number_text(resistance.value)} ± ${number_text(rounded(resistance.uncertainty, 12.0))} ohm relative=${number_text(rounded(relative_uncertainty(resistance) * 100.0, 12.0))}%");
+        return;
+    }
+    if op == "matrix2" { require_arity(argv, 5); let matrix = matrix2(argv, 1); print("det=${number_text(determinant2(matrix))} inverse=${matrix_text(inverse2(matrix))}"); return; }
+    if op == "solve2" { solve_linear2(argv); return; }
+    if op == "integrate-x2" { require_arity(argv, 4); let panels = arg_int(argv, 3); let area = integrate_square_simpson(arg_float(argv, 1), arg_float(argv, 2), panels); print("status=estimated integral=${number_text(rounded(area, 12.0))} method=simpson panels=${panels}"); return; }
+    if op == "derivative-x3" { require_arity(argv, 3); let x = arg_float(argv, 1); let h = arg_float(argv, 2); let estimate = derivative_cube(x, h); let exact = 3.0 * x * x; print("status=estimated derivative=${number_text(rounded(estimate, 12.0))} truncation-probe=${number_text(rounded(abs(estimate - exact), 12.0))}"); return; }
+    if op == "ph" { require_arity(argv, 2); let concentration = arg_float(argv, 1); if concentration <= 0.0 { panic("hydrogen concentration must be positive"); } let value = -log10(concentration); let class = if value < 7.0 { "acidic" } else if value > 7.0 { "basic" } else { "neutral" }; print("pH=${number_text(value)} classification=${class}"); return; }
+    if op == "dilute" { require_arity(argv, 4); let initial_c = arg_float(argv, 1); let initial_v = arg_float(argv, 2); let final_c = arg_float(argv, 3); if final_c <= 0.0 || initial_c < final_c { panic("dilution requires 0 < final concentration <= initial concentration"); } let final_v = initial_c * initial_v / final_c; print("final-volume=${number_text(final_v)} L solvent-to-add=${number_text(final_v - initial_v)} L"); return; }
+    if op == "relativity" { require_arity(argv, 2); let beta = arg_float(argv, 1); if abs(beta) >= 1.0 { panic("relativity beta requires |v/c| < 1"); } let gamma = 1.0 / sqrt(1.0 - beta * beta); print("gamma=${number_text(gamma)} time-dilation=${number_text(gamma)} length-factor=${number_text(1.0 / gamma)}"); return; }
+    if op == "decibel-power" { require_arity(argv, 2); let ratio = arg_float(argv, 1); if ratio <= 0.0 { panic("power ratio must be positive"); } print("${number_text(10.0 * log10(ratio))} dB"); return; }
+    if op == "blackbody" { require_arity(argv, 2); let temperature = arg_float(argv, 1); if temperature <= 0.0 { panic("temperature must be positive"); } let wavelength = 2897771.955 / temperature; print("peak-wavelength=${number_text(wavelength)} nm band=${spectrum_text(spectrum_band(wavelength))}"); return; }
+    if op == "kinetic-sensitivity" { require_arity(argv, 3); let mass = arg_float(argv, 1); let speed = arg_float(argv, 2); let energy = 0.5 * mass * speed * speed; print("energy=${number_text(energy)} J elasticity[mass]=1 elasticity[speed]=2"); return; }
+    if op == "claim-card" { projectile_claim_card(argv); return; }
+
+    // JACKAL symbolic core: self-verifying differentiation and exact rationals.
+    if op == "diff" {
+        require_arity(argv, 2);
+        let source = argv[1];
+        let raw = parse_ast(source);
+        let ast = simplify(raw);
+        let derived = simplify(deriv(ast));
+        let check = verify_derivative(ast, derived);
+        print("d/dx[${source}] = ${ast_to_text(derived)}");
+        if has_where_defined_convention(raw) {
+            print("domain-caveat=simplification assumed subexpressions defined (u/u, u-u, u^0, 0*u); result valid only on the original expression's domain");
+        }
+        let probe_note = "";
+        if check.skipped > 0 { probe_note = " skipped-unstable-probe=${check.skipped}"; }
+        print("status=checked check=numeric points=${check.points} max-rel-dev=${number_text(check.max_dev)} tolerance=0.0001${probe_note} assurance=numeric-sample-check(not-proof-of-identity)");
+        return;
+    }
+    if op == "rat" {
+        require_arity(argv, 2);
+        let ast = parse_ast(argv[1]);
+        let exact = rat_eval_ast(ast);
+        let approx = eval_ast(ast, {});
+        let approx_text = "not-representable-in-float64";
+        if approx == approx && approx <= 1.7976931348623157e308 && approx >= -1.7976931348623157e308 {
+            approx_text = number_text(approx);
+        }
+        print("status=exact parsed=${ast_to_text(ast)} exact=${rat_to_text(exact)} approx=${approx_text}");
+        return;
+    }
+
+    // JACKAL expression engine: general evaluation and the numerical laboratory.
+    if op == "eval" { require_arity(argv, 2); print_number(evaluate_expression(argv[1], {})); return; }
+    if op == "worksheet" { require_arity(argv, 2); run_worksheet(argv[1]); return; }
+    if op == "big-add" { require_arity(argv, 3); print(big_to_text(big_add(big_from_text(argv[1]), big_from_text(argv[2])))); return; }
+    if op == "big-mul" { require_arity(argv, 3); print(big_to_text(big_mul(big_from_text(argv[1]), big_from_text(argv[2])))); return; }
+    if op == "big-pow" {
+        require_arity(argv, 3);
+        if len(argv[1]) > 1000 { panic("big-pow base is capped at 1000 digits (compute budget); fail closed"); }
+        print(big_to_text(big_pow(big_from_text(argv[1]), arg_int(argv, 2))));
+        return;
+    }
+    if op == "big-fact" { require_arity(argv, 2); print(big_to_text(big_fact(arg_int(argv, 1)))); return; }
+    if op == "big-ncr" { require_arity(argv, 3); print(big_to_text(big_ncr(arg_int(argv, 1), arg_int(argv, 2)))); return; }
+    if op == "integrate" {
+        require_arity(argv, 5);
+        let source = argv[1];
+        let a = arg_float(argv, 2);
+        let b = arg_float(argv, 3);
+        let panels = arg_int(argv, 4);
+        let coarse = simpson_general(source, a, b, panels);
+        let fine = simpson_general(source, a, b, panels * 2);
+        // Richardson: error(S_n) ~= (16/15)|S_2n - S_n| — the estimate describes the
+        // reported coarse integral, not the finer probe grid.
+        let estimate = abs(fine - coarse) * 16.0 / 15.0;
+        print("status=estimated integral=${number_text(rounded(coarse, 12.0))} method=simpson panels=${panels} richardson-error-estimate=${number_text(estimate)} assurance=estimate-not-bound(grid-limited) hint=integrate-bound-for-a-certified-enclosure");
+        return;
+    }
+    if op == "integrate-adaptive" {
+        require_arity(argv, 5);
+        let source = argv[1];
+        let a = arg_float(argv, 2);
+        let b = arg_float(argv, 3);
+        let tol = arg_float(argv, 4);
+        if tol <= 0.0 { panic("integrate-adaptive tolerance must be positive"); }
+        if a >= b { panic("integrate-adaptive requires a < b"); }
+        let seeds = 32;
+        let width = (b - a) / seeds;
+        let total = 0.0;
+        let error_sum = 0.0;
+        let evals = 0;
+        let i = 0;
+        while i < seeds {
+            let left_edge = a + i * width;
+            let right_edge = a + (i + 1) * width;
+            let mid = (left_edge + right_edge) / 2.0;
+            let fa = adaptive_eval(source, left_edge);
+            let fm = adaptive_eval(source, mid);
+            let fb = adaptive_eval(source, right_edge);
+            let whole = (fa + 4.0 * fm + fb) * (right_edge - left_edge) / 6.0;
+            let piece = adaptive_step(source, left_edge, right_edge, fa, fm, fb, whole, tol / seeds, 0, evals + 3);
+            total = total + piece.value;
+            error_sum = error_sum + piece.error;
+            evals = piece.evals;
+            i = i + 1;
+        }
+        print("status=estimated integral=${number_text(total)} method=adaptive-simpson evals=${evals} achieved-error-estimate=${number_text(error_sum)} tolerance=${number_text(tol)} assurance=refuses-when-unconverged(local-estimate)");
+        return;
+    }
+    if op == "integrate-bound" {
+        require_arity(argv, 5);
+        let source = argv[1];
+        let a = arg_float(argv, 2);
+        let b = arg_float(argv, 3);
+        let tol = arg_float(argv, 4);
+        if tol <= 0.0 { panic("integrate-bound tolerance must be positive"); }
+        if a >= b { panic("integrate-bound requires a < b"); }
+        let f = simplify_bound(parse_ast(source));
+        let vars = collect_vars(f, {});
+        for name in vars {
+            if name != "x" { panic("integrate-bound: unknown identifier '${name}'; only x is bound in the integrand"); }
+        }
+        let smooth = ast_smooth_ok(f);
+        let f1 = mk_num(0.0);
+        let f2 = mk_num(0.0);
+        let f3 = mk_num(0.0);
+        let f4 = mk_num(0.0);
+        let taylor_degree = 0;
+        if smooth {
+            f1 = simplify_bound(deriv(f));
+            f2 = simplify_bound(deriv(f1));
+            if ast_size(f2) <= 20000 {
+                taylor_degree = 2;
+                f3 = simplify_bound(deriv(f2));
+                f4 = simplify_bound(deriv(f3));
+                if ast_size(f4) <= 20000 { taylor_degree = 4; }
+            }
+        }
+        let result = bound_step(f, f1, f2, f3, f4, taylor_degree, a, b, b - a, tol, 0, 0);
+        // One extra outward pad before printing: the decimal rendering of each
+        // endpoint round-trips to the f64 within half an ulp, so the printed
+        // decimal itself still encloses.
+        let final_iv = iv_out(result.lo, result.hi);
+        if !final_iv.ok { panic("integrate-bound: non-finite enclosure; fail closed"); }
+        let width = final_iv.hi - final_iv.lo;
+        if width > tol {
+            panic("integrate-bound: achieved certified width ${number_text(width)} exceeds the requested tolerance ${number_text(tol)} after accumulation rounding; fail closed (try a larger tolerance)");
+        }
+        let mode = "range-only(non-smooth-integrand)";
+        if taylor_degree == 2 { mode = "smooth-taylor2"; }
+        if taylor_degree == 4 { mode = "smooth-taylor4"; }
+        print("status=bounded integral-enclosure=[${number_text(final_iv.lo)},${number_text(final_iv.hi)}] width=${number_text(width)} method=adaptive-interval mode=${mode} subintervals=${result.nodes} taylor-accepted=${result.taylored} range-accepted=${result.ranged} tolerance=${number_text(tol)} assurance=certified-bound(outward-rounded-f64;libm<=2ulp-model;implementation-tested-not-mechanized)");
+        return;
+    }
+    if op == "range-bound" {
+        require_arity(argv, 4);
+        let source = argv[1];
+        let xlo = arg_float(argv, 2);
+        let xhi = arg_float(argv, 3);
+        if xlo > xhi { panic("range-bound requires lo <= hi"); }
+        let f = simplify_bound(parse_ast(source));
+        let vars = collect_vars(f, {});
+        for name in vars {
+            if name != "x" { panic("range-bound: unknown identifier '${name}'; only x is bound"); }
+        }
+        let enclosure = ieval(f, xlo, xhi);
+        if !enclosure.ok {
+            let why = enclosure.why;
+            panic("range-bound: cannot certify a range: ${why}; fail closed");
+        }
+        // Final outward pad before printing, for the same reason as
+        // integrate-bound: the decimal rendering of an endpoint round-trips
+        // to the f64 within half an ulp, so the printed decimal must carry
+        // one more pad to still enclose — several ieval paths (the variable
+        // passthrough, negation, abs, min/max) legitimately return unpadded
+        // endpoints.
+        let final_iv = iv_out(enclosure.lo, enclosure.hi);
+        if !final_iv.ok { panic("range-bound: non-finite enclosure; fail closed"); }
+        print("status=bounded range-enclosure=[${number_text(final_iv.lo)},${number_text(final_iv.hi)}] assurance=certified-superset-of-range(outward-rounded-f64;libm<=2ulp-model;implementation-tested-not-mechanized)");
+        return;
+    }
+    if op == "derivative" {
+        require_arity(argv, 4);
+        let source = argv[1];
+        let at = arg_float(argv, 2);
+        let step = arg_float(argv, 3);
+        if step <= 0.0 { panic("derivative step must be positive"); }
+        let coarse = (evaluate_expression(source, { "x": at + step }) - evaluate_expression(source, { "x": at - step })) / (2.0 * step);
+        let half = step / 2.0;
+        let fine = (evaluate_expression(source, { "x": at + half }) - evaluate_expression(source, { "x": at - half })) / (2.0 * half);
+        let probe = abs(fine - coarse) / 3.0;
+        print("status=estimated derivative=${number_text(fine)} method=central-difference step=${number_text(half)} richardson-probe=${number_text(probe)} assurance=estimate-not-bound(grid-limited)");
+        return;
+    }
+    if op == "solve" {
+        require_arity(argv, 4);
+        let source = argv[1];
+        let lo = arg_float(argv, 2);
+        let hi = arg_float(argv, 3);
+        if lo >= hi { panic("solve requires lo < hi"); }
+        let flo = evaluate_expression(source, { "x": lo });
+        let fhi = evaluate_expression(source, { "x": hi });
+        if flo == 0.0 { print("status=estimated root=${number_text(lo)} residual=0 method=bisection iterations=0"); return; }
+        if fhi == 0.0 { print("status=estimated root=${number_text(hi)} residual=0 method=bisection iterations=0"); return; }
+        if (flo > 0.0 && fhi > 0.0) || (flo < 0.0 && fhi < 0.0) {
+            panic("solve requires a sign change on [lo, hi]; fail closed rather than guess");
+        }
+        let iterations = 0;
+        while iterations < 200 {
+            let mid = (lo + hi) / 2.0;
+            if mid == lo || mid == hi { break; }
+            let fmid = evaluate_expression(source, { "x": mid });
+            if fmid == 0.0 { lo = mid; hi = mid; break; }
+            if (fmid > 0.0) == (flo > 0.0) { lo = mid; flo = fmid; } else { hi = mid; fhi = fmid; }
+            iterations = iterations + 1;
+        }
+        let root = (lo + hi) / 2.0;
+        let residual = abs(evaluate_expression(source, { "x": root }));
+        // A tiny residual FLATTERS an ill-conditioned root: |x - r| ~= |f(x)| / |f'(r)|,
+        // so when f'(r) is small the root error is the residual AMPLIFIED by 1/|f'(r)|
+        // (field-adjudicated 2026-08-13: a near-parabolic Kepler equation returned
+        // residual 2.3e-20 while the root was off by 1.3e-12 — condition amplification
+        // ~6e7). Report the first-order backward-error estimate alongside the residual.
+        // The derivative probe uses the SOFT evaluator (NaN flows through) so an
+        // off-domain step can only degrade the diagnostic, never fail the solve.
+        let probe_ast = parse_ast(source);
+        let h = 0.000000014901161193847656 * max(1.0, abs(root));
+        let f_up = eval_ast(probe_ast, { "x": root + h });
+        let f_dn = eval_ast(probe_ast, { "x": root - h });
+        let fprime = (f_up - f_dn) / (2.0 * h);
+        let diagnostics = " root-error-estimate=unavailable(derivative-probe-failed)";
+        if fprime == fprime && fprime <= 1.7976931348623157e308 && fprime >= -1.7976931348623157e308 {
+            if abs(fprime) < 1.0e-300 {
+                diagnostics = " derivative-estimate=${number_text(fprime)} root-error-estimate=indeterminate(derivative-vanishes-at-root;residual-cannot-bound-root-error)";
+            } else {
+                let amplification = 1.0 / abs(fprime);
+                let first_order = residual * amplification;
+                let estimate = max((hi - lo) / 2.0, first_order);
+                if estimate <= 1.7976931348623157e308 {
+                    diagnostics = " derivative-estimate=${number_text(fprime)} condition-amplification=${number_text(amplification)} root-error-estimate=${number_text(estimate)}";
+                }
+            }
+        }
+        print("status=estimated root=${number_text(root)} residual=${number_text(residual)} method=bisection iterations=${iterations}${diagnostics} assurance=estimate-not-bound(first-order)");
+        return;
+    }
+
+    if op == "add" { print_number(binary_float_left(argv) + binary_float_right(argv)); return; }
+    if op == "sub" { print_number(binary_float_left(argv) - binary_float_right(argv)); return; }
+    if op == "mul" { print_number(binary_float_left(argv) * binary_float_right(argv)); return; }
+    if op == "div" {
+        let numerator = binary_float_left(argv);
+        let denominator = binary_float_right(argv);
+        if denominator == 0.0 { panic("division by zero has no finite result; fail closed"); }
+        print_number(numerator / denominator);
+        return;
+    }
+    if op == "pow" { print_number(pow(binary_float_left(argv), binary_float_right(argv))); return; }
+    if op == "sqrt" { print_number(sqrt(unary_float(argv))); return; }
+    if op == "cbrt" { print_number(cbrt(unary_float(argv))); return; }
+    if op == "sin" { print_number(sin(unary_float(argv))); return; }
+    if op == "cos" { print_number(cos(unary_float(argv))); return; }
+    if op == "tan" { print_number(tan(unary_float(argv))); return; }
+    if op == "sin-deg" { print_number(sin(unary_float(argv) * pi() / 180.0)); return; }
+    if op == "hypot" { print_number(hypot(binary_float_left(argv), binary_float_right(argv))); return; }
+    if op == "ln" { print_number(ln(unary_float(argv))); return; }
+    if op == "log10" { print_number(log10(unary_float(argv))); return; }
+    if op == "exp" { print_number(exp(unary_float(argv))); return; }
+
+    if op == "hex" { require_arity(argv, 2); print(format_hex(strict_int(argv[1]))); return; }
+    if op == "bin" { require_arity(argv, 2); print(format_binary(strict_int(argv[1]))); return; }
+    if op == "band" { print(binary_int_left(argv) & binary_int_right(argv)); return; }
+    if op == "bor" { print(binary_int_left(argv) | binary_int_right(argv)); return; }
+    if op == "bxor" { print(binary_int_left(argv) ^ binary_int_right(argv)); return; }
+    if op == "shl" { let value = binary_int_left(argv); print(value << shift_count(argv)); return; }
+    if op == "shr" { let value = binary_int_left(argv); print(value >> shift_count(argv)); return; }
+    if op == "gcd" { print(gcd_safe(binary_int_left(argv), binary_int_right(argv))); return; }
+    if op == "fact" { require_arity(argv, 2); print(factorial(strict_int(argv[1]))); return; }
+
+    if op == "stats" { stats(argv); return; }
+
+    // Mathematics and numerical analysis.
+    if op == "quadratic" { quadratic(argv); return; }
+    if op == "lerp" { require_arity(argv, 4); print_number(arg_float(argv, 1) + (arg_float(argv, 2) - arg_float(argv, 1)) * arg_float(argv, 3)); return; }
+    if op == "percent-error" { require_arity(argv, 3); print("${number_text(rounded(abs(arg_float(argv, 1) - arg_float(argv, 2)) / abs(arg_float(argv, 2)) * 100.0, 12.0))}%"); return; }
+    if op == "ncr" { require_arity(argv, 3); print(choose(arg_int(argv, 1), arg_int(argv, 2))); return; }
+    if op == "lcm" { require_arity(argv, 3); let a = arg_int(argv, 1); let b = arg_int(argv, 2); print(positive_abs(a / gcd_safe(a, b) * b)); return; }
+    if op == "prime" { require_arity(argv, 2); print_prime(arg_int(argv, 1)); return; }
+
+    // Vector algebra and data science.
+    if op == "dot" { require_arity(argv, 7); print_number(dot3(vec3(argv, 1), vec3(argv, 4))); return; }
+    if op == "cross" { require_arity(argv, 7); print(vec_text(cross3(vec3(argv, 1), vec3(argv, 4)))); return; }
+    if op == "norm3" { require_arity(argv, 4); print_number(norm_vec3(vec3(argv, 1))); return; }
+    if op == "describe" { describe(argv); return; }
+    if op == "linreg" { print_regression(argv); return; }
+
+    // Unit-aware engineering.
+    if op == "convert" { print_conversion(argv); return; }
+    if op == "ohm" { print_ohm(argv); return; }
+    if op == "parallel-r" {
+        // Documented physical-domain policy (field-adjudicated 2026-08-13):
+        // this command models IDEAL PASSIVE resistors. A zero-ohm branch is a
+        // legal ideal short and makes the equivalent resistance exactly 0.
+        // Negative resistance describes an ACTIVE element — a different model
+        // — so it is refused rather than silently reinterpreted.
+        require_arity(argv, 3);
+        let r1 = arg_float(argv, 1);
+        let r2 = arg_float(argv, 2);
+        if r1 < 0.0 || r2 < 0.0 {
+            panic("parallel-r models ideal passive resistors: resistance must be >= 0 ohm (a negative value implies an active element, outside this model); fail closed");
+        }
+        if r1 == 0.0 || r2 == 0.0 { print("0 ohm"); return; }
+        print("${number_text(1.0 / (1.0 / r1 + 1.0 / r2))} ohm");
+        return;
+    }
+
+    // Physics, chemistry, and space science.
+    if op == "kinetic" { require_arity(argv, 3); print("${number_text(0.5 * arg_float(argv, 1) * pow(arg_float(argv, 2), 2.0))} J"); return; }
+    if op == "photon" { require_arity(argv, 2); let wavelength = arg_float(argv, 1) * 0.000000001; let frequency = 299792458.0 / wavelength; let energy = 6.62607015e-34 * frequency; print("energy=${energy} J frequency=${number_text(rounded(frequency, 0.0))} Hz"); return; }
+    if op == "ideal-gas" { require_arity(argv, 4); print("pressure=${number_text(rounded(arg_float(argv, 1) * 8.31446261815324 * arg_float(argv, 2) / arg_float(argv, 3), 9.0))} Pa"); return; }
+    if op == "molarity" { require_arity(argv, 3); print("${number_text(arg_float(argv, 1) / arg_float(argv, 2))} mol/L"); return; }
+    if op == "orbit" { orbit(argv); return; }
+    if op == "projectile" { projectile(argv); return; }
+
+    if op == "constants" {
+        print("pi=${pi()}");
+        print("e=${e()}");
+        return;
+    }
+
+    // Parser-correspondence surface: dump the REAL parse (and the certified
+    // lane's REAL lowering) in canonical form for the differential gate
+    // against the mechanized Lean parser. No evaluation happens here.
+    if op == "parse-dump" {
+        require_arity(argv, 2);
+        print("ast=${ast_sexp(parse_ast(argv[1]))}");
+        return;
+    }
+    if op == "range-bound-cert" { run_range_bound_cert(argv); return; }
+    if op == "lower-dump" {
+        require_arity(argv, 2);
+        print("lowered=${ast_sexp(simplify_bound(parse_ast(argv[1])))}");
+        return;
+    }
+
+    if op == "maturity" {
+        // Graded command inventory: every lane names its epistemic class, its
+        // independent oracle, and its known residual. Strong evidence in one
+        // lane must not inflate trust in another (field directive 2026-08-13).
+        // Evidence citations refer to the 1,402-case frozen-artifact campaign
+        // adjudicated 2026-08-13 and this repo's own suites.
+        print("JACKAL COMMAND MATURITY — epistemic classes, oracles, residuals");
+        print("class=exact       commands=rat,big-add,big-mul,big-pow,big-fact,big-ncr,gcd,lcm,ncr,fact,prime,hex,bin,band,bor,bxor,shl,shr  oracle=python-int+fraction  evidence=300-rational-trees+99-bigint-cases(2026-08-13)  residual=none-observed-within-grammar-and-budgets");
+        print("class=bounded     commands=integrate-bound,range-bound  guarantee=certified-enclosure-under-stated-f64-model  residual=implementation-tested-not-mechanized;libm<=2ulp-assumed");
+        print("class=proof-carrying commands=range-bound-cert  guarantee=emits-a-checker-verifiable-certificate; jackal_cert_check (Lean-proved cert_check_sound) accepting it mechanically implies a Runs derivation, hence a true enclosure under ModelTCB  fragment=exact-Q ops+sin/cos+named-consts (transcendentals fail closed)  residual=emitter-faithfulness-tested;codec+Lean-runtime in TCB");
+        print("class=checked     commands=diff  oracle=sympy+richardson-self-check  evidence=79-released-derivatives-max-rel-dev-1.221e-15(2026-08-13)  residual=sampled-agreement-not-proof-of-identity");
+        print("class=estimated   commands=integrate,integrate-adaptive,derivative,solve,integrate-x2,derivative-x3  evidence=integrate:120-oscillatory-median-calibration-ratio-0.99981;solve:150-constructed-roots-max-err-1.2e-16;derivative+legacy:suite-level-only(2026-08-13)  residual=estimate-not-bound;fixed-grids-can-share-blind-spots");
+        print("class=approximate commands=eval,worksheet,add,sub,mul,div,pow,sqrt,cbrt,sin,cos,tan,sin-deg,hypot,ln,log10,exp,quadratic,lerp,percent-error,dot,cross,norm3,stats,describe,linreg,matrix2,solve2  model=ieee-f64  evidence=eval-grammar:500-differential-cases;other-commands:suite-level-only(2026-08-13)  residual=per-command-depth-uneven");
+        print("class=model-based commands=claim-card,projectile,orbit,relativity,ph,dilute,blackbody,photon,ideal-gas,molarity,kinetic,kinetic-sensitivity,ohm,parallel-r,uncertain-ohm,measure-mul,convert,decibel-power  evidence=claim-card:50-deterministic-cards+50-external-sha256;other-model-commands:suite-level-only(2026-08-13)  residual=hash-binds-bytes-not-physical-assumptions");
+        print("class=refused     behavior=fail-closed-nonzero-exit-with-named-reason  residual=surfaced-via-runtime-panic-channel-not-a-crash");
+        print("non-claim=universal-correctness; finite campaigns cannot establish it");
+        return;
+    }
+
+    panic("unknown operation: ${op}");
+}

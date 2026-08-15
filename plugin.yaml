@@ -1,18 +1,21 @@
 name: jackal-verified
-version: "2.1.0"
+version: "3.0.0"
 manifest_version: 1
 api_version: 1
-description: "Typed, receipt-bearing access to the JACKAL computation engine, with a proof-carrying formal-bounded lane: results are accepted by a packaged, Lean-proved checker before release."
+description: "Typed, receipt-bearing access to the JACKAL computation engine, with four proof-carrying formal-bounded lanes (range, gaussian, sqrt_rat, exp_rat): every formal receipt is accepted by a packaged, Lean-proved checker (or zero-libm Gaussian checker) that the plugin re-runs on the certificate bytes before verified is returned."
 author: "Anubis Quantum Cipher contributors"
 license: MIT
 kind: standalone
-tags: [jackal, mathematics, verified-computation, interval-arithmetic]
+tags: [jackal, mathematics, verified-computation, interval-arithmetic, proof-carrying]
 provides_tools:
   - jackal_exact
   - jackal_evaluate
   - jackal_differentiate
   - jackal_integrate
   - jackal_range_bound
+  - jackal_gaussian_integral
+  - jackal_sqrt_rat_bound
+  - jackal_exp_rat_bound
   - jackal_claim_card
   - jackal_verify_receipt
 provides_skills:

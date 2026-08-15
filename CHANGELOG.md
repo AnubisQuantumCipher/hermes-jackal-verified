@@ -2,6 +2,62 @@
 
 All notable changes are documented here.
 
+## 3.0.0 — 2026-08-15
+
+### Added — three new proof-carrying formal lanes
+
+- **`jackal_gaussian_integral`** — Formal-bounded release of Gaussian integrals
+  `exp(a·(x−b)²)` (a<0) via the vendored zero-libm Gaussian checker
+  (`jackal_gaussian_check`, SHA-256 `42d3f3e74b90062c958baeda9ddf9ddd6f82ef3f8e4dd2b9ade5017239fe7a77`).
+  Theorem `gaussian_integral_check_sound`. Emits
+  `jackal-formal-receipt-v1(variant=gaussian)`.
+- **`jackal_sqrt_rat_bound`** — Pure-Q `sqrt(x)` enclosure on `[lo, hi]` via
+  `sqrt_rat_producer.py` (SHA-256 `4bc95c331430d2350facfb19da9aba483ab7b3698754e7af2e5deb797e097926`)
+  and the Lean-proved range checker `jackal_cert_check`
+  (SHA-256 `b567b8a94ce7acd49ecaa807d86a5bb66d695fb0ce4fea2eb84f0073425984d7`).
+  Theorem `request_bound_certified_release`. **No libm on the proof-decision
+  path.** Emits `jackal-formal-receipt-v1(variant=sqrt_rat)`.
+- **`jackal_exp_rat_bound`** — Pure-Q `exp(x)` enclosure on `[lo, hi]` with
+  `lo ≥ 0` via `exp_rat_producer.py`
+  (SHA-256 `ccbc48633bd3980613413399d552321eaa67b15bd101643e53b0dd5f10a37918`)
+  and the same Lean-proved range checker. Theorem
+  `request_bound_certified_release`. **No libm on the proof-decision path.**
+  Emits `jackal-formal-receipt-v1(variant=exp_rat)`.
+
+### Changed — receipt schema (variant-aware, backward-compatible)
+
+- Formal receipts now carry a mandatory `variant` field
+  (`range | gaussian | sqrt_rat | exp_rat`). `jackal_verify_receipt` dispatches
+  on `variant` to select the correct pinned checker binary, expected producer
+  identity, and expected theorem id. Variant coverage is enforced by the outer
+  Hermes verifier.
+- Producer identity is now bound alongside the checker identity for every
+  formal lane; a receipt's declared `instrument.evaluator.sha256` must match
+  the lane's admitted producer SHA-256 or the receipt is refused.
+- Plugin surface expanded to **10 tools** (from 7). Automatic routing policy
+  updated. `plugin.yaml` bumped to `v3.0.0` and `provides_tools` listing all
+  ten tools.
+
+### Fixed — vendored release identity
+
+- Re-pinned the vendored package to public JACKAL `v1.4.2`, archive SHA-256
+  `30b1a7441cdd9c1b0f24ac6d187608d3235f1ced6c57469dc1b1f697f475b1a0`. Evaluator
+  identity is unchanged (`820c0722…`).
+- Vendored proof identities, coverage inventory, source `.anb`, and the
+  upstream `gaussian_release.py` are now shipped alongside the release
+  validator so the release path is self-contained.
+
+### Regressions
+
+- `tests/test_plugin.py` bumped to **18 unit tests**, including three new
+  variant round-trips and a load-bearing variant-mutation lock (21 mutations
+  across gaussian/sqrt_rat/exp_rat).
+- `tests/test_plugin_v2.py` bumped to **76 poison cases**, including three
+  new variant round-trips, 18 variant-mutation locks, and negative-fragment
+  refusal for the sqrt_rat/exp_rat lanes.
+- `tests/aba_recheck_gate.py` bumped to **16 A→B→A cases** (4 lanes × 4
+  master-gate-only forgeries) — all pass with hash-verified restoration.
+
 ## 2.1.0 — 2026-08-15
 
 ### Added — upstream v1.2.0 formal-receipt closure

@@ -61,6 +61,49 @@ RANGE_BOUND = {
     },
 }
 
+GAUSSIAN_INTEGRAL = {
+    "name": "jackal_gaussian_integral",
+    "description": "Formal-bounded release of a Gaussian integral of the form exp(a*(x-b)^2) via the zero-libm Gaussian checker. Emits a jackal-formal-receipt-v1(variant=gaussian) that jackal_verify_receipt re-executes against the pinned checker.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "expression": _expr("Gaussian-family expression exp(a*(x-b)^2), a<0"),
+            "lower": {"type": "number"},
+            "upper": {"type": "number"},
+            "tolerance": {"oneOf": [{"type": "number", "exclusiveMinimum": 0}, {"type": "string", "minLength": 1}]},
+        },
+        "required": ["expression", "lower", "upper", "tolerance"],
+    },
+}
+
+SQRT_RAT_BOUND = {
+    "name": "jackal_sqrt_rat_bound",
+    "description": "Pure-Q formal-bounded enclosure of sqrt(x) on a canonical rational interval [lo, hi] via a Lean-proved checker. Admits ONLY the exact form 'sqrt(x)'; NO libm on the proof-decision path. Emits a jackal-formal-receipt-v1(variant=sqrt_rat).",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "expression": _expr("Must be exactly 'sqrt(x)'"),
+            "lower": {"oneOf": [{"type": "number"}, {"type": "string", "minLength": 1}]},
+            "upper": {"oneOf": [{"type": "number"}, {"type": "string", "minLength": 1}]},
+        },
+        "required": ["expression", "lower", "upper"],
+    },
+}
+
+EXP_RAT_BOUND = {
+    "name": "jackal_exp_rat_bound",
+    "description": "Pure-Q formal-bounded enclosure of exp(x) on [lo, hi] with lo >= 0 via a Lean-proved rational Taylor + certified remainder in the checker. Admits ONLY the exact form 'exp(x)'; NO libm on the proof-decision path. Emits a jackal-formal-receipt-v1(variant=exp_rat).",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "expression": _expr("Must be exactly 'exp(x)'"),
+            "lower": {"oneOf": [{"type": "number", "minimum": 0}, {"type": "string", "minLength": 1}]},
+            "upper": {"oneOf": [{"type": "number", "minimum": 0}, {"type": "string", "minLength": 1}]},
+        },
+        "required": ["expression", "lower", "upper"],
+    },
+}
+
 CLAIM_CARD = {
     "name": "jackal_claim_card",
     "description": "Produce a deterministic model-based JACKAL claim card with assumptions, non-claims, canonical preimage, sensitivity, and an independently recomputed SHA-256 fingerprint.",

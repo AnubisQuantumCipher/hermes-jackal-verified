@@ -39,7 +39,7 @@ class JackalPluginTests(unittest.TestCase):
         try: package.loader.exec_module(module)
         finally: sys.modules.pop(package.name,None)
         ctx=FakeContext(); module.register(ctx)
-        self.assertEqual(len(ctx.tools),7)
+        self.assertEqual(len(ctx.tools),10)
         self.assertEqual([name for name,_ in ctx.skills],['jackal-verified-computation'])
         self.assertTrue(ctx.skills[0][1].is_file())
         self.assertEqual(ctx.sections[0][0],'jackal-verified.routing')
@@ -150,6 +150,57 @@ class JackalPluginTests(unittest.TestCase):
                 verdict=tools.verify(receipt)
                 self.assertFalse(verdict['valid'])
                 self.assertIn(error,verdict['errors'])
+
+    def test_gaussian_lane_round_trips(self):
+        body=call(tools.gaussian_integral,{
+            'expression':'exp(-10000000000*(x-0.5000123456789)^2)',
+            'lower':0,'upper':1,'tolerance':'1/1000'})
+        result=body['receipt']['result']
+        self.assertEqual(result['status'],'formal-bounded'); self.assertEqual(result['variant'],'gaussian')
+        self.assertEqual(result['theorem'],tools.GAUSSIAN_THEOREM)
+        ver=tools.verify(body['receipt']); self.assertTrue(ver['valid'], ver.get('errors'))
+
+    def test_sqrt_rat_lane_round_trips(self):
+        body=call(tools.sqrt_rat_bound,{'expression':'sqrt(x)','lower':'2','upper':'3'})
+        result=body['receipt']['result']
+        self.assertEqual(result['status'],'formal-bounded'); self.assertEqual(result['variant'],'sqrt_rat')
+        self.assertEqual(result['theorem'],tools.FORMAL_THEOREM)
+        ver=tools.verify(body['receipt']); self.assertTrue(ver['valid'], ver.get('errors'))
+
+    def test_exp_rat_lane_round_trips(self):
+        body=call(tools.exp_rat_bound,{'expression':'exp(x)','lower':'0','upper':'1'})
+        result=body['receipt']['result']
+        self.assertEqual(result['status'],'formal-bounded'); self.assertEqual(result['variant'],'exp_rat')
+        self.assertEqual(result['theorem'],tools.FORMAL_THEOREM)
+        ver=tools.verify(body['receipt']); self.assertTrue(ver['valid'], ver.get('errors'))
+
+    def test_variant_bindings_are_load_bearing(self):
+        # Every variant re-check must refuse if we tamper with theorem, variant,
+        # producer identity, or cross-swap a certificate.
+        for op_name in ('gaussian_integral','sqrt_rat_bound','exp_rat_bound'):
+            with self.subTest(op=op_name):
+                if op_name=='gaussian_integral':
+                    body=call(getattr(tools,op_name),{'expression':'exp(-10000000000*(x-0.5000123456789)^2)',
+                                                       'lower':0,'upper':1,'tolerance':'1/1000'})
+                elif op_name=='sqrt_rat_bound':
+                    body=call(getattr(tools,op_name),{'expression':'sqrt(x)','lower':'2','upper':'3'})
+                else:
+                    body=call(getattr(tools,op_name),{'expression':'exp(x)','lower':'0','upper':'1'})
+                base=body['receipt']
+                # Baseline verifies
+                self.assertTrue(tools.verify(base)['valid'], tools.verify(base).get('errors'))
+                for mut in (
+                    lambda t: t['result'].__setitem__('theorem','nope'),
+                    lambda t: t['result'].__setitem__('variant','range'),
+                    lambda t: t['instrument']['evaluator'].__setitem__('sha256','b'*64),
+                    lambda t: t['instrument']['checker'].__setitem__('sha256','c'*64),
+                    lambda t: t['result'].__setitem__('enclosure',{'lower':'0','upper':'0'}),
+                    lambda t: t['result'].__setitem__('certificate_sha256','d'*64),
+                    lambda t: t['result'].__setitem__('cert_status','oops'),
+                ):
+                    import copy
+                    tampered=copy.deepcopy(base); mut(tampered); resign(tampered)
+                    self.assertFalse(tools.verify(tampered)['valid'], f'{op_name} verify did not refuse')
 
 
 if __name__=='__main__': unittest.main(verbosity=2)

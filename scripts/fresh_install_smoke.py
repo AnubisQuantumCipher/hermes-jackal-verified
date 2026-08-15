@@ -54,7 +54,8 @@ def main() -> int:
     if not context.sections or "automatically" not in context.sections[0][1]:
         raise SystemExit("fresh-install routing registration failed")
     print(
-        "FRESH_INSTALL_PASS tools=7 skills=1 prompt_sections=1 "
+        f"FRESH_INSTALL_PASS tools={len(context.tools)} skills={len(context.skills)} "
+        f"prompt_sections={len(context.sections)} "
         f"exact={receipt['result']['exact']} receipt_valid=true"
     )
     return 0

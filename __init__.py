@@ -12,7 +12,10 @@ Use it automatically when deterministic arithmetic would improve reliability:
 - jackal_evaluate for ordinary finite IEEE-f64 expression evaluation;
 - jackal_differentiate for symbolic derivatives released as checked, not proved;
 - jackal_integrate with an explicit estimate or bounded assurance tier;
-- jackal_range_bound for formal-bounded possible-value, threshold, or denominator-zero questions in the declared fragment;
+- jackal_range_bound for formal-bounded possible-value, threshold, or denominator-zero questions in the declared range fragment;
+- jackal_gaussian_integral for formal-bounded Gaussian integrals of the form exp(a*(x-b)^2) via the zero-libm Gaussian checker;
+- jackal_sqrt_rat_bound for formal-bounded pure-Q enclosures of sqrt(x) on [lo, hi];
+- jackal_exp_rat_bound for formal-bounded pure-Q enclosures of exp(x) on [lo, hi] with lo >= 0;
 - jackal_claim_card for the supported model with explicit assumptions;
 - jackal_verify_receipt before relying on consequential exact, bounded, formal-bounded, or model-based results.
 Never silently downgrade a bounded request, call an estimate a bound, call a check a proof,
@@ -32,6 +35,9 @@ def register(ctx) -> None:
     ctx.register_tool(name="jackal_differentiate", toolset="jackal_verified", schema=schemas.DIFFERENTIATE, handler=wrap(tools.differentiate))
     ctx.register_tool(name="jackal_integrate", toolset="jackal_verified", schema=schemas.INTEGRATE, handler=wrap(tools.integrate))
     ctx.register_tool(name="jackal_range_bound", toolset="jackal_verified", schema=schemas.RANGE_BOUND, handler=wrap(tools.range_bound))
+    ctx.register_tool(name="jackal_gaussian_integral", toolset="jackal_verified", schema=schemas.GAUSSIAN_INTEGRAL, handler=wrap(tools.gaussian_integral))
+    ctx.register_tool(name="jackal_sqrt_rat_bound", toolset="jackal_verified", schema=schemas.SQRT_RAT_BOUND, handler=wrap(tools.sqrt_rat_bound))
+    ctx.register_tool(name="jackal_exp_rat_bound", toolset="jackal_verified", schema=schemas.EXP_RAT_BOUND, handler=wrap(tools.exp_rat_bound))
     ctx.register_tool(name="jackal_claim_card", toolset="jackal_verified", schema=schemas.CLAIM_CARD, handler=wrap(tools.claim_card))
     ctx.register_tool(name="jackal_verify_receipt", toolset="jackal_verified", schema=schemas.VERIFY_RECEIPT, handler=tools.verify_receipt)
 
