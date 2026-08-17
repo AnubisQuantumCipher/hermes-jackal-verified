@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit battery for the v4.0.0 pass-through adapter (33 tools)."""
+"""Unit battery for the v5.0.0 pass-through adapter (34 tools)."""
 from __future__ import annotations
 
 import importlib.util

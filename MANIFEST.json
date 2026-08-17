@@ -25,7 +25,7 @@
     "skills/jackal-verified-computation/references/receipt-contract.md": "27e9a0c7cd03672e9da62bb0156db43f9342d5dc97fb71e3b7e37aac7b654585",
     "tests/aba_recheck_gate.py": "b032e0217178a01174ef9e1fd05eef0cc3eefd4a5e950dc834d6561b69a85f78",
     "tests/evidence/aba_recheck_gate.json": "034c035d60a4e56dade93925bac4d2587909d61c52ea54152f68282630c2ab8f",
-    "tests/test_plugin.py": "3206d3d04c4b08359ec65e30dd0fe2190ad2ad85ecab1a85b4b1f143466ff992",
+    "tests/test_plugin.py": "069d445c5444fcc8395b422ce404919c7f1b18bc09006e5ad1e54f7bb3eb5f6b",
     "tests/test_plugin_v2.py": "ae90b91df9fffa5cbfec36d4c6b0996e66c75eb8185e5731b4e96bf74d6dfdda",
     "tools.py": "261fbb9a51513dd8eb4182e314880a5e51b900a77984111fab45cb66b291428b"
   },
