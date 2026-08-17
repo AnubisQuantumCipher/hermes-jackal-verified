@@ -35,6 +35,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import stat
 import struct
@@ -49,13 +50,13 @@ RELEASE_EPOCH = "v1.7.0"
 # GitHub rejects single files >= 100 MiB, so the vendored release tarball is
 # split into raw byte parts; admission concatenates them IN MEMORY and
 # verifies PKG_SHA256 over the whole — the admitted bytes are exactly the
-# published release asset.  PKG_TARBALL stays as a single-file OVERRIDE knob
-# (tests / the A->B->A gate point it at forged tarballs); when set to a path
-# that exists it takes precedence over the parts.
-PKG_PARTS = (
-    PLUGIN_ROOT / "pkg" / "jackal-v1.7.0-macos-arm64.tar.gz.part00",
-    PLUGIN_ROOT / "pkg" / "jackal-v1.7.0-macos-arm64.tar.gz.part01",
-)
+# published release asset.  Parts are DISCOVERED fail-closed (v1.7.1):
+# `pkg/<name>.partNN` must be contiguous from part00 and must EXACTLY match
+# the ordered `vendored.parts` list declared in the pinned EPOCH.json
+# receipt — a gap, extra, or undeclared part refuses before any bytes are
+# trusted.  PKG_TARBALL stays as a single-file OVERRIDE knob (tests / the
+# A->B->A gate point it at forged tarballs); when set to a path that exists
+# it takes precedence over the parts.
 PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.7.0-macos-arm64.tar.gz"
 PKG_SHA256 = "21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e"
 PKG_DIRNAME = "jackal-v1.7.0-macos-arm64"
@@ -162,15 +163,52 @@ def _sha(path: Path) -> str:
     return h.hexdigest()
 
 
+def _discover_parts() -> tuple[Path, ...]:
+    """Ordered vendored part files, fail closed.
+
+    Rules: every `pkg/<tarball-name>.partNN` present on disk must form a
+    contiguous run starting at part00, and the resulting ordered relative
+    list must EQUAL the `vendored.parts` declaration in the pinned
+    EPOCH.json receipt.  Any gap, duplicate index, extra file, undeclared
+    part, or declared-but-missing part refuses.
+    """
+    base = PKG_TARBALL.name
+    pkg_dir = PLUGIN_ROOT / "pkg"
+    found: dict[int, Path] = {}
+    for p in sorted(pkg_dir.glob(f"{base}.part*")):
+        suffix = p.name[len(base):]
+        m = re.fullmatch(r"\.part(\d{2,})", suffix)
+        if m is None:
+            raise JackalError(f"malformed part name: {p.name}")
+        idx = int(m.group(1))
+        if idx in found:
+            raise JackalError(f"duplicate part index: {p.name}")
+        found[idx] = p
+    if not found:
+        raise JackalError("no vendored package parts found")
+    indices = sorted(found)
+    if indices != list(range(len(indices))):
+        raise JackalError(f"non-contiguous part indices: {indices}")
+    ordered = tuple(found[i] for i in indices)
+    try:
+        declared = json.loads(EPOCH_RECEIPT.read_text()) \
+            .get("vendored", {}).get("parts")
+    except (OSError, json.JSONDecodeError) as exc:
+        raise JackalError(f"epoch receipt unreadable: {exc}") from exc
+    observed = [f"pkg/{p.name}" for p in ordered]
+    if declared != observed:
+        raise JackalError(
+            f"vendored parts diverge from EPOCH.json: declared={declared} "
+            f"observed={observed}")
+    return ordered
+
+
 def _package_bytes() -> bytes:
     """Exact release-tarball bytes: the single-file override if present,
-    else the concatenation of the vendored parts (fail closed on absence)."""
+    else the concatenation of the discovered, receipt-declared parts."""
     if PKG_TARBALL.is_file():
         return PKG_TARBALL.read_bytes()
-    missing = [str(p) for p in PKG_PARTS if not p.is_file()]
-    if missing:
-        raise JackalError(f"package part missing: {missing}")
-    return b"".join(p.read_bytes() for p in PKG_PARTS)
+    return b"".join(p.read_bytes() for p in _discover_parts())
 
 
 def _arch_ok(path: Path) -> bool:

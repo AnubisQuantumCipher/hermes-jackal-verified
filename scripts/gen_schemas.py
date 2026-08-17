@@ -14,8 +14,15 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PKG_PARTS = (ROOT / "pkg" / "jackal-v1.7.0-macos-arm64.tar.gz.part00",
-             ROOT / "pkg" / "jackal-v1.7.0-macos-arm64.tar.gz.part01")
+PKG_BASE = "jackal-v1.7.0-macos-arm64.tar.gz"
+
+
+def _parts() -> list:
+    parts = sorted((ROOT / "pkg").glob(f"{PKG_BASE}.part*"))
+    assert parts, "no vendored package parts found"
+    for i, p in enumerate(parts):
+        assert p.name == f"{PKG_BASE}.part{i:02d}", f"non-contiguous parts: {p.name}"
+    return parts
 PKG_DIRNAME = "jackal-v1.7.0-macos-arm64"
 OUT = ROOT / "schemas.py"
 
@@ -24,7 +31,7 @@ _TYPE_MAP = {"string": "string", "object": "object"}
 
 def load_tools() -> list[dict]:
     import io
-    blob = b"".join(p.read_bytes() for p in PKG_PARTS)
+    blob = b"".join(p.read_bytes() for p in _parts())
     with tarfile.open(fileobj=io.BytesIO(blob), mode="r:gz") as tf:
         member = tf.extractfile(f"{PKG_DIRNAME}/plugin/hermes/tools.json")
         assert member is not None

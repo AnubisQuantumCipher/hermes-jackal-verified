@@ -1,13 +1,13 @@
 {
   "files": {
-    ".github/workflows/ci.yml": "99f681429fa49ecdf5aac8df33ff95eaff1ca00f1cdc83c6c0d595155b946b53",
+    ".github/workflows/ci.yml": "65cf8267149b87e52091ab3ea25977e7567884b7a90fb75c06e533cdbcc046aa",
     ".gitignore": "f428bce23c7ee29fbccee7a4c5bfbbcc32bc069edeb95974f4d3b3cc1a63b817",
     "CHANGELOG.md": "4799f9b085ff19ab0e876f4438129285ed64f04f3715977c3b7209671fe850fb",
     "CONTRIBUTING.md": "99513c9d00827b1a5a0e8f4ad543d38f59509215c4743b12a35c6780187aa7c3",
     "EPOCH.json": "2aa31b0f0901b7b49a84a92476dde1030125bb46d1e37afaf7e9e8218f3ef865",
     "LICENSE": "080285dc8fc1106a7d9b32e773fa26ebbff7e4f18fbf1759283fc41cb9678494",
     "PROVENANCE.md": "b7b00eaf99daa043d36ceaf2adcf2208331b28d88fb7e562e31fe92c513553ec",
-    "README.md": "2d9c6a66dba7fcc8642e400bb4d0dee0b0e199cd69b57d5ce88979c4c753f6f2",
+    "README.md": "2aad5258236c9e68623fc11981a9b59b6475a6f971198f5693ea433f32f4c795",
     "SECURITY.md": "55b48a41180cf89257e2193dbb60f2a466412fa42fe558b175ceb47d6c711967",
     "THIRD_PARTY_NOTICES.md": "4f7ed37c8056a852c0d78885ff6b68a54048318548f6d64891fc6d7dd3fe3d25",
     "__init__.py": "0ddd66aed38a0fc3ef776d4cd4ffcf0add5d5442993b5a20722bf0c2546212e2",
@@ -16,18 +16,19 @@
     "plugin.yaml": "7faf07382ffe8ca0f8cf723974b5340e48d0d0dd09f429df67c1e0203c88d384",
     "schemas.py": "8400bd8a60c54c43859591bc7bca69ed6bd7ab4b62957d56a3a45e770f9a5685",
     "scripts/fresh_install_smoke.py": "d936bf9f6d39094b6b142d094290b7432554882a4936ab48ada8db245f1ddf0c",
-    "scripts/gen_schemas.py": "d80c7e3a9c06dd713fac4120b3cb6364ec7cdb23a508bfa867c418f8063b610c",
+    "scripts/gen_schemas.py": "836131a3a4384b23b48a6196b94e81d64632a50fffc5944e73b83c273a7af1f6",
     "scripts/release_audit.py": "169236115b7292d95dc1b2b02d0843cf64dd90885e6f5e9b8445e5854d39f9f2",
     "scripts/update_manifest.py": "49e16cfe8b93f3d9bfc5ae9f0065441eed241174da1031cb217e2fdfc718f650",
     "scripts/verify_manifest.py": "d725fd794bda939b42aeed882aa8f9a6637c4a47ac83714121da595e70286a27",
     "skills/AGENTS-SNIPPET.md": "90ff57c7864a58cd981f86e57885f243ae63978c41258ec29cd98bdaf03dac11",
     "skills/jackal-verified-computation/SKILL.md": "a5e2fcf14c2a775acb776b5ae63a3be38515d0af16236c6466f9846f8239f31f",
     "skills/jackal-verified-computation/references/receipt-contract.md": "27e9a0c7cd03672e9da62bb0156db43f9342d5dc97fb71e3b7e37aac7b654585",
-    "tests/aba_recheck_gate.py": "b032e0217178a01174ef9e1fd05eef0cc3eefd4a5e950dc834d6561b69a85f78",
-    "tests/evidence/aba_recheck_gate.json": "034c035d60a4e56dade93925bac4d2587909d61c52ea54152f68282630c2ab8f",
+    "tests/aba_recheck_gate.py": "7c1524cd0cf85fe27726c3bacd019083db2764872e5a395d1c7cf22676ea0b0e",
+    "tests/evidence/aba_recheck_gate.json": "f5289d4a861c52e43ec307c0d77ba013488577d3df91bcf9d629bf713219099a",
+    "tests/parts_discovery_test.py": "fb281534de85e5c48c88c6d7c367ba06aeda4aa678eee5ccfb1b8345a87a8a26",
     "tests/test_plugin.py": "069d445c5444fcc8395b422ce404919c7f1b18bc09006e5ad1e54f7bb3eb5f6b",
     "tests/test_plugin_v2.py": "ae90b91df9fffa5cbfec36d4c6b0996e66c75eb8185e5731b4e96bf74d6dfdda",
-    "tools.py": "261fbb9a51513dd8eb4182e314880a5e51b900a77984111fab45cb66b291428b"
+    "tools.py": "13be6c6ca644d72411bb0427e8e3cb862b78c0c8163c756b5992c4163cd84084"
   },
   "schema": "jackal-plugin-manifest-v1"
 }
