@@ -1,116 +1,100 @@
 {
-  "B_import_ok": true,
-  "gate": "formal-recheck-master",
-  "genuine": {
-    "exp_rat": {
-      "A_post_valid": true,
-      "A_pre_valid": true
+  "forgeries": {
+    "evaluator-appended": {
+      "A_post": {
+        "detail": "pinned identity mismatch: jackal-native: d4d89ae96c976649e0a1cb82830c43a9337d09b57d53fca410f08742ea405c04",
+        "reason": "plugin-admission-failed",
+        "status": "refused"
+      },
+      "A_post_refused": true,
+      "A_pre": {
+        "detail": "pinned identity mismatch: jackal-native: d4d89ae96c976649e0a1cb82830c43a9337d09b57d53fca410f08742ea405c04",
+        "reason": "plugin-admission-failed",
+        "status": "refused"
+      },
+      "A_pre_refused_for_reason": true,
+      "B": {
+        "detail": "d4d89ae96c976649e0a1cb82830c43a9337d09b57d53fca410f08742ea405c04 != pinned 8617ad087f859f58a1e742032588cd011c9716bab8fe5477e7b0a318dfded88e",
+        "reason": "evaluator-identity",
+        "status": "refused"
+      },
+      "B_admitted_without_gate": true
     },
-    "gaussian": {
-      "A_post_valid": true,
-      "A_pre_valid": true
+    "frontend-mutated": {
+      "A_post": {
+        "detail": "pinned identity mismatch: plugin/hermes/jackal_hermes: 928dcfd0cf0d9072d3fb4fcef3cfb591e4d46b9a1b8f10679cb5a2d4e708502c",
+        "reason": "plugin-admission-failed",
+        "status": "refused"
+      },
+      "A_post_refused": true,
+      "A_pre": {
+        "detail": "pinned identity mismatch: plugin/hermes/jackal_hermes: 928dcfd0cf0d9072d3fb4fcef3cfb591e4d46b9a1b8f10679cb5a2d4e708502c",
+        "reason": "plugin-admission-failed",
+        "status": "refused"
+      },
+      "A_pre_refused_for_reason": true,
+      "B": {
+        "detail": "current b0b023eec501ae5d8b562fe2d96059fc444bdd27605dd0a5b7800f075e54e4c6 startup b0b023eec501ae5d8b562fe2d96059fc444bdd27605dd0a5b7800f075e54e4c6 pinned d94ffbe1f0f4057214260e422dd7544e7bb8bdc1d36489deeb8cde197af856f4",
+        "reason": "plugin-bundle-mismatch",
+        "status": "refused"
+      },
+      "B_admitted_without_gate": true
     },
-    "range": {
-      "A_post_valid": true,
-      "A_pre_valid": true
+    "genuine": {
+      "A_pre": {
+        "detail": "",
+        "reason": "",
+        "status": "exact"
+      }
     },
-    "sqrt_rat": {
-      "A_post_valid": true,
-      "A_pre_valid": true
+    "server-py-mutated": {
+      "A_post": {
+        "detail": "pinned identity mismatch: plugin/hermes/server.py: 0b7bf03ee2f90257ffd6707461f881561b3b606a9b5971eb3e414ceaee844acb",
+        "reason": "plugin-admission-failed",
+        "status": "refused"
+      },
+      "A_post_refused": true,
+      "A_pre": {
+        "detail": "pinned identity mismatch: plugin/hermes/server.py: 0b7bf03ee2f90257ffd6707461f881561b3b606a9b5971eb3e414ceaee844acb",
+        "reason": "plugin-admission-failed",
+        "status": "refused"
+      },
+      "A_pre_refused_for_reason": true,
+      "B": {
+        "detail": "current e18fb4b78d62584f75b5f317c380543cabfe5738d2a65f75e0e6d0f2948b70f1 startup e18fb4b78d62584f75b5f317c380543cabfe5738d2a65f75e0e6d0f2948b70f1 pinned d94ffbe1f0f4057214260e422dd7544e7bb8bdc1d36489deeb8cde197af856f4",
+        "reason": "plugin-bundle-mismatch",
+        "status": "refused"
+      },
+      "B_admitted_without_gate": true
+    },
+    "tools-json-mutated": {
+      "A_post": {
+        "detail": "pinned identity mismatch: plugin/hermes/tools.json: 923177a4cf87c50e869fba253f6c6d575f05c127d584883a8c3973ade23527e0",
+        "reason": "plugin-admission-failed",
+        "status": "refused"
+      },
+      "A_post_refused": true,
+      "A_pre": {
+        "detail": "pinned identity mismatch: plugin/hermes/tools.json: 923177a4cf87c50e869fba253f6c6d575f05c127d584883a8c3973ade23527e0",
+        "reason": "plugin-admission-failed",
+        "status": "refused"
+      },
+      "A_pre_refused_for_reason": true,
+      "B": {
+        "detail": "current bbcecc19913c4bf34ce6ddcef275ef5a73587c8e01b23bc8a7531d5cce5d4e7c startup bbcecc19913c4bf34ce6ddcef275ef5a73587c8e01b23bc8a7531d5cce5d4e7c pinned d94ffbe1f0f4057214260e422dd7544e7bb8bdc1d36489deeb8cde197af856f4",
+        "reason": "plugin-bundle-mismatch",
+        "status": "refused"
+      },
+      "B_admitted_without_gate": true
     }
   },
-  "lanes": {
-    "exp_rat": {
-      "arbitrary-cert-digest": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      },
-      "arbitrary-request-commitment": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      },
-      "changed-request": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      },
-      "ordered-wrong-enclosure": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      }
-    },
-    "gaussian": {
-      "arbitrary-cert-digest": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      },
-      "arbitrary-request-commitment": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      },
-      "changed-request": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      },
-      "ordered-wrong-enclosure": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      }
-    },
-    "range": {
-      "arbitrary-cert-digest": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      },
-      "arbitrary-request-commitment": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      },
-      "changed-request": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      },
-      "ordered-wrong-enclosure": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      }
-    },
-    "sqrt_rat": {
-      "arbitrary-cert-digest": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      },
-      "arbitrary-request-commitment": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      },
-      "changed-request": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      },
-      "ordered-wrong-enclosure": {
-        "A_post_valid": false,
-        "A_pre_valid": false,
-        "B_valid_admitted": true
-      }
-    }
-  },
+  "gate_lines": [
+    "raise JackalError(f\"pinned identity mismatch: {rel}: {got}\")",
+    "return _refusal(\"plugin-toctou-pre\", rel)"
+  ],
   "restore_hash_verified": true,
-  "source_hash_mutated": "b42f56feb6efb6d921cf676cb0aa9ffef871d620d5d02fd886027ebce2c8d816",
-  "source_hash_post": "c382de2d9dc48382fc0d6cfe2fa5a0c8d730e9b3c08722771bd9c6d5873cd208",
-  "source_hash_pre": "c382de2d9dc48382fc0d6cfe2fa5a0c8d730e9b3c08722771bd9c6d5873cd208"
+  "schema": "jackal-plugin-aba-recheck-v2",
+  "source_hash_mutated": "6043080c379859daebdaf7f13f48e46ec1da874ebf0ec78feb225a99fe171f3d",
+  "source_hash_post": "130b04c049c6ca906c09b9ac5483e8b8b4a303d4b23b5d2480d1b61b683e43e6",
+  "source_hash_pre": "130b04c049c6ca906c09b9ac5483e8b8b4a303d4b23b5d2480d1b61b683e43e6"
 }

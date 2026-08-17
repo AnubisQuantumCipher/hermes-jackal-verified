@@ -1,5 +1,51 @@
 # Changelog
 
+## 4.0.0 — 2026-08-16
+
+**The Mathematical Evidence Kernel epoch: 33 tools, faithful pass-through
+over the sealed public JACKAL v1.6.0 release.**
+
+- Vendored package re-pinned to the public `jackal-calc` v1.6.0 release
+  asset `pkg/jackal-v1.6.0-macos-arm64.tar.gz` (sha256
+  `0cdacf56bb83d65454330973280cde7da0b9262d6163ccd7efbbbb47bc88e39a`,
+  79,519,523 bytes), verified byte-identical to the unauthenticated
+  GitHub release download (upstream commit
+  `19b763e9451276e72c7511ec8ba42bf828d096f6`, tag `v1.6.0`).
+- Tool surface: 10 → **33** — the intact upstream 31-tool v1.5.0 floor
+  (9 formal lanes incl. the five pure-Q fragments added in v1.5.0,
+  7 numeric weaker lanes, 14 exact-CAS certificate lanes,
+  `jackal_verify_receipt`) plus the two v1.6.0 claim-kernel front doors
+  `jackal_claim` / `jackal_verify_bundle`.
+- **Architecture: pass-through adapter.** Every tool call now executes
+  the upstream `jackal_hermes` frontend inside the admitted package
+  snapshot; the plugin adds no mathematical behavior of its own. The
+  in-process `jackal_formal/` runtime copy is REMOVED (its drift class
+  is gone with it); the admitted tarball is the runtime.
+- Schemas are GENERATED from the vendored package's `tools.json`
+  (`scripts/gen_schemas.py`); CI enforces byte-identical regeneration.
+- New machine-readable epoch receipt `EPOCH.json`
+  (`jackal-plugin-epoch-receipt-v1`), cross-checked at admission.
+- Admission now verifies: tarball pin + epoch receipt + internal
+  SHA256SUMS (complete, no extras) + 30-row `APPROVED_IDENTITIES` table
+  + Mach-O arm64 magic; per-call TOCTOU re-hash before and after.
+- Tests rewritten for the new boundary: 18-case unit battery, 36-row
+  poison battery (default and `-O`), and an A→B→A gate proving the
+  identity-enforcement pair (admission pin loop + TOCTOU-pre) is
+  load-bearing across four package forgeries — with the pair disabled,
+  tampered bytes reach execution and the upstream package's own
+  bundle-hash / evaluator-identity layers still refuse (defense in
+  depth, mechanically demonstrated).
+- Bundled skill `jackal-verified-computation` → **5.0.0**: 33-tool
+  routing model (direct lanes vs `jackal_claim` vs
+  `jackal_verify_bundle`), refusal-not-downgrade discipline, v1.6.0
+  identities, migration notes.
+- BREAKING (v3 → v4): `jackal_differentiate` → `jackal_diff`;
+  `jackal_claim_card` removed (route model claims through
+  `jackal_claim`); `jackal_exact` arguments are now
+  `{"expression": "..."}` (the sealed upstream shape). Receipts issued
+  by older epochs keep verifying under their original caller-pinned
+  expectations.
+
 All notable changes are documented here.
 
 ## 3.0.0 — 2026-08-15

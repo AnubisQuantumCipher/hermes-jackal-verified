@@ -1,27 +1,16 @@
-# Third-Party Notices and Provenance
+# Third-party notices
 
-## JACKAL
+## JACKAL (vendored release package)
 
-This repository vendors the public Apple Silicon macOS JACKAL package from:
-
-- Project: JACKAL CALC
-- Repository: https://github.com/AnubisQuantumCipher/jackal-calc
-- Release: `v1.2.0`
-- Source commit: `cc533906182c887a8617cc741b91b926bcb41e22`
-- Source file SHA-256: `5d43df8de01adb86bb10a0a6cea28fb79faf03cd58be51654c3fa88c653e4a40`
-- Archive SHA-256: `3b63e86bd9d2cffafa33dde813c40919cc754343db2232b1c33072a3ec41e0a7`
-- Evaluator SHA-256: `820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c`
-- Proved checker SHA-256: `2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b`
-- Upstream release asset: https://github.com/AnubisQuantumCipher/jackal-calc/releases/download/v1.2.0/jackal-v1.2.0-macos-arm64.tar.gz
-- License: MIT
-
-The upstream release publishes `RELEASE-SHA256SUMS`; the archive carries a complete internal `SHA256SUMS`. The plugin independently admits the archive, inventory, evaluator, checker, architecture, and modes before execution.
+- Source: `https://github.com/AnubisQuantumCipher/jackal-calc`
+- Release: `v1.6.0` (commit `19b763e9451276e72c7511ec8ba42bf828d096f6`)
+- Artifact: `pkg/jackal-v1.6.0-macos-arm64.tar.gz`
+  (sha256 `0cdacf56bb83d65454330973280cde7da0b9262d6163ccd7efbbbb47bc88e39a`)
+- URL: `https://github.com/AnubisQuantumCipher/jackal-calc/releases/download/v1.6.0/jackal-v1.6.0-macos-arm64.tar.gz`
+- License: MIT (see the upstream repository)
 
 ## Hermes Agent
 
-This is an independent community plugin for Hermes Agent by Nous Research. Hermes Agent is not vendored in this repository. Users obtain Hermes from its official project and documentation:
-
-- https://github.com/NousResearch/hermes-agent
-- https://hermes-agent.nousresearch.com/docs/
-
-No endorsement by Nous Research is implied.
+This plugin targets the Hermes Agent plugin API (`manifest_version: 1`,
+`api_version: 1`). Hermes is a separate work; nothing from Hermes is
+vendored here.
