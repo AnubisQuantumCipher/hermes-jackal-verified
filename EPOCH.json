@@ -1,63 +1,71 @@
 {
-  "identities": {
-    "atan_rat_producer.py": "824916bdb3420986f4a6eed8028760a96477e9e1df2febd03b9ca174216aef26",
-    "claim_bundle_verify.py": "79d579d1be966e857436f67012e0fc79304dce789a66f590d77a2d57ccd97954",
-    "claim_kernel.py": "0e33bed664d4a07015bafc135940e9e1c0af7912c0ccb94d7a3523423e996c5b",
-    "claim_router.py": "ccab2cce27770297698ae107c59a8d147d81c5f2ff0cd7d686a11d4390d095eb",
-    "exact_verify.py": "2c07e6257ce1524de3e31374371c6d5859dce710767156de2566ec77fa1883a7",
-    "exp_rat_producer.py": "1997ed81dfbd26a6d45a6689c515832bfbae05435d07e3dd2d6f156c57668ec1",
-    "formal_coverage_inventory.json": "630b8988ef6f8b3385a3451fd3bde08789c0f8eb6e96d816b92ce2469e47c6ec",
-    "gaussian_certificate.py": "20c24622b786940a8e82198f2364fb7593e761902fa0736289b179642f1e4306",
-    "gaussian_proof_identity.json": "0cd935aa4e320ed5136287bb54db18a882a1fe739742c95d2454f3701602a1e0",
-    "inference_registry_v1.json": "e7c999c34312288fc35d4e1ecab2cef244dd447174283f0e132e8ebee7277672",
-    "jackal-native": "8617ad087f859f58a1e742032588cd011c9716bab8fe5477e7b0a318dfded88e",
-    "jackal_calc.anb": "34870c66276005272d9ab48a3cc1261ba0e0317a9e45089b1acfb07acc0efd25",
-    "jackal_cert_check": "05c3518b836f239712f897c483a2ddadad9f544e0887b1b7bb1424a27289de8a",
-    "jackal_gaussian_check": "ccac690bf916f71a4e3baeb0622dac19aa47e3ca4af858c0800c295581ecfacb",
-    "ln_rat_producer.py": "c88eb0153f0ec0ba401597a8945345e621a38df408bfd92a47a4b3abf7985740",
-    "plugin/hermes/jackal_hermes": "e63bb66caf3fd0890c5f4de22a22ce61cc1aec52d4c82432171d87dc6a4d0ec3",
-    "plugin/hermes/server.py": "7d37ed401cb27e3ed0b07acc1cc089ff99a8914625b9ce1bf070d1d2243d8f9a",
-    "plugin/hermes/tools.json": "dd81b2a1c4a39001a67cc1221313ea741c3c776adf107acc7bc5d8c0419af224",
-    "range_proof_identity.json": "a9d40200ecbcee7fa29deb4019c6f73a2463f8284e6429c66a3e95eea7285f56",
-    "sin_rat_producer.py": "978f8d508c0921b5d8227a24ee7c7b97373a6041e55e4923cd94617a94a061dd",
-    "sqrt_rat_producer.py": "4bc95c331430d2350facfb19da9aba483ab7b3698754e7af2e5deb797e097926",
-    "tanh_rat_producer.py": "da03b6054dcdd3fe02588ec25fc7c201405e9d8ec5f3ab46ff45b49698ab5eb3",
-    "unit_registry_v1.json": "d2d30dfe2a74d58a5ef31b551ea628106390bfccd72ad34d1cb37381c58d114c"
+ "identities": {
+  "atan_rat_producer.py": "824916bdb3420986f4a6eed8028760a96477e9e1df2febd03b9ca174216aef26",
+  "claim_bundle_verify.py": "79d579d1be966e857436f67012e0fc79304dce789a66f590d77a2d57ccd97954",
+  "claim_kernel.py": "0e33bed664d4a07015bafc135940e9e1c0af7912c0ccb94d7a3523423e996c5b",
+  "claim_router.py": "ccab2cce27770297698ae107c59a8d147d81c5f2ff0cd7d686a11d4390d095eb",
+  "exact_verify.py": "2c07e6257ce1524de3e31374371c6d5859dce710767156de2566ec77fa1883a7",
+  "exp_rat_producer.py": "1997ed81dfbd26a6d45a6689c515832bfbae05435d07e3dd2d6f156c57668ec1",
+  "formal_coverage_inventory.json": "18ff7b1d428dbc6f807fd4de27751ba415b33ef0b356088d7fa316ed74bb0ba6",
+  "gaussian_certificate.py": "20c24622b786940a8e82198f2364fb7593e761902fa0736289b179642f1e4306",
+  "gaussian_proof_identity.json": "7d2ff9ed4934604eba30f3111a147d7e295fd79302f640f57aacd986a23e243c",
+  "inference_registry_v1.json": "e7c999c34312288fc35d4e1ecab2cef244dd447174283f0e132e8ebee7277672",
+  "int_cert_producer.py": "b4240fdac3c77b2abd751595303b2b3a0e4bebd492b2ae57fa5ccf052cd50af4",
+  "int_cert_proof_identity.json": "f0323e312d8b0e05a7200546fd819fc191d5f146d359bb14efec5b1575f16844",
+  "int_cert_release.py": "5a1e94189bfb1199444cbd73d55ba30845563fd56ca7d898df37caed6330a1e8",
+  "jackal-native": "20b80827d3c5c2a5d0d5d6f5a84c692f230fb0f55b9c7d1fcad02a1d0b3a1083",
+  "jackal_calc.anb": "638d28dc9811bb9359af27a1bcc5427717cdf894902011fbb230dc18bac63776",
+  "jackal_cert_check": "05c3518b836f239712f897c483a2ddadad9f544e0887b1b7bb1424a27289de8a",
+  "jackal_gaussian_check": "ccac690bf916f71a4e3baeb0622dac19aa47e3ca4af858c0800c295581ecfacb",
+  "jackal_int_cert_check": "c858e3bfc0ff2809a808170caabbf090077cb54996e76f065dbcd26ffb067d49",
+  "ln_rat_producer.py": "c88eb0153f0ec0ba401597a8945345e621a38df408bfd92a47a4b3abf7985740",
+  "plugin/hermes/jackal_hermes": "e63bb66caf3fd0890c5f4de22a22ce61cc1aec52d4c82432171d87dc6a4d0ec3",
+  "plugin/hermes/server.py": "4d67ae76edee3f771ced809520ed6df873c77def8cf410eb79145d61af1009b8",
+  "plugin/hermes/tools.json": "6271d2cf75f9227f10a842599c59229e3178fb929840a325ce83b1b4df1dbc1f",
+  "range_proof_identity.json": "1b2d623904930d748bfbf489637e0e8aa720188e7d68f5250e5bd8f257b89a67",
+  "sin_rat_producer.py": "978f8d508c0921b5d8227a24ee7c7b97373a6041e55e4923cd94617a94a061dd",
+  "sqrt_rat_producer.py": "4bc95c331430d2350facfb19da9aba483ab7b3698754e7af2e5deb797e097926",
+  "tanh_rat_producer.py": "da03b6054dcdd3fe02588ec25fc7c201405e9d8ec5f3ab46ff45b49698ab5eb3",
+  "unit_registry_v1.json": "d2d30dfe2a74d58a5ef31b551ea628106390bfccd72ad34d1cb37381c58d114c"
+ },
+ "non_claims": [
+  "SHA-256 identifies exact bytes; it is not authorship, authenticity, or mathematical correctness",
+  "the acyclic trust chain is core release -> core package hash -> plugin commit; the core package does not reference this plugin"
+ ],
+ "plugin": {
+  "name": "jackal-verified",
+  "version": "5.0.0"
+ },
+ "schema": "jackal-plugin-epoch-receipt-v1",
+ "skill": {
+  "name": "jackal-verified-computation",
+  "sha256": "08c067468ca5cbd90d449a543d780bfe1ed7d919208b8691172b342ccf2baa7f",
+  "version": "6.0.0"
+ },
+ "tools": {
+  "count": 34,
+  "source": "schemas.py GENERATED from the vendored package's plugin/hermes/tools.json"
+ },
+ "upstream": {
+  "commit": "89ee68dcfae72a1ce9b079ea5cf60665c98f7abc",
+  "package": {
+   "name": "jackal-v1.7.0-macos-arm64.tar.gz",
+   "sha256": "21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e",
+   "size_bytes": 118862060
   },
-  "non_claims": [
-    "SHA-256 identifies exact bytes; it is not authorship, authenticity, or mathematical correctness",
-    "the acyclic trust chain is core release -> core package hash -> plugin commit; the core package does not reference this plugin"
+  "release_epoch": "v1.7.0",
+  "release_url": "https://github.com/AnubisQuantumCipher/jackal-calc/releases/tag/v1.6.0",
+  "repository": "https://github.com/AnubisQuantumCipher/jackal-calc",
+  "tag": "v1.7.0",
+  "tag_object": "9014369439d7e92590503f86afd0bfdb4f7aac8d",
+  "verified_from": "unauthenticated public release asset download; hash matched SHA256SUMS and the release receipt"
+ },
+ "vendored": {
+  "note": "concatenation of the parts equals the published release asset byte-for-byte (GitHub 100 MiB single-file limit)",
+  "parts": [
+   "pkg/jackal-v1.7.0-macos-arm64.tar.gz.part00",
+   "pkg/jackal-v1.7.0-macos-arm64.tar.gz.part01"
   ],
-  "plugin": {
-    "name": "jackal-verified",
-    "version": "4.0.0"
-  },
-  "schema": "jackal-plugin-epoch-receipt-v1",
-  "skill": {
-    "name": "jackal-verified-computation",
-    "sha256": "c59dcfe7e4823b38269011015093bc536a72ebfa582f35f211d9277f41818623",
-    "version": "5.0.0"
-  },
-  "tools": {
-    "count": 33,
-    "source": "schemas.py GENERATED from the vendored package's plugin/hermes/tools.json"
-  },
-  "upstream": {
-    "commit": "19b763e9451276e72c7511ec8ba42bf828d096f6",
-    "package": {
-      "name": "jackal-v1.6.0-macos-arm64.tar.gz",
-      "sha256": "0cdacf56bb83d65454330973280cde7da0b9262d6163ccd7efbbbb47bc88e39a",
-      "size_bytes": 79519523
-    },
-    "release_epoch": "v1.6.0",
-    "release_url": "https://github.com/AnubisQuantumCipher/jackal-calc/releases/tag/v1.6.0",
-    "repository": "https://github.com/AnubisQuantumCipher/jackal-calc",
-    "tag": "v1.6.0",
-    "tag_object": "af5d94a622838f1ebf0f826d02426b26857f68e5",
-    "verified_from": "unauthenticated public release asset download; hash matched SHA256SUMS and the release receipt"
-  },
-  "vendored": {
-    "path": "pkg/jackal-v1.6.0-macos-arm64.tar.gz",
-    "sha256": "0cdacf56bb83d65454330973280cde7da0b9262d6163ccd7efbbbb47bc88e39a"
-  }
+  "sha256": "21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e"
+ }
 }

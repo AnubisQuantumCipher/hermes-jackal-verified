@@ -1,38 +1,44 @@
-# JACKAL Verified — Hermes plugin (v4.0.0)
+# JACKAL Verified — Hermes plugin (v5.0.0)
 
 [![CI](https://github.com/AnubisQuantumCipher/hermes-jackal-verified/actions/workflows/ci.yml/badge.svg)](https://github.com/AnubisQuantumCipher/hermes-jackal-verified/actions/workflows/ci.yml)
 ![Platform](https://img.shields.io/badge/platform-macOS%20arm64-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-Typed, receipt-bearing access to the sealed **JACKAL v1.6.0 Mathematical
-Evidence Kernel** from Hermes: **33 tools**, every call executed inside an
+Typed, receipt-bearing access to the sealed **JACKAL v1.7.0 Mathematical
+Evidence Kernel** from Hermes: **34 tools**, every call executed inside an
 admitted, hash-pinned private snapshot of the exact public release
 package.
 
 ## Trust chain (acyclic)
 
 ```text
-JACKAL v1.6.0 tag/commit (jackal-calc @ 19b763e9451276e72c7511ec8ba42bf828d096f6)
-  → public core package  jackal-v1.6.0-macos-arm64.tar.gz
-    sha256 0cdacf56bb83d65454330973280cde7da0b9262d6163ccd7efbbbb47bc88e39a
-  → this plugin's vendored copy (byte-identical, verified at admission)
+JACKAL v1.7.0 tag/commit (jackal-calc @ 89ee68dcfae72a1ce9b079ea5cf60665c98f7abc)
+  → public core package  jackal-v1.7.0-macos-arm64.tar.gz
+    sha256 21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e
+  → this plugin's vendored copy (two raw byte parts under pkg/ — GitHub's
+    100 MiB single-file limit; admission verifies the CONCATENATION equals
+    the published asset byte-for-byte)
   → plugin release commit (pinned in the GitHub Release notes)
   → plugin MANIFEST.json + EPOCH.json (machine-readable epoch receipt)
-  → bundled skill jackal-verified-computation v5.0.0
+  → bundled skill jackal-verified-computation v6.0.0
 ```
 
 The core package never references this plugin; the plugin pins the core.
 
-## What the 33 tools are
+## What the 34 tools are
 
-- **9 proof-carrying formal lanes** — `jackal_range_bound`,
-  `jackal_gaussian_integral`, and the pure-Q fragments
+- **10 proof-carrying formal lanes** — `jackal_range_bound`,
+  `jackal_gaussian_integral`, the certified composed integral
+  `jackal_integrate_bound_cert` (v1.7.0), and the pure-Q fragments
   `jackal_{sqrt,exp,ln,sin,cos,atan,tanh}_rat_bound`. An accepted result
   is `formal-bounded` with a canonical `jackal-formal-receipt-v1` whose
   embedded certificate is re-executed by the pinned Lean-proved checker
-  (`request_bound_certified_release`, Gaussian:
-  `gaussian_integral_check_sound`). Anything outside an admitted
-  fragment refuses — never downgrades.
+  (`request_bound_certified_release`; Gaussian:
+  `gaussian_integral_check_sound`; composed integral: `int_cert_sound`
+  via the compiled `jackal_int_cert_check`). Anything outside an
+  admitted fragment refuses — never downgrades. The weaker float lane
+  `jackal_integrate_bound` stays `bounded` and is NOT the certified
+  lane.
 - **21 honest weaker/exact lanes** — `jackal_exact`, `jackal_evaluate`,
   `jackal_diff`, `jackal_integrate`, `jackal_integrate_adaptive`,
   `jackal_integrate_bound`, `jackal_solve`, and the fourteen exact-CAS
@@ -64,8 +70,8 @@ the sealed upstream surface.
    0700 private tempdir (no traversal, no non-regular members, no
    Apple-Double); the package's internal `SHA256SUMS` verifies every
    file with none missing and none extra; the `APPROVED_IDENTITIES`
-   table re-verifies 30 trust-bearing files byte-for-byte; Mach-O arm64
-   magic on the three native binaries; executables locked to 0500.
+   table re-verifies 34 trust-bearing files byte-for-byte; Mach-O arm64
+   magic on the four native binaries; executables locked to 0500.
 2. **Per call**: TOCTOU — the frontend, server, tools.json, engine, and
    both checkers are re-hashed before AND after every invocation;
    subprocesses run `shell=False`, `stdin=DEVNULL`, restricted `PATH`,
@@ -80,13 +86,13 @@ the sealed upstream surface.
 ## Install
 
 ```bash
-# Pin the EXACT full 40-character release commit from the v4.0.0
+# Pin the EXACT full 40-character release commit from the v5.0.0
 # GitHub Release notes — never a floating branch:
 hermes plugins install AnubisQuantumCipher/hermes-jackal-verified \
   --force --ref <FULL-40-CHAR-RELEASE-COMMIT> --enable
 
 hermes plugins doctor jackal-verified --ci
-# expected: registrations: 33 tool(s)
+# expected: registrations: 34 tool(s)
 ```
 
 **Start a NEW Hermes session after install/upgrade** — tool schemas load
@@ -103,28 +109,32 @@ network fetch.
 "what is 0.1 + 0.2 exactly"            → jackal_exact       → exact 3/10
 "derivative of x^3, checked"           → jackal_diff        → checked
 "enclose sqrt(x) on [2,3] with proof"  → jackal_sqrt_rat_bound → formal-bounded + receipt
+"integral of sin(x) on [0,1], proven"  → jackal_integrate_bound_cert → formal-bounded + receipt
 "is 3^100 mod 7 below 7, as evidence"  → jackal_claim       → claim bundle
 "replay this bundle independently"     → jackal_verify_bundle → verified | refused
 ```
 
-## Migrating from v3.0.0 (10 tools)
+## Migrating from v4.0.0 (33 tools)
 
-Three v3 names/shapes do not exist in the sealed 33-tool surface:
-
-| v3.0.0 | v4.0.0 |
-|---|---|
-| `jackal_differentiate` | `jackal_diff` |
-| `jackal_claim_card` | compile the model claim via `jackal_claim` |
-| `jackal_exact` (mode-based args) | `jackal_exact {"expression": "..."}` |
-
-Formal receipts issued by older epochs keep verifying under their
-original caller-pinned epoch/request expectations.
+Purely additive: every v4.0.0 tool keeps its exact name and schema
+(`COMPAT_FLOOR_PASS frozen_tools=31 live_tools=34` upstream). New in
+v5.0.0: `jackal_integrate_bound_cert` — call it instead of
+`jackal_integrate_bound` when you need a Lean-checked `formal-bounded`
+composed enclosure over the certified fragment
+(`num/var/neg/add/sub/mul/div/pow/sin/cos/abs` in `x`; everything else
+refuses). Upstream `rat`/`jackal_exact` `approx=` is now a rendering of
+the exact rational (issue jackal-calc#4). Three v3.0.0 names/shapes
+still do not exist (`jackal_differentiate` → `jackal_diff`;
+`jackal_claim_card` → `jackal_claim`; mode-based `jackal_exact` args →
+`{"expression": "..."}`). Formal receipts issued by older epochs keep
+verifying under their original caller-pinned epoch/request
+expectations.
 
 ## Tests and verification
 
 ```bash
-python3 tests/test_plugin.py        # 18-case unit battery
-python3 tests/test_plugin_v2.py     # 36-row poison battery (also under -O)
+python3 tests/test_plugin.py        # unit battery (20 cases)
+python3 tests/test_plugin_v2.py     # poison battery (43 rows, also under -O)
 python3 tests/aba_recheck_gate.py   # A→B→A identity-enforcement gate
 python3 scripts/fresh_install_smoke.py
 python3 scripts/verify_manifest.py
@@ -137,20 +147,23 @@ CI (`.github/workflows/ci.yml`) runs all of the above on `macos-14`
 
 ## Provenance
 
-- Upstream: `AnubisQuantumCipher/jackal-calc` tag `v1.6.0`, commit
-  `19b763e9451276e72c7511ec8ba42bf828d096f6`; the vendored tarball is
+- Upstream: `AnubisQuantumCipher/jackal-calc` tag `v1.7.0`, commit
+  `89ee68dcfae72a1ce9b079ea5cf60665c98f7abc`; the vendored tarball is
   byte-identical to the unauthenticated public release asset (sha256
-  `0cdacf56bb83d65454330973280cde7da0b9262d6163ccd7efbbbb47bc88e39a`).
+  `21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e`).
 - Key identities (full table in `EPOCH.json` and `PROVENANCE.md`):
   evaluator `jackal-native`
-  `8617ad087f859f58a1e742032588cd011c9716bab8fe5477e7b0a318dfded88e`,
+  `20b80827d3c5c2a5d0d5d6f5a84c692f230fb0f55b9c7d1fcad02a1d0b3a1083`,
   proved checker `jackal_cert_check`
   `05c3518b836f239712f897c483a2ddadad9f544e0887b1b7bb1424a27289de8a`,
   Gaussian checker `jackal_gaussian_check`
-  `ccac690bf916f71a4e3baeb0622dac19aa47e3ca4af858c0800c295581ecfacb`.
-- Upstream local evidence: `GATES: PASS (38 gates)` on the release
-  bytes, including 200/200 black-box, 108/108 hostile claim matrix, and
-  47/47 package parity — see the upstream release's evidence assets.
+  `ccac690bf916f71a4e3baeb0622dac19aa47e3ca4af858c0800c295581ecfacb`,
+  composed-integral checker `jackal_int_cert_check`
+  `c858e3bfc0ff2809a808170caabbf090077cb54996e76f065dbcd26ffb067d49`.
+- Upstream local evidence: `GATES: PASS (43 gates)` on the release
+  bytes, including 202/202 black-box, 108/108 hostile claim matrix, and
+  49/49 package parity over the v1.7.0 package — see the upstream
+  release's evidence assets.
 
 ## Non-claims
 

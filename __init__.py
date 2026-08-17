@@ -1,5 +1,5 @@
 """jackal-verified — typed, receipt-bearing access to the sealed JACKAL
-v1.6.0 Mathematical Evidence Kernel (33 tools, pass-through adapter)."""
+v1.7.0 Mathematical Evidence Kernel (34 tools, pass-through adapter)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,7 +11,10 @@ _ROUTING_RULES = """JACKAL verified computation routing:
   jackal_exact; IEEE evaluation -> jackal_evaluate; checked derivative ->
   jackal_diff; integration estimate/enclosure -> jackal_integrate /
   jackal_integrate_adaptive / jackal_integrate_bound; proved interval
-  enclosures -> jackal_range_bound, jackal_gaussian_integral, and the
+  enclosures -> jackal_range_bound, jackal_gaussian_integral, the
+  certified composed integral jackal_integrate_bound_cert (v1.7.0,
+  theorem int_cert_sound; certified fragment num/var/neg/add/sub/mul/
+  div/pow/sin/cos/abs — everything else refuses), and the
   pure-Q lanes jackal_{sqrt,exp,ln,sin,cos,atan,tanh}_rat_bound; exact
   CAS -> jackal_canon/poly_*/ratfunc_canon/roots_isolate/alg_*/xgcd/
   mod_pow/mod_inv/crt/divides/prime_cert.

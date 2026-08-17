@@ -33,8 +33,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / "tools.py"
 EVIDENCE = ROOT / "tests" / "evidence" / "aba_recheck_gate.json"
-PKG = ROOT / "pkg" / "jackal-v1.6.0-macos-arm64.tar.gz"
-DIRNAME = "jackal-v1.6.0-macos-arm64"
+# The vendored release is split into raw byte parts (GitHub 100 MiB limit);
+# forgeries are built from the exact concatenated bytes.
+PKG_PARTS = (ROOT / "pkg" / "jackal-v1.7.0-macos-arm64.tar.gz.part00",
+             ROOT / "pkg" / "jackal-v1.7.0-macos-arm64.tar.gz.part01")
+DIRNAME = "jackal-v1.7.0-macos-arm64"
 
 # The identity-enforcement pair under test: the admission pin loop AND
 # the per-call TOCTOU pre-verification.  B disables BOTH, proving that
@@ -62,9 +65,14 @@ def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def pkg_bytes() -> bytes:
+    return b"".join(p.read_bytes() for p in PKG_PARTS)
+
+
 def build_forged_tarball(member_rel: str, suffix: bytes, dest: Path) -> str:
     """Rewrite one member + the internal SHA256SUMS; return new outer sha."""
-    with tarfile.open(PKG) as tf:
+    import io as _io
+    with tarfile.open(fileobj=_io.BytesIO(pkg_bytes()), mode="r:gz") as tf:
         members = tf.getmembers()
         blobs = {}
         for m in members:
@@ -167,17 +175,20 @@ def main() -> int:
     for gate, _ in GATE_PAIR:
         assert gate in text, f"gate line not found in tools.py: {gate!r}"
 
-    genuine_sha = sha(PKG.read_bytes())
+    genuine_blob = pkg_bytes()
+    genuine_sha = sha(genuine_blob)
     rows = {}
     ok_all = True
     with tempfile.TemporaryDirectory(prefix="jackal-aba-") as td:
+        genuine_path = Path(td) / "genuine.tar.gz"
+        genuine_path.write_bytes(genuine_blob)
         forged = {}
         for name, (rel, suffix) in FORGERIES.items():
             dest = Path(td) / f"{name}.tar.gz"
             forged[name] = (dest, build_forged_tarball(rel, suffix, dest))
 
         # A(pre): genuine admits; every forgery refuses on the pin loop.
-        g = probe(PKG, genuine_sha)
+        g = probe(genuine_path, genuine_sha)
         genuine_pre = g.get("status") == "exact" or (
             g.get("status") not in ("refused", "error"))
         rows["genuine"] = {"A_pre": g}

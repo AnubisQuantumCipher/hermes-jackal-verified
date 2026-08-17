@@ -42,7 +42,7 @@ def main() -> int:
     spec.loader.exec_module(module)
     ctx = Context()
     module.register(ctx)
-    assert len(ctx.tools) == 33, f"expected 33 tools, got {len(ctx.tools)}"
+    assert len(ctx.tools) == 34, f"expected 34 tools, got {len(ctx.tools)}"
     assert ctx.skills == ["jackal-verified-computation"], ctx.skills
     assert ctx.sections, "routing prompt section missing"
 
@@ -53,6 +53,13 @@ def main() -> int:
     formal = json.loads(ctx.tools["jackal_sqrt_rat_bound"](
         {"expression": "sqrt(x)", "input_lo": "2", "input_hi": "3"}))
     assert formal["status"] == "formal-bounded", formal
+
+    composed = json.loads(ctx.tools["jackal_integrate_bound_cert"](
+        {"expression": "sin(x)", "input_lo": "0", "input_hi": "1",
+         "tolerance": "1/100"}))
+    assert composed["status"] == "formal-bounded", composed
+    assert composed["receipt"]["variant"] == "int_cert", composed
+    assert composed["receipt"]["theorem"]["id"] == "int_cert_sound", composed
 
     request = {"schema": "jackal-claim-request-v1",
                "steps": [{"id": "p", "op": "exact", "command": "mod-pow",
@@ -75,7 +82,8 @@ def main() -> int:
 
     print(f"FRESH_INSTALL_PASS tools={len(ctx.tools)} "
           f"skills={len(ctx.skills)} prompt_sections={len(ctx.sections)} "
-          f"exact=3/10 formal=sqrt_rat bundle_replay=verified")
+          f"exact=3/10 formal=sqrt_rat composed=int_cert "
+          f"bundle_replay=verified")
     return 0
 
 

@@ -1,11 +1,11 @@
-"""JACKAL Verified — Hermes-native adapter over the sealed v1.6.0 package.
+"""JACKAL Verified — Hermes-native adapter over the sealed v1.7.0 package.
 
-Thirty-three typed tools (see `schemas.py`, GENERATED from the vendored
+Thirty-four typed tools (see `schemas.py`, GENERATED from the vendored
 package's own `plugin/hermes/tools.json`).  Every call is a fail-closed
 pass-through into the upstream `jackal_hermes` frontend running INSIDE an
-admitted private snapshot of the vendored release tarball
-`pkg/jackal-v1.6.0-macos-arm64.tar.gz` — the exact bytes published (and
-hash-verified) as the public JACKAL v1.6.0 GitHub release asset.
+admitted private snapshot of the vendored release tarball (split into raw
+byte parts under `pkg/`; their concatenation is the exact bytes published
+and hash-verified as the public JACKAL v1.7.0 GitHub release asset).
 
 Trust model:
   T0  the plugin ships ONE upstream artifact: the release tarball, pinned
@@ -15,7 +15,7 @@ Trust model:
       SHA256SUMS (no missing, no extra), then re-verifies the
       APPROVED_IDENTITIES table (executables, producers, verifiers,
       registries, inventory, proof identities) byte-for-byte and checks
-      Mach-O arm64 magic on the three native binaries;
+      Mach-O arm64 magic on the four native binaries;
   T2  every tool call re-hashes the frontend + trust-bearing files
       before AND after execution (TOCTOU);
   T3  responses are returned VERBATIM: the upstream status/assurance
@@ -32,6 +32,7 @@ The adapter adds NO mathematical behavior of its own.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import shutil
@@ -44,31 +45,47 @@ from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parent
 
-RELEASE_EPOCH = "v1.6.0"
-PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.6.0-macos-arm64.tar.gz"
-PKG_SHA256 = "0cdacf56bb83d65454330973280cde7da0b9262d6163ccd7efbbbb47bc88e39a"
-PKG_DIRNAME = "jackal-v1.6.0-macos-arm64"
+RELEASE_EPOCH = "v1.7.0"
+# GitHub rejects single files >= 100 MiB, so the vendored release tarball is
+# split into raw byte parts; admission concatenates them IN MEMORY and
+# verifies PKG_SHA256 over the whole — the admitted bytes are exactly the
+# published release asset.  PKG_TARBALL stays as a single-file OVERRIDE knob
+# (tests / the A->B->A gate point it at forged tarballs); when set to a path
+# that exists it takes precedence over the parts.
+PKG_PARTS = (
+    PLUGIN_ROOT / "pkg" / "jackal-v1.7.0-macos-arm64.tar.gz.part00",
+    PLUGIN_ROOT / "pkg" / "jackal-v1.7.0-macos-arm64.tar.gz.part01",
+)
+PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.7.0-macos-arm64.tar.gz"
+PKG_SHA256 = "21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e"
+PKG_DIRNAME = "jackal-v1.7.0-macos-arm64"
 EPOCH_RECEIPT = PLUGIN_ROOT / "EPOCH.json"
 
 # Pinned identities inside the admitted package (from the package's own
 # SHA256SUMS at seal time; re-verified from bytes at every admission).
 APPROVED_IDENTITIES = {
     "jackal-native":
-        "8617ad087f859f58a1e742032588cd011c9716bab8fe5477e7b0a318dfded88e",
+        "20b80827d3c5c2a5d0d5d6f5a84c692f230fb0f55b9c7d1fcad02a1d0b3a1083",
     "jackal_cert_check":
         "05c3518b836f239712f897c483a2ddadad9f544e0887b1b7bb1424a27289de8a",
     "jackal_gaussian_check":
         "ccac690bf916f71a4e3baeb0622dac19aa47e3ca4af858c0800c295581ecfacb",
+    "jackal_int_cert_check":
+        "c858e3bfc0ff2809a808170caabbf090077cb54996e76f065dbcd26ffb067d49",
     "plugin/hermes/jackal_hermes":
         "e63bb66caf3fd0890c5f4de22a22ce61cc1aec52d4c82432171d87dc6a4d0ec3",
     "plugin/hermes/server.py":
-        "7d37ed401cb27e3ed0b07acc1cc089ff99a8914625b9ce1bf070d1d2243d8f9a",
+        "4d67ae76edee3f771ced809520ed6df873c77def8cf410eb79145d61af1009b8",
     "plugin/hermes/tools.json":
-        "dd81b2a1c4a39001a67cc1221313ea741c3c776adf107acc7bc5d8c0419af224",
+        "6271d2cf75f9227f10a842599c59229e3178fb929840a325ce83b1b4df1dbc1f",
     "plugin/hermes/bundle_hash.py":
         "826aae22af717736e4d98a6746d5d9f6b6767544cf479e1fcf7a46c2d7ab8aee",
     "gaussian_certificate.py":
         "20c24622b786940a8e82198f2364fb7593e761902fa0736289b179642f1e4306",
+    "int_cert_producer.py":
+        "b4240fdac3c77b2abd751595303b2b3a0e4bebd492b2ae57fa5ccf052cd50af4",
+    "int_cert_release.py":
+        "5a1e94189bfb1199444cbd73d55ba30845563fd56ca7d898df37caed6330a1e8",
     "sqrt_rat_producer.py":
         "4bc95c331430d2350facfb19da9aba483ab7b3698754e7af2e5deb797e097926",
     "exp_rat_producer.py":
@@ -94,28 +111,31 @@ APPROVED_IDENTITIES = {
     "unit_registry_v1.json":
         "d2d30dfe2a74d58a5ef31b551ea628106390bfccd72ad34d1cb37381c58d114c",
     "jackal_calc.anb":
-        "34870c66276005272d9ab48a3cc1261ba0e0317a9e45089b1acfb07acc0efd25",
+        "638d28dc9811bb9359af27a1bcc5427717cdf894902011fbb230dc18bac63776",
     "formal_coverage_inventory.json":
-        "630b8988ef6f8b3385a3451fd3bde08789c0f8eb6e96d816b92ce2469e47c6ec",
+        "18ff7b1d428dbc6f807fd4de27751ba415b33ef0b356088d7fa316ed74bb0ba6",
     "range_proof_identity.json":
-        "a9d40200ecbcee7fa29deb4019c6f73a2463f8284e6429c66a3e95eea7285f56",
+        "1b2d623904930d748bfbf489637e0e8aa720188e7d68f5250e5bd8f257b89a67",
     "gaussian_proof_identity.json":
-        "0cd935aa4e320ed5136287bb54db18a882a1fe739742c95d2454f3701602a1e0",
+        "7d2ff9ed4934604eba30f3111a147d7e295fd79302f640f57aacd986a23e243c",
+    "int_cert_proof_identity.json":
+        "f0323e312d8b0e05a7200546fd819fc191d5f146d359bb14efec5b1575f16844",
     "receipt_verify.py":
-        "7a341affdef37d0cfe4c9058ad0e62d9ccef1fe4e8a7345d11c828baf19edbe7",
+        "e28a103ff07276a2aee270d5dbe234423b6c55a4bb08c0d67c94c06c7e62307c",
     "release_validate.py":
         "794bb90f884dd0b538a43f92a34f01f01a1c0ee3255e380fc9fc8646d86acb20",
     "formal_receipt.py":
-        "cf8b9fe01c9ae32440d68750073901b5ae47c45ef61f1ede1965bf22ef5b5965",
+        "e8fe9ccbdee6122e859d42cb5873daf7de6d365a6adefa5754e1ffc7066f2978",
     "formal_status_gate.py":
-        "9a9941bceb0644b79cfb44078090cab73903739ee19151bdabf05dba24bcd2b6",
+        "6aacf6c1ff4f6d43cd055ac09a6a7d0d8007258c7901f6759a76ef15a29b7203",
     "isolated_entry.py":
-        "b7547ca833e4ab184e3992649c9d53779640fac51d9591b97e6a5922c389d0a9",
+        "33be0aeb16eded6d1e4fd99fb41db46c52f70276e90c83c9ad48af267e0c87aa",
     "MANIFEST.sha256":
-        "164469707e6137e17f765d5ca291a0d3aa02121219cc15c22fdf659cfbce4e07",
+        "1276817efaa48cf4b9a941caae8ef56fd78433babc918cc15970f6b4351800e4",
 }
 
-_EXECUTABLES = ("jackal-native", "jackal_cert_check", "jackal_gaussian_check")
+_EXECUTABLES = ("jackal-native", "jackal_cert_check", "jackal_gaussian_check",
+                "jackal_int_cert_check")
 _FRONTEND = "plugin/hermes/jackal_hermes"
 _TOCTOU_FILES = (
     "plugin/hermes/jackal_hermes",
@@ -125,6 +145,7 @@ _TOCTOU_FILES = (
     "jackal-native",
     "jackal_cert_check",
     "jackal_gaussian_check",
+    "jackal_int_cert_check",
     "MANIFEST.sha256",
 )
 
@@ -139,6 +160,17 @@ def _sha(path: Path) -> str:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def _package_bytes() -> bytes:
+    """Exact release-tarball bytes: the single-file override if present,
+    else the concatenation of the vendored parts (fail closed on absence)."""
+    if PKG_TARBALL.is_file():
+        return PKG_TARBALL.read_bytes()
+    missing = [str(p) for p in PKG_PARTS if not p.is_file()]
+    if missing:
+        raise JackalError(f"package part missing: {missing}")
+    return b"".join(p.read_bytes() for p in PKG_PARTS)
 
 
 def _arch_ok(path: Path) -> bool:
@@ -216,13 +248,14 @@ def _admit_package() -> dict:
     if _ADMITTED is not None:
         return _ADMITTED
     _check_epoch_receipt()
-    digest = _sha(PKG_TARBALL)
+    blob = _package_bytes()
+    digest = hashlib.sha256(blob).hexdigest()
     if digest != PKG_SHA256:
         raise JackalError(
             f"package identity mismatch: {digest} != {PKG_SHA256}")
     snapdir = Path(tempfile.mkdtemp(prefix="jackal-verified-"))
     os.chmod(snapdir, 0o700)
-    with tarfile.open(PKG_TARBALL) as tf:
+    with tarfile.open(fileobj=io.BytesIO(blob), mode="r:gz") as tf:
         _safe_extract(tf, snapdir)
     pkg = snapdir / PKG_DIRNAME
     if not pkg.is_dir():

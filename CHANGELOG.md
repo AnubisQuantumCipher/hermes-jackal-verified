@@ -1,5 +1,48 @@
 # Changelog
 
+## 5.0.0 — 2026-08-17
+
+**JACKAL v1.7.0 epoch: 34 tools — the certified composed-integral lane
+lands.** Faithful pass-through over the sealed public JACKAL v1.7.0
+release.
+
+- Vendored package: `jackal-v1.7.0-macos-arm64.tar.gz`
+  (sha256 `21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e`,
+  118,862,060 bytes), vendored as two raw byte parts (GitHub 100 MiB
+  single-file limit; admission verifies the concatenation equals the
+  published asset byte-for-byte), upstream commit
+  `89ee68dcfae72a1ce9b079ea5cf60665c98f7abc`, tag `v1.7.0`
+  (tag object `9014369439d7e92590503f86afd0bfdb4f7aac8d`).
+- Tool surface: 33 → 34 (additive). New: `jackal_integrate_bound_cert` —
+  Lean-checked `formal-bounded` composed definite-integral enclosures
+  (theorem `int_cert_sound`, compiled checker `jackal_int_cert_check`,
+  receipt variant `int_cert`). The weaker float lane
+  `jackal_integrate_bound` keeps `status=bounded` and is visibly NOT the
+  certified lane. `jackal_verify_receipt` gains the int_cert mode
+  (`expected_tolerance` required, like gaussian).
+- Migration: purely additive — every v4.0.0 tool name/schema unchanged
+  (upstream `COMPAT_FLOOR_PASS frozen_tools=31 live_tools=34`). Route
+  proof-carrying integrals old→new: `jackal_integrate_bound` →
+  `jackal_integrate_bound_cert` (certified fragment
+  `num/var/neg/add/sub/mul/div/pow/sin/cos/abs` in `x`; everything else
+  refuses). Upstream `rat`/`jackal_exact` `approx=` is now a rendering
+  of the exact rational (jackal-calc#4 fixed); the independent-float
+  lane remains `jackal_evaluate`.
+- Admission: `APPROVED_IDENTITIES` grows to 34 rows (new checker,
+  producer `int_cert_producer.py`, binder `int_cert_release.py`,
+  `int_cert_proof_identity.json`); Mach-O arm64 magic now checked on
+  four binaries; TOCTOU set includes `jackal_int_cert_check`.
+- Skill 6.0.0: routing row + non-inflation rules + verification
+  checklist for the new lane; AGENTS snippet re-pinned to the v1.7.0
+  epoch identities.
+- Tests: unit battery +2 (int-cert round-trip with semantic tamper,
+  fragment refusal); poison battery +7 rows (round-trip, fragment
+  refusal, genuine verify, 4 receipt poisons incl. variant-swap and
+  theorem-swap); fresh-install smoke asserts 34 registrations and
+  exercises the new lane.
+- Fixed: PROVENANCE.md's v4.0.0 frontend hash transcription typo
+  (re-derived from the package's SHA256SUMS).
+
 ## 4.0.0 — 2026-08-16
 
 **The Mathematical Evidence Kernel epoch: 33 tools, faithful pass-through
