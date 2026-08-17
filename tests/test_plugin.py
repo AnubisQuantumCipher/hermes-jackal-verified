@@ -59,11 +59,12 @@ class JackalPluginTests(unittest.TestCase):
         cls.by_name = {name: handler for name, _, handler in cls.ctx.tools}
 
     # -- registration surface ------------------------------------------
-    def test_registers_exactly_33_tools_skill_and_routing(self):
-        self.assertEqual(len(self.ctx.tools), 33)
+    def test_registers_exactly_34_tools_skill_and_routing(self):
+        self.assertEqual(len(self.ctx.tools), 34)
         self.assertEqual(sorted(self.by_name), sorted(schemas.ALL_TOOLS))
         self.assertIn("jackal_claim", self.by_name)
         self.assertIn("jackal_verify_bundle", self.by_name)
+        self.assertIn("jackal_integrate_bound_cert", self.by_name)
         self.assertEqual([n for n, _ in self.ctx.skills],
                          ["jackal-verified-computation"])
         routing = self.ctx.sections[0][1]
@@ -71,7 +72,9 @@ class JackalPluginTests(unittest.TestCase):
         self.assertIn("jackal_verify_bundle", routing)
 
     def test_schemas_match_vendored_tools_json(self):
-        with tarfile.open(tools.PKG_TARBALL) as tf:
+        import io
+        with tarfile.open(fileobj=io.BytesIO(tools._package_bytes()),
+                          mode="r:gz") as tf:
             member = tf.extractfile(
                 f"{tools.PKG_DIRNAME}/plugin/hermes/tools.json")
             doc = json.loads(member.read().decode("utf-8"))
@@ -157,6 +160,37 @@ class JackalPluginTests(unittest.TestCase):
                            {"expression": "ln(x)", "input_lo": "1",
                             "input_hi": "2"})
         self.assertEqual(out["variant"], "ln_rat")
+
+    def test_int_cert_lane_round_trips_and_tamper_refuses(self):
+        out = self._formal("jackal_integrate_bound_cert",
+                           {"expression": "sin(x)", "input_lo": "0",
+                            "input_hi": "1", "tolerance": "1/100"})
+        receipt = out["receipt"]
+        self.assertEqual(receipt["variant"], "int_cert")
+        self.assertEqual(receipt["theorem"]["id"], "int_cert_sound")
+        self.assertEqual(out["checker_rerun"], "ACCEPT")
+        req = receipt["request"]
+        expected = {
+            "receipt": receipt,
+            "expected_release_epoch": receipt["release_epoch"],
+            "expected_command": req["command"],
+            "expected_expression": req["expression"],
+            "expected_input_lo": req["input_lo"],
+            "expected_input_hi": req["input_hi"],
+            "expected_tolerance": req["tolerance"],
+        }
+        ver = call(self.by_name["jackal_verify_receipt"], expected)
+        self.assertEqual(ver["status"], "verified", ver)
+        bad = json.loads(json.dumps(expected))
+        bad["receipt"]["result"]["enclosure_hi"] = "9999"
+        ver2 = call(self.by_name["jackal_verify_receipt"], bad)
+        self.assertEqual(ver2["status"], "refused")
+
+    def test_int_cert_fragment_refusal(self):
+        out = call(self.by_name["jackal_integrate_bound_cert"],
+                   {"expression": "tan(x)", "input_lo": "0",
+                    "input_hi": "1", "tolerance": "1/10"})
+        self.assertEqual(out["status"], "refused")
 
     def test_gaussian_lane_round_trips(self):
         out = self._formal("jackal_gaussian_integral",

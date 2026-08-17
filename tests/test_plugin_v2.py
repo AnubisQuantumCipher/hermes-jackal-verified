@@ -62,11 +62,13 @@ def call(tool: str, args: dict) -> dict:
 
 def main() -> int:
     # -- inventory parity against the vendored tarball -------------------
-    with tarfile.open(tools.PKG_TARBALL) as tf:
+    import io
+    with tarfile.open(fileobj=io.BytesIO(tools._package_bytes()),
+                      mode="r:gz") as tf:
         doc = json.loads(tf.extractfile(
             f"{tools.PKG_DIRNAME}/plugin/hermes/tools.json").read())
     upstream = sorted(t["name"] for t in doc["tools"])
-    record("inventory-33", len(CTX.tools) == 33, f"n={len(CTX.tools)}")
+    record("inventory-34", len(CTX.tools) == 34, f"n={len(CTX.tools)}")
     record("inventory-parity", sorted(CTX.tools) == upstream)
     record("schemas-generated-parity",
            sorted(schemas.ALL_TOOLS) == upstream)
@@ -140,6 +142,56 @@ def main() -> int:
             target[key] = value
             out = verify(bad)
             record(f"{variant}-poison-{pname}",
+                   out.get("status") == "refused", out.get("reason", ""))
+
+    # -- v1.7.0 certified composed-integral lane ---------------------------
+    ic = call("jackal_integrate_bound_cert",
+              {"expression": "sin(x)", "input_lo": "0", "input_hi": "1",
+               "tolerance": "1/100"})
+    ic_receipt = ic.get("receipt")
+    record("int-cert-round-trip",
+           ic.get("status") == "formal-bounded"
+           and isinstance(ic_receipt, dict)
+           and ic_receipt.get("variant") == "int_cert"
+           and ic_receipt.get("theorem", {}).get("id") == "int_cert_sound",
+           ic.get("reason", ""))
+    r = call("jackal_integrate_bound_cert",
+             {"expression": "exp(x)", "input_lo": "0", "input_hi": "1",
+              "tolerance": "1/10"})
+    record("int-cert-fragment-refuses", r.get("status") == "refused",
+           r.get("reason", ""))
+
+    def verify_int_cert(receipt: dict) -> dict:
+        req = receipt["request"]
+        return call("jackal_verify_receipt", {
+            "receipt": receipt,
+            "expected_release_epoch": receipt["release_epoch"],
+            "expected_command": req["command"],
+            "expected_expression": req["expression"],
+            "expected_input_lo": req["input_lo"],
+            "expected_input_hi": req["input_hi"],
+            "expected_tolerance": req["tolerance"],
+        })
+
+    if ic_receipt is None:
+        record("int-cert-poisons", False, "no receipt")
+    else:
+        ic_base = json.dumps(ic_receipt)
+        v = verify_int_cert(json.loads(ic_base))
+        record("int-cert-verify-genuine", v.get("status") == "verified",
+               v.get("reason", v.get("verdict", "")))
+        ic_poisons = {
+            "enclosure-tamper": ("result", "enclosure_hi", "99999"),
+            "variant-swap": (None, "variant", "range"),
+            "checker-forge": ("identities", "checker_sha256", "ab" * 32),
+            "theorem-swap": ("theorem", "id", "not_a_theorem"),
+        }
+        for pname, (section, key, value) in ic_poisons.items():
+            bad = json.loads(ic_base)
+            target = bad if section is None else bad.get(section, {})
+            target[key] = value
+            out = verify_int_cert(bad)
+            record(f"int-cert-poison-{pname}",
                    out.get("status") == "refused", out.get("reason", ""))
 
     # -- claim bundle poisons ---------------------------------------------

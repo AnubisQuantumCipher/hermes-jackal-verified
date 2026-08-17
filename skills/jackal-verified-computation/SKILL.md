@@ -1,7 +1,7 @@
 ---
 name: jackal-verified-computation
 description: Use JACKAL for exact, bounded, checked, or claim-compiled STEM work.
-version: 5.0.0
+version: 6.0.0
 author: Anubis Quantum Cipher contributors
 license: MIT
 platforms: [macos]
@@ -11,7 +11,7 @@ metadata:
 related_skills: [adversarial-calculator-audit, evidence-first-claims-audit]
 ---
 
-# JACKAL verified computation (v1.6.0 kernel, 33 tools)
+# JACKAL verified computation (v1.7.0 kernel, 34 tools)
 
 Use the `jackal-verified` plugin as a deterministic computational trust
 layer. Select the weakest lane that satisfies the user's actual assurance
@@ -27,9 +27,10 @@ or estimate into a stronger claim.
   the answer.
 - Range, threshold, denominator-zero, and sensitivity questions over
   intervals.
-- Proof-carrying Gaussian integrals and the seven pure-rational
+- Proof-carrying Gaussian integrals, the seven pure-rational
   fragments — `sqrt`, `exp`, `ln`, `sin`, `cos`, `atan`, `tanh` over
-  admitted rational intervals.
+  admitted rational intervals — and certified composed definite-integral
+  enclosures over the bound_step fragment (v1.7.0).
 - Consequential multi-step conclusions: compile ONE deterministic,
   independently replayable claim bundle instead of prose.
 - Any arithmetic where language-model mental computation would reduce
@@ -40,12 +41,12 @@ or estimate into a stronger claim.
 
 ## Prerequisites
 
-- The `jackal-verified` native Hermes plugin v4.0.0 is enabled in the
+- The `jackal-verified` native Hermes plugin v5.0.0 is enabled in the
   active profile. When loaded from the plugin bundle, its explicit skill
   name is `jackal-verified:jackal-verified-computation`.
-- The plugin vendors the public JACKAL v1.6.0 package
-  (`jackal-v1.6.0-macos-arm64.tar.gz`, SHA-256
-  `0cdacf56bb83d65454330973280cde7da0b9262d6163ccd7efbbbb47bc88e39a`);
+- The plugin vendors the public JACKAL v1.7.0 package
+  (`jackal-v1.7.0-macos-arm64.tar.gz`, SHA-256
+  `21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e`);
   admission verifies the tarball hash, the package's internal SHA256SUMS,
   and every pinned producer/checker identity before any computation. Any
   mismatch fails closed.
@@ -63,6 +64,7 @@ or estimate into a stronger claim.
 | Fast exploratory integral | `jackal_integrate` | grid-limited estimate |
 | Better numerical integral | `jackal_integrate_adaptive` | local estimate with refusal semantics |
 | Consequential integral | `jackal_integrate_bound` | enclosure conditional on stated rounding/libm model |
+| Proof-carrying definite integral over the certified fragment (`num/var/neg/add/sub/mul/div/pow/sin/cos/abs` in x) | `jackal_integrate_bound_cert` | `formal-bounded`, `variant=int_cert`, theorem `int_cert_sound` re-checked by the pinned compiled `jackal_int_cert_check`; otherwise refusal |
 | Possible values over an interval | `jackal_range_bound` | `formal-bounded`, `variant=range`, in the pure-Q theorem-covered fragment; otherwise refusal |
 | Gaussian integral `exp(a*(x-b)^2)`, `a<0` | `jackal_gaussian_integral` | `formal-bounded`, `variant=gaussian`, through the zero-libm checker; otherwise refusal |
 | `sqrt/exp/ln/sin/cos/atan/tanh` over admitted rational intervals | `jackal_sqrt_rat_bound`, `jackal_exp_rat_bound`, `jackal_ln_rat_bound`, `jackal_sin_rat_bound`, `jackal_cos_rat_bound`, `jackal_atan_rat_bound`, `jackal_tanh_rat_bound` | `formal-bounded`, `variant=<lane>_rat`, no libm on the proof-decision path; otherwise refusal |
@@ -84,7 +86,7 @@ thresholds. Never silently downgrade a bounded request.
    when a plugin tool covers the operation. Completion: the response
    carries `status` plus lane fields; formal lanes carry the canonical
    nested `jackal-formal-receipt-v1` with
-   `variant=range|gaussian|sqrt_rat|exp_rat|ln_rat|sin_rat|cos_rat|atan_rat|tanh_rat`.
+   `variant=range|gaussian|int_cert|sqrt_rat|exp_rat|ln_rat|sin_rat|cos_rat|atan_rat|tanh_rat`.
 3. **Inspect status before value.** Treat `refused` and `indeterminate`
    as terminal computational outcomes unless the user explicitly accepts
    a weaker lane. Completion: no value from a prior or weaker run is
@@ -105,15 +107,19 @@ thresholds. Never silently downgrade a bounded request.
 
 ## Non-inflation rules
 
-- The nine formal lanes are distinct admitted fragments. Do not route a
+- The ten formal lanes are distinct admitted fragments. Do not route a
   general integral through the Gaussian tool, a general radical through
-  `sqrt_rat`, or an out-of-domain input through any `_rat` lane; refusal
-  is the correct result outside each admitted form.
+  `sqrt_rat`, an out-of-fragment integrand (sqrt/exp/ln/tan/...) through
+  `jackal_integrate_bound_cert`, or an out-of-domain input through any
+  `_rat` lane; refusal is the correct result outside each admitted form.
 - `NO-libm-TCB` applies to the Gaussian and pure-Q `_rat` proof-decision
   paths as declared by their receipts; do not generalize it to ordinary
   evaluation, integration, or the full plugin.
-- Ordinary `bounded` integration remains conditional on JACKAL's
-  IEEE/libm model — never transfer `formal-bounded` language to it.
+- Ordinary `bounded` integration (`jackal_integrate_bound`) remains
+  conditional on JACKAL's IEEE/libm model — never transfer
+  `formal-bounded` language to it; the certificate twin
+  `jackal_integrate_bound_cert` is the formal lane, and its producer's
+  fidelity to the engine's float lane is differential-tested, not proved.
 - Composed interval arithmetic inside claim bundles caps at
   `mathematical=bounded`; only admitted theorem-covered fragments earn
   `formal-bounded`.
@@ -133,7 +139,9 @@ thresholds. Never silently downgrade a bounded request.
    recognized variant, pinned producer/checker identities, and
    checker-derived request/enclosure bindings. Require theorem
    `request_bound_certified_release` for `range` and every `_rat`
-   variant, or `gaussian_integral_check_sound` for `gaussian`.
+   variant, `gaussian_integral_check_sound` for `gaussian`, or
+   `int_cert_sound` for `int_cert` (composed integral; expected_tolerance
+   is required at verification exactly like gaussian).
    Verification re-runs the variant-selected pinned checker on the
    embedded certificate; either outer digest alone is never sufficient.
 2. Claim bundles: require `jackal_verify_bundle` = `verified` under
@@ -148,11 +156,11 @@ thresholds. Never silently downgrade a bounded request.
 ## Migrating from older plugin epochs
 
 - v3.0.0 exposed 10 tools with three legacy names/shapes that do NOT
-  exist in the 33-tool surface: `jackal_differentiate` → use
+  exist in the 34-tool surface: `jackal_differentiate` → use
   `jackal_diff`; `jackal_claim_card` → compile the model claim through
   `jackal_claim` (op `model` + consequence class); the old mode-based
   `jackal_exact` arguments → `jackal_exact {"expression": "..."}`.
-- The 33-tool surface equals the sealed upstream v1.6.0 plugin surface
-  exactly; the plugin's local regression suite and admission gate
-  establish adapter behavior separately from JACKAL's own mathematical
-  claims.
+- The 34-tool surface equals the sealed upstream v1.7.0 plugin surface
+  exactly (v1.6.0's 33 tools plus `jackal_integrate_bound_cert`); the
+  plugin's local regression suite and admission gate establish adapter
+  behavior separately from JACKAL's own mathematical claims.

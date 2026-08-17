@@ -1,18 +1,19 @@
 name: jackal-verified
-version: "4.0.0"
+version: "5.0.0"
 manifest_version: 1
 api_version: 1
 description: >-
-  Typed, receipt-bearing access to the sealed JACKAL v1.6.0 Mathematical
-  Evidence Kernel: 33 tools — nine proof-carrying formal-bounded lanes
-  (range, gaussian, sqrt_rat, exp_rat, ln_rat, sin_rat, cos_rat, atan_rat,
+  Typed, receipt-bearing access to the sealed JACKAL v1.7.0 Mathematical
+  Evidence Kernel: 34 tools — ten proof-carrying formal-bounded lanes
+  (range, gaussian, the v1.7.0 certified composed integral int_cert,
+  sqrt_rat, exp_rat, ln_rat, sin_rat, cos_rat, atan_rat,
   tanh_rat) whose receipts are re-verified by pinned Lean-proved checkers,
   twenty-one honest weaker/exact-CAS lanes with status passthrough that
-  never inflates, independent receipt verification, and the v1.6.0
+  never inflates, independent receipt verification, and the
   claim-kernel front doors jackal_claim / jackal_verify_bundle for
   compiling and independently replaying content-addressed evidence
   bundles. Every call runs inside an admitted, hash-pinned private
-  snapshot of the public v1.6.0 release package.
+  snapshot of the public v1.7.0 release package.
 author: Anubis Quantum Cipher
 license: MIT
 kind: standalone
@@ -34,6 +35,7 @@ provides_tools:
   - jackal_integrate
   - jackal_integrate_adaptive
   - jackal_integrate_bound
+  - jackal_integrate_bound_cert
   - jackal_ln_rat_bound
   - jackal_mod_inv
   - jackal_mod_pow

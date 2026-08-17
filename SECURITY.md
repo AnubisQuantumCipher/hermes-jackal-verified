@@ -18,7 +18,7 @@ Please include:
 
 ## Security model
 
-The plugin is local and offline. It exposes thirty-three fixed tools, not arbitrary command execution. It copies a content-pinned JACKAL executable into a private `0700` execution directory, verifies the snapshot, then invokes it with an argument array, `shell=False`, a restricted environment, and bounded input/output/runtime. The source and private snapshot are rechecked after execution.
+The plugin is local and offline. It exposes thirty-four fixed tools, not arbitrary command execution. It copies a content-pinned JACKAL executable into a private `0700` execution directory, verifies the snapshot, then invokes it with an argument array, `shell=False`, a restricted environment, and bounded input/output/runtime. The source and private snapshot are rechecked after execution.
 
 Receipt validation has two independent layers:
 
