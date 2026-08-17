@@ -1,172 +1,196 @@
 #!/usr/bin/env python3
-"""JACKAL plugin v2 poison suite (completion program Phase J, §515).
-
-Every case runs through the ACTUAL public tool boundary (tools.range_bound /
-evaluate / verify_receipt). No load-bearing `assert`; must give identical
-verdicts under `python3` and `python3 -O`. Exit nonzero on any failure.
-"""
+"""v4.0.0 poison battery: surface parity, refusal passthrough, formal
+variant round trips, receipt/bundle semantic poisons.  Exit-code driven;
+run under default python AND `python3 -O` (optimized parity)."""
 from __future__ import annotations
 
-import copy
-import hashlib
+import importlib.util
 import json
 import sys
+import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-import tools  # noqa: E402
-
-FAILS: list[str] = []
 
 
-def check(name: str, cond: bool, detail: str = "") -> None:
-    if not cond:
-        FAILS.append(f"{name}: {detail}")
-    print(f"  {'PASS' if cond else 'FAIL'} {name}{'' if cond else ' :: ' + detail}")
+def _load_package():
+    spec = importlib.util.spec_from_file_location(
+        "jackal_verified", ROOT / "__init__.py",
+        submodule_search_locations=[str(ROOT)])
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["jackal_verified"] = module
+    spec.loader.exec_module(module)
+    return module
 
 
-def receipt(out: str) -> dict:
-    return json.loads(out)["receipt"]
+PKG = _load_package()
+schemas = sys.modules["jackal_verified.schemas"]
+tools = sys.modules["jackal_verified.tools"]
+
+RESULTS: list[tuple[str, bool, str]] = []
 
 
-def reseal(r: dict) -> dict:
-    core = {k: r[k] for k in ("schema", "operation", "request", "result", "instrument")}
-    r["receipt_sha256"] = hashlib.sha256(tools._canonical(core)).hexdigest()
-    return r
+def record(name: str, ok: bool, note: str = "") -> None:
+    RESULTS.append((name, ok, note))
+    print(f"{'PASS' if ok else 'FAIL'} {name} {note}"[:180])
 
 
-def vok(r: dict) -> bool:
-    return json.loads(tools.verify_receipt({"receipt": r}))["verification"]["valid"]
+class Context:
+    def __init__(self):
+        self.tools = {}
+
+    def get_config(self, key, default=None):
+        return default
+
+    def register_tool(self, name, toolset, schema, handler):
+        self.tools[name] = handler
+
+    def register_skill(self, *a, **k):
+        pass
+
+    def register_system_prompt_section(self, *a, **k):
+        pass
+
+
+CTX = Context()
+PKG.register(CTX)
+
+
+def call(tool: str, args: dict) -> dict:
+    return json.loads(CTX.tools[tool](args))
 
 
 def main() -> int:
-    # --- positive: every FORMAL operator family releases formal-bounded ---
-    positives = {
-        "poly": "x^2+x-1", "div": "1/(x+2)", "neg": "0-x", "pow0": "x^0",
-        "sin": "sin(x)", "cos": "cos(x)", "abs": "abs(x-1)", "floor": "floor(x)",
-        "min": "min(x,1)", "max": "max(x,1)", "nested": "min(x^2, sin(x)+2)",
-    }
-    for k, e in positives.items():
-        r = receipt(tools.range_bound({"expression": e, "lower": 0, "upper": 2}))
-        check(f"positive:{k}", r["result"]["status"] == "formal-bounded", str(r["result"].get("reason")))
-        check(f"positive-verify:{k}", vok(r))
+    # -- inventory parity against the vendored tarball -------------------
+    with tarfile.open(tools.PKG_TARBALL) as tf:
+        doc = json.loads(tf.extractfile(
+            f"{tools.PKG_DIRNAME}/plugin/hermes/tools.json").read())
+    upstream = sorted(t["name"] for t in doc["tools"])
+    record("inventory-33", len(CTX.tools) == 33, f"n={len(CTX.tools)}")
+    record("inventory-parity", sorted(CTX.tools) == upstream)
+    record("schemas-generated-parity",
+           sorted(schemas.ALL_TOOLS) == upstream)
 
-    base = receipt(tools.range_bound({"expression": "x^2+1", "lower": 1, "upper": 2}))
+    # -- refusal passthrough (stable classes, no downgrade) ---------------
+    r = call("jackal_range_bound",
+             {"expression": "tan(x)", "input_lo": "0", "input_hi": "1"})
+    record("range-unsupported-refuses", r["status"] == "refused",
+           r.get("reason", ""))
+    r = call("jackal_sqrt_rat_bound",
+             {"expression": "x^2", "input_lo": "0", "input_hi": "1"})
+    record("sqrt-rat-fragment-refuses", r["status"] == "refused")
+    r = call("jackal_exact", {"expression": "sqrt(2)"})
+    record("exact-grammar-refuses", r["status"] == "refused")
+    r = call("jackal_evaluate", {"expression": "sin(1)"})
+    record("evaluate-never-formal",
+           r["status"] not in ("formal-bounded",) and r["formal"] is False,
+           f"status={r['status']}")
 
-    # --- unsupported formal refuses (no bounded fallback) ---
-    for e in ("sqrt(x)", "exp(x)", "ln(x+3)", "tan(x)", "x^-2", "x%2"):
-        r = receipt(tools.range_bound({"expression": e, "lower": 1, "upper": 2}))
-        check(f"unsupported-refuses:{e}", r["result"]["status"] == "refused" and r["result"].get("released") is False)
+    # -- formal variant round trips (four lanes incl. v1.5 additions) ----
+    lanes = [
+        ("jackal_sqrt_rat_bound", {"expression": "sqrt(x)", "input_lo": "2",
+                                    "input_hi": "3"}, "sqrt_rat"),
+        ("jackal_ln_rat_bound", {"expression": "ln(x)", "input_lo": "1",
+                                  "input_hi": "2"}, "ln_rat"),
+        ("jackal_tanh_rat_bound", {"expression": "1-2/(exp(2*x)+1)",
+                                    "input_lo": "0",
+                                    "input_hi": "1"}, "tanh_rat"),
+        ("jackal_atan_rat_bound", {"expression": "atan(x)", "input_lo": "0",
+                                    "input_hi": "1"}, "atan_rat"),
+    ]
+    receipts = {}
+    for tool, args, variant in lanes:
+        out = call(tool, args)
+        ok = (out.get("status") == "formal-bounded"
+              and out.get("variant") == variant
+              and isinstance(out.get("receipt"), dict))
+        receipts[variant] = out.get("receipt")
+        record(f"{variant}-round-trip", ok)
 
-    # --- new v3.0.0 variant lanes: each releases through its own tool ---
-    gauss = receipt(tools.gaussian_integral({
-        "expression": "exp(-10000000000*(x-0.5000123456789)^2)",
-        "lower": 0, "upper": 1, "tolerance": "1/1000"}))
-    check("gaussian-formal", gauss["result"]["status"] == "formal-bounded"
-          and gauss["result"]["variant"] == "gaussian")
-    check("gaussian-verify", vok(gauss))
+    # -- receipt semantic poisons (per lane) ------------------------------
+    def verify(receipt: dict) -> dict:
+        req = receipt["request"]
+        return call("jackal_verify_receipt", {
+            "receipt": receipt,
+            "expected_release_epoch": receipt["release_epoch"],
+            "expected_command": req["command"],
+            "expected_expression": req["expression"],
+            "expected_input_lo": req["input_lo"],
+            "expected_input_hi": req["input_hi"],
+        })
 
-    sqrtR = receipt(tools.sqrt_rat_bound({"expression":"sqrt(x)","lower":"2","upper":"3"}))
-    check("sqrt_rat-formal", sqrtR["result"]["status"] == "formal-bounded"
-          and sqrtR["result"]["variant"] == "sqrt_rat")
-    check("sqrt_rat-verify", vok(sqrtR))
+    for variant, receipt in receipts.items():
+        if receipt is None:
+            record(f"{variant}-poisons", False, "no receipt")
+            continue
+        base = json.dumps(receipt)
+        v = verify(json.loads(base))
+        record(f"{variant}-verify-genuine", v.get("status") == "verified",
+               v.get("reason", v.get("verdict", "")))
+        poisons = {
+            "enclosure-tamper": ("result", "enclosure_hi", "99999"),
+            "variant-swap": (None, "variant",
+                             "range" if variant != "range" else "sqrt_rat"),
+            "checker-forge": ("identities", "checker_sha256", "ab" * 32),
+            "theorem-swap": ("theorem", "id", "not_a_theorem"),
+        }
+        for pname, (section, key, value) in poisons.items():
+            bad = json.loads(base)
+            target = bad if section is None else bad.get(section, {})
+            target[key] = value
+            out = verify(bad)
+            record(f"{variant}-poison-{pname}",
+                   out.get("status") == "refused", out.get("reason", ""))
 
-    expR = receipt(tools.exp_rat_bound({"expression":"exp(x)","lower":"0","upper":"1"}))
-    check("exp_rat-formal", expR["result"]["status"] == "formal-bounded"
-          and expR["result"]["variant"] == "exp_rat")
-    check("exp_rat-verify", vok(expR))
+    # -- claim bundle poisons ---------------------------------------------
+    import hashlib
+    request = {"schema": "jackal-claim-request-v1",
+               "steps": [
+                   {"id": "p", "op": "exact", "command": "mod-pow",
+                    "args": ["3", "100", "7"]},
+                   {"id": "t", "op": "threshold", "arg": "p", "cmp": "lt",
+                    "threshold": "7"},
+                   {"id": "d", "op": "decision", "arg": "t",
+                    "decision_id": "v2", "action": "proceed",
+                    "consequence_class": "decision-boundary"}],
+               "root": "d"}
+    out = call("jackal_claim", {"request": request})
+    record("claim-compiles", out.get("status") == "ok")
+    bundle = out["bundle"]
+    root_node = next(n for n in bundle["nodes"] if n["id"] == bundle["root"])
+    policy_sha = hashlib.sha256(json.dumps(
+        bundle["policy"], sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False).encode()).hexdigest()
+    pins = {"bundle": bundle,
+            "expected_release_epoch": "v1.6.0",
+            "expected_policy_sha256": policy_sha,
+            "expected_root_proposition": root_node["proposition"],
+            "verification_time_unix": "1786752000"}
+    v = call("jackal_verify_bundle", pins)
+    record("bundle-verifies", v.get("status") == "verified",
+           v.get("reason", ""))
+    wrong_epoch = dict(pins, expected_release_epoch="v1.5.0")
+    v = call("jackal_verify_bundle", wrong_epoch)
+    record("bundle-epoch-pin-bites", v.get("status") != "verified",
+           v.get("reason", ""))
+    wrong_policy = dict(pins, expected_policy_sha256="cd" * 32)
+    v = call("jackal_verify_bundle", wrong_policy)
+    record("bundle-policy-pin-bites", v.get("status") != "verified",
+           v.get("reason", ""))
+    tampered = json.loads(json.dumps(pins))
+    node = tampered["bundle"]["nodes"][0]
+    node_s = json.dumps(node["proposition"])
+    node["proposition"] = json.loads(node_s.replace('"4"', '"5"', 1))
+    v = call("jackal_verify_bundle", tampered)
+    record("bundle-node-tamper-refuses",
+           v.get("status") == "refused"
+           and "node-id-mismatch" in json.dumps(v))
 
-    # --- variant-specific mutation locks ---
-    def poison_variant(base_receipt, name, mut):
-        t = copy.deepcopy(base_receipt); mut(t); reseal(t)
-        check(f"variant-poison:{name}", not vok(t))
-    for label, br in (("gaussian", gauss), ("sqrt_rat", sqrtR), ("exp_rat", expR)):
-        poison_variant(br, f"{label}-tamper-enclosure",
-                       lambda t: t["result"].__setitem__("enclosure",{"lower":"0","upper":"0"}))
-        poison_variant(br, f"{label}-swap-variant-label",
-                       lambda t: t["result"].__setitem__("variant","range"))
-        poison_variant(br, f"{label}-forge-cert-sha",
-                       lambda t: t["result"].__setitem__("certificate_sha256","d"*64))
-        poison_variant(br, f"{label}-swap-theorem",
-                       lambda t: t["result"].__setitem__("theorem","nope"))
-        poison_variant(br, f"{label}-forge-evaluator",
-                       lambda t: t["instrument"]["evaluator"].__setitem__("sha256","b"*64))
-        poison_variant(br, f"{label}-forge-checker",
-                       lambda t: t["instrument"]["checker"].__setitem__("sha256","c"*64))
-
-    # sqrt_rat + exp_rat lanes must refuse anything other than their exact admitted form
-    for name, args in (
-        ("sqrt_rat-refuses-poly", ("sqrt_rat_bound", {"expression":"x^2","lower":"1","upper":"2"})),
-        ("exp_rat-refuses-poly",  ("exp_rat_bound",  {"expression":"x^2","lower":"1","upper":"2"})),
-        ("exp_rat-refuses-negative-lo", ("exp_rat_bound", {"expression":"exp(x)","lower":"-1","upper":"1"})),
-    ):
-        r = receipt(getattr(tools, args[0])(args[1]))
-        check(name, r["result"]["status"] == "refused" and r["result"]["released"] is False)
-
-    # --- weaker lane cannot become formal ---
-    ev = receipt(tools.evaluate({"expression": "2+3*4"}))
-    check("evaluate-stays-estimated", ev["result"]["status"] == "estimated")
-    check("evaluate-not-formal", ev["result"]["status"] != "formal-bounded")
-
-    # --- semantic poisons with recomputed outer digest ---
-    def poison(name, mut):
-        t = copy.deepcopy(base); mut(t); reseal(t)
-        check(f"poison:{name}", not vok(t))
-    poison("reversed-enclosure", lambda t: t["result"].__setitem__("enclosure", {"lower": "9", "upper": "1"}))
-    poison("forged-evaluator", lambda t: t["instrument"]["evaluator"].__setitem__("sha256", "b" * 64))
-    poison("forged-checker", lambda t: t["instrument"]["checker"].__setitem__("sha256", "c" * 64))
-    poison("wrong-theorem", lambda t: t["result"].__setitem__("theorem", "nope"))
-    poison("non-fragment-op", lambda t: t["result"].__setitem__("operators", ["add", "exp"]))
-    poison("missing-cert", lambda t: t["result"].__setitem__("certificate_sha256", ""))
-    poison("cert-status-escalated", lambda t: t["result"].__setitem__("cert_status", "formal-bounded"))
-    poison("drop-request-commitment", lambda t: t["result"].__setitem__("request_commitment", ""))
-    poison("status-upgrade-estimated-to-formal", lambda t: (t.__setitem__("operation", "jackal_evaluate"),
-                                                            t["result"].__setitem__("status", "formal-bounded")))
-
-    # --- Hermes false-accept repair (§487): the exact four forgeries that once
-    # passed a self-consistent verifier. Each carries a RECOMPUTED outer digest;
-    # each must now be refused because verify() re-runs the proved checker on the
-    # embedded certificate and binds every field to the checker's verdict. ---
-    poison("hermes-ordered-wrong-enclosure", lambda t: t["result"].__setitem__("enclosure", {"lower": "0", "upper": "0"}))
-    poison("hermes-changed-request", lambda t: t["request"].__setitem__("expression", "x^999"))
-    poison("hermes-arbitrary-cert-digest", lambda t: t["result"].__setitem__("certificate_sha256", "d" * 64))
-    poison("hermes-arbitrary-request-commitment", lambda t: t["result"].__setitem__("request_commitment", "deadbeef" * 8))
-    poison("hermes-stripped-certificate",
-           lambda t: t["result"]["formal_receipt"]["certificate"].pop("bytes_b64", None))
-    # A genuine certificate for a DIFFERENT true request cannot be re-labeled as
-    # this one: swap in the base cert but claim a wider [0,10] enclosure.
-    poison("substituted-enclosure-claim", lambda t: t["result"].__setitem__("enclosure", {"lower": "0", "upper": "10"}))
-
-    # --- v1 receipt cannot satisfy v2 verification ---
-    v1 = copy.deepcopy(base); v1["schema"] = "jackal-hermes-receipt-v1"; reseal(v1)
-    check("v1-receipt-rejected", not vok(v1))
-
-    # --- digest tamper without reseal ---
-    d = copy.deepcopy(base); d["result"]["enclosure"]["lower"] = "0"
-    check("unsealed-tamper-rejected", not vok(d))
-
-    # --- malformed / hostile input refuses cleanly ---
-    for bad in ({"expression": "", "lower": 1, "upper": 2},
-                {"expression": "x^2", "lower": 2, "upper": 1},
-                {"expression": "x" * 20000, "lower": 0, "upper": 1}):
-        out = json.loads(tools.range_bound(bad))
-        ok = (out.get("success") is False) or (out.get("receipt", {}).get("result", {}).get("status") in {"refused", "indeterminate"})
-        check(f"malformed:{str(bad)[:24]}", ok)
-
-    # --- exact tool registration present ---
-    check("tools-present", all(hasattr(tools, fn) for fn in
-          ("range_bound", "evaluate", "verify_receipt", "exact", "differentiate", "integrate", "claim_card")))
-
-    print(f"\nplugin-v2 poison suite: {len(FAILS)} failures")
-    if FAILS:
-        for f in FAILS:
-            print("  FAIL", f, file=sys.stderr)
-        print("VERDICT: FAIL")
-        return 1
-    print("VERDICT: PASS — formal positives verify; every poison refused/invalid")
-    return 0
+    failures = [name for name, ok, _ in RESULTS if not ok]
+    print(f"VERDICT: {'PASS' if not failures else 'FAIL'} "
+          f"rows={len(RESULTS)} failures={len(failures)}")
+    return 0 if not failures else 1
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

@@ -1,39 +1,39 @@
-# JACKAL Receipt Contract
+# Evidence contracts (v1.6.0 kernel, plugin v4.0.0)
 
-`jackal-hermes-receipt-v2` contains exactly:
+The plugin passes upstream responses through verbatim. Three evidence
+shapes matter:
 
-- `schema`
-- `operation`
-- `request`
-- `result`
-- `instrument`
-- `receipt_sha256`
+## Weaker/exact lanes
+`{status, lane, formal: false, fields, engine_output, identities,
+non_claims, assurance}` — `status` is the honest inventory-derived class
+(`exact | checked | estimated | bounded | model-based | refused |
+indeterminate`); status inflation is structurally impossible; exact-CAS
+lanes additionally carry a `jackal-exact-cert-v1` certificate that is
+independently re-checkable.
 
-The digest is SHA-256 over canonical JSON of the first five fields: UTF-8, sorted keys, compact separators, and non-finite JSON numbers forbidden. It is an unkeyed checksum for integrity and self-consistency, not a signature or hostile-author authentication mechanism.
+## Formal lanes
+`{status: "formal-bounded", variant, receipt, checker_output,
+checker_rerun}` where `receipt` is a canonical `jackal-formal-receipt-v1`
+with `variant = range | gaussian | sqrt_rat | exp_rat | ln_rat | sin_rat
+| cos_rat | atan_rat | tanh_rat`, the embedded certificate, pinned
+producer/checker/evaluator identities, and theorem
+`request_bound_certified_release` (range + `_rat` variants) or
+`gaussian_integral_check_sound` (gaussian). `jackal_verify_receipt`
+re-runs the variant-selected pinned Lean-proved checker on the embedded
+certificate bytes with caller-pinned expectations — recomputing either
+outer digest alone is never sufficient.
 
-## Status invariants
+## Claim bundles
+`jackal_claim` → `{status: "ok", root, bundle_digest_sha256, rendering,
+permitted_text, route_trace, bundle}` with a canonical
+`jackal-claim-bundle-v1` graph. `jackal_verify_bundle` replays it under
+CALLER-pinned `expected_release_epoch`, `expected_root_proposition`,
+`expected_policy_sha256`, `verification_time_unix` (and optional nonce):
+every node hash, rule application, assurance axis, consequence floor,
+and rendering is recomputed; the result is `verified | refused |
+indeterminate` with a stable reason class — never a bare VERIFIED badge.
 
-- `exact`: canonical exact text is authoritative; decimal approximation is a non-claim.
-- `estimated`: may contain a heuristic error estimate; never a bound.
-- `checked`: must include verification metadata; never identity proof.
-- `bounded`: must include an ordered finite enclosure. For integration, width must not exceed the requested tolerance plus the adapter's 1e-9 relative serialization allowance.
-- `formal-bounded`: must carry a canonical nested `jackal-formal-receipt-v1` containing the exact checker-accepted certificate in base64, its SHA-256, exact request and expression commitments, pinned evaluator/checker/plugin identities, theorem `cert_check_sound`, certificate status, admitted operator set, coverage rows, assumptions, and non-claims. Verification re-admits the package and re-runs the proved checker on those certificate bytes, then binds the outer Hermes fields to the verifier-derived request, enclosure, certificate, operators, and identities.
-- `model-based`: canonical preimage SHA-256 must equal the printed fingerprint.
-- `refused`: `released=false`, nonzero exit, named reason; no computed value.
-- `indeterminate`: infrastructure did not complete; no mathematical claim.
-
-## Validator negative controls
-
-The validator rejects:
-
-- any missing or extra top-level key;
-- receipt digest mismatch;
-- instrument digest mismatch;
-- unknown status;
-- malformed, reversed, or over-tolerance enclosure;
-- claim-card fingerprint mismatch.
-- a formal receipt without its nested canonical receipt or embedded certificate;
-- a certificate digest that does not match the embedded bytes;
-- a request, enclosure, commitment, operator set, evaluator/checker/plugin identity, coverage row, or theorem that does not match the re-executed checker result.
-
-A recomputed receipt digest does not rescue semantic poison. The digest is an unkeyed integrity checksum; formal validity comes from re-running the proved checker on the embedded certificate and recomputing all bindings.
+Negative controls: a mutated node refuses `node-id-mismatch`; a swapped
+variant/theorem/identity refuses; producer-authored statuses are never
+trusted; refusals are terminal unless the caller explicitly accepts a
+weaker lane.

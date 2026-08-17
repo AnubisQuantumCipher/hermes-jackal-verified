@@ -1,142 +1,64 @@
-# Provenance and Evidence
+# Provenance — jackal-verified v4.0.0
 
-This document binds the public plugin release to its upstream computation instrument and records the gates that establish plugin behavior.
-
-## Trust chain
-
-```text
-JACKAL source commit
-→ pinned Anubis compiler and reproducible upstream build
-→ public JACKAL v1.2.0 release archive
-→ archive manifest + evaluator/checker identities
-→ native Hermes plugin adapter
-→ formal/poison suites + A→B→A gate
-→ Hermes Plugin Doctor
-→ live fresh-session invocation and receipt validation
-```
-
-## Embedded instrument
+## Upstream root (immutable public release)
 
 | Field | Value |
 |---|---|
-| Upstream repository | `https://github.com/AnubisQuantumCipher/jackal-calc` |
-| Upstream release | `v1.2.0` |
-| Source commit | `cc533906182c887a8617cc741b91b926bcb41e22` |
-| `jackal_calc.anb` SHA-256 | `5d43df8de01adb86bb10a0a6cea28fb79faf03cd58be51654c3fa88c653e4a40` |
-| Release asset | `jackal-v1.2.0-macos-arm64.tar.gz` |
-| Architecture | Mach-O 64-bit arm64 |
-| Archive size | 39,929,946 bytes |
-| Archive SHA-256 | `3b63e86bd9d2cffafa33dde813c40919cc754343db2232b1c33072a3ec41e0a7` |
-| Evaluator SHA-256 | `820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c` |
-| Proved checker SHA-256 | `2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b` |
-| License | MIT |
+| Repository | `https://github.com/AnubisQuantumCipher/jackal-calc` |
+| Tag | `v1.6.0` (tag object `af5d94a622838f1ebf0f826d02426b26857f68e5`) |
+| Commit | `19b763e9451276e72c7511ec8ba42bf828d096f6` |
+| Release asset | `jackal-v1.6.0-macos-arm64.tar.gz` |
+| Asset SHA-256 | `0cdacf56bb83d65454330973280cde7da0b9262d6163ccd7efbbbb47bc88e39a` |
+| Asset size | 79,519,523 bytes |
+| Acquisition | unauthenticated public download; hash matched the release `SHA256SUMS` and the release receipt JSON |
 
-Upstream release URL:
+The vendored copy at `pkg/jackal-v1.6.0-macos-arm64.tar.gz` is
+byte-identical to that public asset; admission re-verifies the pin, the
+`EPOCH.json` receipt, the package's internal `SHA256SUMS`, and the
+30-row `APPROVED_IDENTITIES` table before any tool executes.
 
-`https://github.com/AnubisQuantumCipher/jackal-calc/releases/tag/v1.2.0`
-
-The upstream release includes `RELEASE-SHA256SUMS`; the archive contains a complete internal `SHA256SUMS`. Anonymous download, GitHub asset metadata, and the vendored plugin bytes agree on the archive digest.
-
-## Reproducibility inherited from JACKAL
-
-JACKAL's own `PROVENANCE.md` records the content-addressed Anubis compiler pin `anubis-a733565f237d` and byte-identical evaluator builds. The v1.2.0 archive was built twice byte-for-byte identically with a fixed-metadata ustar writer. This plugin does not rebuild JACKAL during installation; it vendors and verifies that public release archive.
-
-The plugin verifies the archive, safe extraction, complete internal inventory, evaluator/checker digests, Mach-O arm64 architecture, and modes before execution from a private snapshot. A mismatch produces no computation result.
-
-## Plugin verification performed before publication
-
-### Unit and poison suite
-
-Command:
-
-```bash
-python3 tests/test_plugin.py
-```
-
-Observed:
-
-The release gate requires the legacy 14-test adapter suite, the v2 formal/poison suite under normal Python and `python3 -O`, and the formal-recheck A→B→A mutation gate.
-
-Covered controls:
-
-- exact rational receipt;
-- full large-integer output;
-- checked symbolic derivative;
-- narrow-peak bounded integration;
-- singular-domain refusal;
-- claim-card hash recomputation;
-- tampered receipt rejection;
-- reversed enclosure rejection after recomputed receipt digest;
-- cross-operation status rejection after recomputed receipt digest;
-- missing exact/check metadata, contradictory refusal release, and model/request mismatch rejection after recomputed digests;
-- substituted executable rejection;
-- private-snapshot resistance to public-path A→B→A substitution;
-- exact rejection of the four recomputed-digest formal receipt forgeries;
-- checker re-execution over the embedded certificate;
-- A→B→A proof that removing the master formal re-check re-admits those forgeries;
-- malformed-input rejection.
-- registration of all seven tools, the bundled skill, and the automatic routing policy.
-
-### Hermes loader integration
-
-Command:
-
-```bash
-hermes plugins doctor . --ci
-```
-
-Observed:
+## Key pinned identities (full table: `EPOCH.json`)
 
 ```text
-OK: runtime discovery, manifest parsing, import, and registration passed
-registrations: 7 tool(s), 0 hook(s)
+evaluator  jackal-native         8617ad087f859f58a1e742032588cd011c9716bab8fe5477e7b0a318dfded88e
+checker    jackal_cert_check     05c3518b836f239712f897c483a2ddadad9f544e0887b1b7bb1424a27289de8a
+checker    jackal_gaussian_check ccac690bf916f71a4e3baeb0622dac19aa47e3ca4af858c0800c295581ecfacb
+frontend   jackal_hermes         e63bb66caf3fd0890c5f4de22a22c9a4a44796de6fbb03f5ef46f1b1d5ed3082
+source     jackal_calc.anb       34870c66276005272d9ab48a3cc1261ba0e0317a9e45089b1acfb07acc0efd25
 ```
 
-### Fresh-session live proof
-
-A new standalone Hermes session (`20260814_181716_d5b5d4`) loaded personal skill v1.1.0, invoked the typed `jackal_range_bound` tool, and passed the exact returned receipt to typed `jackal_verify_receipt`.
-
-Request:
+## Trust chain (acyclic)
 
 ```text
-expression=x, lower=1, upper=2
-requested_assurance=formal-bounded
+core release (tag v1.6.0, commit 19b763e9…)
+  → core package sha256 0cdacf56…
+  → this plugin commit (pinned in the GitHub Release notes)
+  → MANIFEST.json (jackal-plugin-manifest-v1, seals every tracked file)
+  → EPOCH.json  (jackal-plugin-epoch-receipt-v1, binds upstream → vendored → skill)
+  → bundled skill jackal-verified-computation v5.0.0
 ```
 
-Observed:
+The core package does not reference this plugin.
 
-```text
-status=formal-bounded
-enclosure=[1,2]
-theorem=cert_check_sound
-certificate_sha256=c80a3a9175bac71b58268e373e472d43f68a97aad81a0eb8234ba50b0575b2e7
-receipt_sha256=5cf17733fba230b8dc727aa735492c399570e825025d2da17360de81c68d215b
-receipt_valid=true
-evaluator_sha256=820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c
-checker_sha256=2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b
-errors=[]
-```
+## Upstream evidence scope (stated exactly)
 
-The stored session transcript contains both typed calls and the verifier's `valid=true` result. An earlier fresh session (`20260814_181339_df5499`) altered a longer certificate while reconstructing the second tool argument; the verifier rejected it with digest mismatch and checker refusal. That rejection is retained as observed fail-closed behavior, not counted as a pass. The valid receipt above is evidence only for its exact request and recorded TCB, not a universal JACKAL proof.
+The upstream release was sealed locally on Apple Silicon macOS with
+`GATES: PASS (38 gates)` — Lean proof builds, 200/200 black-box
+acceptance, 108/108 hostile claim matrix, 42/42 receipt-semantic
+mutations, A→B→A tamper gates over seven claim trust layers, and 47/47
+package parity (all 33 tools exercised from the fresh-extracted
+package). Upstream hosted CI runs a documented subset (Lean source
+closures + an engine-free claim-kernel admission job). This plugin's own
+CI (macos-14, Apple Silicon) runs the plugin batteries above against the
+exact vendored bytes.
 
-### Standalone repository smoke test
-
-Command:
-
-```bash
-python3 scripts/fresh_install_smoke.py
-```
-
-Observed:
-
-```text
-FRESH_INSTALL_PASS tools=7 skills=1 prompt_sections=1 exact=3/10 receipt_valid=true
-```
+`hermes plugins doctor <plugin> --ci` on Hermes v0.20.2 reports
+`registrations: 33 tool(s)`.
 
 ## Non-claims
 
-- The plugin does not prove universal correctness of JACKAL, Anubis, Python, Hermes, IEEE-754, or platform libm.
-- Plugin tests establish the tested adapter behavior, not correctness for every expression.
-- JACKAL's bounded lane is conditional on its disclosed arithmetic/libm model and tested implementation.
-- The upstream Lean development mechanizes checker soundness for the declared fragment. The native evaluator is an untrusted certificate producer; the compiler/runtime and Lean kernel remain recorded TCB surfaces rather than universally proved components.
-- SHA-256 establishes byte identity and receipt integrity, not semantic truth by itself.
+SHA-256 identifies exact bytes only. Finite campaigns are bounded
+evidence, not universal theorems. No source→native refinement, no
+end-to-end formally verified executable, no replay prevention without an
+external nonce store, no real-world input truth, no universal soundness
+outside admitted fragments.

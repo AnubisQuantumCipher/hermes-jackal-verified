@@ -1,25 +1,34 @@
-# JACKAL Verified — Agent Instructions
+# JACKAL verified computation — standing agent instructions
 
-Use this snippet in `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, or another agent's standing-instruction file when that agent does not load Hermes plugin skills.
+The `jackal-verified` Hermes plugin (v4.0.0) exposes the sealed JACKAL
+v1.6.0 Mathematical Evidence Kernel: 33 typed tools.
 
-## Verified computation policy
+- Route arithmetic through JACKAL instead of mental computation: exact
+  rationals (`jackal_exact`), exact CAS certificates (xgcd/mod_pow/
+  mod_inv/crt/divides/prime_cert/canon/poly_*/ratfunc_canon/
+  roots_isolate/alg_*), IEEE evaluation (`jackal_evaluate`), checked
+  derivatives (`jackal_diff`), integration estimate/enclosure
+  (`jackal_integrate`, `jackal_integrate_adaptive`,
+  `jackal_integrate_bound`).
+- Proof-carrying enclosures: `jackal_range_bound`,
+  `jackal_gaussian_integral`, and the pure-Q lanes
+  `jackal_{sqrt,exp,ln,sin,cos,atan,tanh}_rat_bound` — accepted
+  certificates are re-verified by pinned Lean-proved checkers.
+- Consequential multi-step conclusions: compile ONE bundle with
+  `jackal_claim`; independently replay with `jackal_verify_bundle`
+  under caller-pinned expectations. Formal receipts:
+  `jackal_verify_receipt`.
+- Statuses pass through verbatim; `refused`/`indeterminate` are valid
+  terminal outcomes. Never downgrade silently, never upgrade, never
+  present an estimate as a bound.
 
-JACKAL Verified is available through Hermes Agent's `jackal-verified` plugin. Route deterministic STEM work through its typed tools when doing so improves correctness or claim discipline:
+Pinned identities (v1.6.0 epoch):
 
-- exact fractions, factorials, combinations, powers, and large integers → `jackal_exact`;
-- ordinary finite IEEE-f64 expression evaluation → `jackal_evaluate`;
-- symbolic derivatives → `jackal_differentiate`, reported as checked rather than proved;
-- integration → `jackal_integrate` with an explicit `fast_estimate`, `adaptive_estimate`, or `bounded` tier;
-- possible values, thresholds, and denominator-zero analysis → `jackal_range_bound`, released `formal-bounded` only inside the declared theorem-covered fragment;
-- supported physical models with assumptions → `jackal_claim_card`;
-- consequential exact, bounded, formal-bounded, or model-based outputs → validate with `jackal_verify_receipt`.
-
-Never silently downgrade a bounded request. Never call an estimate a bound, a sampled check a proof, a model fingerprint physical truth, or a matching digest mathematical correctness. Treat `refused` and `indeterminate` as valid outcomes. Preserve the returned assumptions and non-claims.
-
-The approved public JACKAL package/evaluator/checker SHA-256 identities are:
-
-- package `3b63e86bd9d2cffafa33dde813c40919cc754343db2232b1c33072a3ec41e0a7`;
-- evaluator `820c0722e46a0800115c404ea1c9251c6f72fe8c6897bdabe437f342f9310b6c`;
-- proved checker `2186b43f8e45b7b3e55e189d64e92f15999664f5194caed929d14b29b006f59b`.
-
-This snippet describes routing and reporting discipline only. Non-Hermes agents still need an authorized mechanism to call the Hermes plugin; do not invent a shell or network interface.
+- package `jackal-v1.6.0-macos-arm64.tar.gz`
+  `0cdacf56bb83d65454330973280cde7da0b9262d6163ccd7efbbbb47bc88e39a`
+- evaluator `jackal-native`
+  `8617ad087f859f58a1e742032588cd011c9716bab8fe5477e7b0a318dfded88e`
+- proved checker `jackal_cert_check`
+  `05c3518b836f239712f897c483a2ddadad9f544e0887b1b7bb1424a27289de8a`
+- Gaussian checker `jackal_gaussian_check`
+  `ccac690bf916f71a4e3baeb0622dac19aa47e3ca4af858c0800c295581ecfacb`

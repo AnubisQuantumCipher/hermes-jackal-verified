@@ -1,206 +1,281 @@
 #!/usr/bin/env python3
+"""Unit battery for the v4.0.0 pass-through adapter (33 tools)."""
 from __future__ import annotations
-import hashlib, importlib.util, json, os, shutil, stat, subprocess, sys, tempfile, unittest
+
+import importlib.util
+import json
+import os
+import sys
+import tarfile
+import unittest
 from pathlib import Path
 
-ROOT=Path(__file__).resolve().parents[1]
-spec=importlib.util.spec_from_file_location('jackal_tools',ROOT/'tools.py')
-tools=importlib.util.module_from_spec(spec); spec.loader.exec_module(tools)
+ROOT = Path(__file__).resolve().parents[1]
 
 
-class FakeContext:
+def _load_package():
+    spec = importlib.util.spec_from_file_location(
+        "jackal_verified", ROOT / "__init__.py",
+        submodule_search_locations=[str(ROOT)])
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["jackal_verified"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+PKG = _load_package()
+schemas = sys.modules["jackal_verified.schemas"]
+tools = sys.modules["jackal_verified.tools"]
+
+
+class Context:
     def __init__(self):
-        self.tools=[]; self.skills=[]; self.sections=[]
-    def get_config(self, _name, default=None): return default
-    def register_tool(self, **kwargs): self.tools.append(kwargs)
-    def register_skill(self, name, path): self.skills.append((name,Path(path)))
-    def register_system_prompt_section(self, section_id, content, **kwargs): self.sections.append((section_id,content,kwargs))
+        self.tools: list[tuple[str, dict, object]] = []
+        self.skills: list[tuple[str, Path]] = []
+        self.sections: list[tuple[str, str]] = []
+
+    def get_config(self, key, default=None):
+        return default
+
+    def register_tool(self, name, toolset, schema, handler):
+        self.tools.append((name, schema, handler))
+
+    def register_skill(self, name, path):
+        self.skills.append((name, path))
+
+    def register_system_prompt_section(self, name, text, **_):
+        self.sections.append((name, text))
 
 
-def call(fn,args):
-    return json.loads(fn(args))
-
-
-def resign(receipt):
-    import hashlib
-    core={k:receipt[k] for k in ('schema','operation','request','result','instrument')}
-    receipt['receipt_sha256']=hashlib.sha256(tools._canonical(core)).hexdigest()
-    return receipt
+def call(handler, args):
+    return json.loads(handler(args))
 
 
 class JackalPluginTests(unittest.TestCase):
-    def test_plugin_registers_tools_skill_and_automatic_routing(self):
-        package=importlib.util.spec_from_file_location(
-            'jackal_verified', ROOT/'__init__.py',
-            submodule_search_locations=[str(ROOT)],
-        )
-        module=importlib.util.module_from_spec(package)
-        sys.modules[package.name]=module
-        try: package.loader.exec_module(module)
-        finally: sys.modules.pop(package.name,None)
-        ctx=FakeContext(); module.register(ctx)
-        self.assertEqual(len(ctx.tools),10)
-        self.assertEqual([name for name,_ in ctx.skills],['jackal-verified-computation'])
-        self.assertTrue(ctx.skills[0][1].is_file())
-        self.assertEqual(ctx.sections[0][0],'jackal-verified.routing')
-        self.assertIn('Never silently downgrade',ctx.sections[0][1])
+    @classmethod
+    def setUpClass(cls):
+        cls.ctx = Context()
+        PKG.register(cls.ctx)
+        cls.by_name = {name: handler for name, _, handler in cls.ctx.tools}
 
-    def test_exact_rational_and_receipt(self):
-        body=call(tools.exact,{'mode':'rational','expression':'0.1+0.2'})
-        receipt=body['receipt']; self.assertEqual(receipt['result']['status'],'exact'); self.assertEqual(receipt['result']['exact'],'3/10')
-        self.assertTrue(tools.verify(receipt)['valid'])
+    # -- registration surface ------------------------------------------
+    def test_registers_exactly_33_tools_skill_and_routing(self):
+        self.assertEqual(len(self.ctx.tools), 33)
+        self.assertEqual(sorted(self.by_name), sorted(schemas.ALL_TOOLS))
+        self.assertIn("jackal_claim", self.by_name)
+        self.assertIn("jackal_verify_bundle", self.by_name)
+        self.assertEqual([n for n, _ in self.ctx.skills],
+                         ["jackal-verified-computation"])
+        routing = self.ctx.sections[0][1]
+        self.assertIn("Never silently downgrade", routing)
+        self.assertIn("jackal_verify_bundle", routing)
 
-    def test_huge_integer_full_output(self):
-        body=call(tools.exact,{'mode':'big_power','a':'2','b':'10000'})
-        self.assertEqual(body['receipt']['result']['digits'],3011)
-        self.assertTrue(tools.verify(body['receipt'])['valid'])
+    def test_schemas_match_vendored_tools_json(self):
+        with tarfile.open(tools.PKG_TARBALL) as tf:
+            member = tf.extractfile(
+                f"{tools.PKG_DIRNAME}/plugin/hermes/tools.json")
+            doc = json.loads(member.read().decode("utf-8"))
+        upstream = {t["name"] for t in doc["tools"]}
+        self.assertEqual(upstream, set(schemas.ALL_TOOLS))
+        for t in doc["tools"]:
+            want_req = sorted(k for k, v in t["arguments"].items()
+                              if v.get("required"))
+            got_req = sorted(schemas.SCHEMAS[t["name"]]["parameters"]
+                             .get("required", []))
+            self.assertEqual(want_req, got_req, t["name"])
 
-    def test_checked_derivative(self):
-        body=call(tools.differentiate,{'expression':'x^(x^x)'})
-        self.assertEqual(body['receipt']['result']['status'],'checked')
-        self.assertIn('not a proof',body['receipt']['result']['non_claims'][0])
+    # -- weaker/exact lanes --------------------------------------------
+    def test_exact_round_trip(self):
+        out = call(self.by_name["jackal_exact"], {"expression": "0.1+0.2"})
+        self.assertEqual(out["status"], "exact")
+        self.assertEqual(out["fields"]["exact"], "3/10")
+        self.assertFalse(out["formal"])
 
-    def test_bounded_spike_and_no_downgrade(self):
-        args={'expression':'exp(0-100000000*(x-0.1234567)^2)','lower':0,'upper':1,'assurance':'bounded','tolerance':1e-8}
-        body=call(tools.integrate,args); result=body['receipt']['result']
-        self.assertEqual(result['status'],'bounded'); self.assertLessEqual(result['enclosure']['width'],1e-8*(1+1e-9))
-        self.assertTrue(tools.verify(body['receipt'])['valid'])
+    def test_exact_grammar_refusal_passthrough(self):
+        out = call(self.by_name["jackal_exact"], {"expression": "sqrt(2)"})
+        self.assertEqual(out["status"], "refused")
+        self.assertTrue(out.get("reason"))
 
-    def test_hazard_refusal_is_receipted(self):
-        body=call(tools.range_bound,{'expression':'1/x','lower':-1,'upper':1})
-        self.assertEqual(body['receipt']['result']['status'],'refused'); self.assertFalse(body['receipt']['result']['released'])
-        self.assertTrue(tools.verify(body['receipt'])['valid'])
+    def test_exact_cas_certificate_lane(self):
+        out = call(self.by_name["jackal_xgcd"], {"a": "462", "b": "1071"})
+        self.assertEqual(out["status"], "exact")
+        self.assertIn("g", out["fields"])
 
-    def test_claim_card_fingerprint_recomputed(self):
-        body=call(tools.claim_card,{'model':'projectile','speed':20,'angle_degrees':45,'gravity':9.80665})
-        result=body['receipt']['result']; self.assertEqual(result['status'],'model-based'); self.assertTrue(result['fingerprint_recomputed'])
-        self.assertTrue(tools.verify(body['receipt'])['valid'])
+    def test_evaluate_never_formal(self):
+        out = call(self.by_name["jackal_evaluate"], {"expression": "sin(1)"})
+        self.assertFalse(out["formal"])
+        self.assertNotIn("formal", out["status"])
 
-    def test_tampered_receipt_fails(self):
-        receipt=call(tools.exact,{'mode':'rational','expression':'1/3'})['receipt']
-        receipt['result']['exact']='2/3'
-        verdict=tools.verify(receipt); self.assertFalse(verdict['valid']); self.assertIn('receipt digest mismatch',verdict['errors'])
+    def test_diff_is_checked(self):
+        out = call(self.by_name["jackal_diff"], {"expression": "x^3"})
+        self.assertEqual(out["status"], "checked")
 
-    def test_reversed_enclosure_fails_even_with_recomputed_digest(self):
-        receipt=call(tools.integrate,{'expression':'x^2','lower':0,'upper':1,'assurance':'bounded','tolerance':1e-7})['receipt']
-        receipt['result']['enclosure']['lower']='2'; receipt['result']['enclosure']['upper']='1'
-        core={k:receipt[k] for k in ('schema','operation','request','result','instrument')}
-        import hashlib
-        receipt['receipt_sha256']=hashlib.sha256(tools._canonical(core)).hexdigest()
-        self.assertIn('reversed enclosure',tools.verify(receipt)['errors'])
+    def test_integrate_bound_is_bounded(self):
+        out = call(self.by_name["jackal_integrate_bound"],
+                   {"expression": "x^2", "input_lo": "0", "input_hi": "1",
+                    "tolerance": "0.001"})
+        self.assertEqual(out["status"], "bounded")
 
-    def test_package_identity_poison_fails_admission(self):
-        # v2: a wrong pinned package tarball hash must refuse admission before
-        # any binary runs (the package, not a single binary, is the trust root).
-        original=tools.PKG_SHA256
-        tools._ADMITTED=None
-        tools.PKG_SHA256="0"*64
-        try:
-            body=call(tools.evaluate,{'expression':'2+2'})
-            self.assertFalse(body['success']); self.assertIn('mismatch',body['error'])
-        finally:
-            tools.PKG_SHA256=original; tools._ADMITTED=None
+    # -- formal lanes ----------------------------------------------------
+    def _formal(self, tool, args):
+        out = call(self.by_name[tool], args)
+        self.assertEqual(out["status"], "formal-bounded", out)
+        self.assertIn("receipt", out)
+        return out
 
-    def test_admitted_snapshot_is_private_and_pinned(self):
-        # v2: admission yields a private snapshot whose evaluator+checker match
-        # the pinned identities and live outside the plugin tree.
-        tools._ADMITTED=None
-        adm=tools._admit_package()
-        self.assertEqual(tools._sha(Path(adm['evaluator'])),tools.APPROVED_SHA256)
-        self.assertEqual(tools._sha(Path(adm['checker'])),tools.APPROVED_CHECKER_SHA256)
-        self.assertNotIn(str(tools.PLUGIN_ROOT),adm['evaluator'])
-        # non-formal lane runs from the admitted snapshot and releases
-        raw=tools._invoke(['eval','2+2'])
-        self.assertTrue(raw['released'])
-
-    def test_input_controls(self):
-        self.assertFalse(call(tools.evaluate,{'expression':'\x00'})['success'])
-        self.assertFalse(call(tools.evaluate,{'expression':'1+\n2'})['success'])
-        self.assertFalse(call(tools.integrate,{'expression':'x','lower':1,'upper':0,'assurance':'bounded','tolerance':1e-6})['success'])
-        self.assertFalse(call(tools.exact,{'mode':'big_multiply','a':'12x','b':'3'})['success'])
-        self.assertFalse(call(tools.exact,{'mode':'big_power','a':'2','b':str(tools.MAX_EXPONENT+1)})['success'])
-
-    def test_recomputed_digest_cannot_cross_operation_status(self):
-        receipt=call(tools.exact,{'mode':'rational','expression':'1/3'})['receipt']
-        receipt['operation']='jackal_evaluate'
-        core={k:receipt[k] for k in ('schema','operation','request','result','instrument')}
-        import hashlib
-        receipt['receipt_sha256']=hashlib.sha256(tools._canonical(core)).hexdigest()
-        verdict=tools.verify(receipt)
-        self.assertFalse(verdict['valid'])
-        self.assertIn('status is invalid for operation',verdict['errors'])
-
-    def test_recomputed_digest_cannot_forge_required_semantics(self):
-        cases=[]
-
-        exact=call(tools.exact,{'mode':'rational','expression':'1/3'})['receipt']
-        exact['result'].pop('exact'); cases.append((resign(exact),'malformed exact rational result'))
-
-        refused=call(tools.range_bound,{'expression':'1/x','lower':-1,'upper':1})['receipt']
-        refused['result']['released']=True; cases.append((resign(refused),'non-release status must set released=false'))
-
-        checked=call(tools.differentiate,{'expression':'x^2'})['receipt']
-        checked['result'].pop('check'); cases.append((resign(checked),'malformed derivative check metadata'))
-
-        model=call(tools.claim_card,{'model':'projectile','speed':20,'angle_degrees':45,'gravity':9.80665})['receipt']
-        model['request']['model']='other'; cases.append((resign(model),'claim-card model mismatch'))
-
-        for receipt,error in cases:
-            with self.subTest(error=error):
-                verdict=tools.verify(receipt)
-                self.assertFalse(verdict['valid'])
-                self.assertIn(error,verdict['errors'])
-
-    def test_gaussian_lane_round_trips(self):
-        body=call(tools.gaussian_integral,{
-            'expression':'exp(-10000000000*(x-0.5000123456789)^2)',
-            'lower':0,'upper':1,'tolerance':'1/1000'})
-        result=body['receipt']['result']
-        self.assertEqual(result['status'],'formal-bounded'); self.assertEqual(result['variant'],'gaussian')
-        self.assertEqual(result['theorem'],tools.GAUSSIAN_THEOREM)
-        ver=tools.verify(body['receipt']); self.assertTrue(ver['valid'], ver.get('errors'))
+    def test_range_lane_round_trips_and_tamper_refuses(self):
+        out = self._formal("jackal_range_bound",
+                           {"expression": "x^2+1", "input_lo": "0",
+                            "input_hi": "2"})
+        receipt = out["receipt"]
+        epoch = receipt["release_epoch"]
+        req = receipt["request"]
+        expected = {
+            "receipt": receipt,
+            "expected_release_epoch": epoch,
+            "expected_command": req["command"],
+            "expected_expression": req["expression"],
+            "expected_input_lo": req["input_lo"],
+            "expected_input_hi": req["input_hi"],
+        }
+        ver = call(self.by_name["jackal_verify_receipt"], expected)
+        self.assertEqual(ver["status"], "verified", ver)
+        # semantic tamper: widen the claimed enclosure upper bound
+        bad = json.loads(json.dumps(expected))
+        bad["receipt"]["result"]["enclosure_hi"] = "9999"
+        ver2 = call(self.by_name["jackal_verify_receipt"], bad)
+        self.assertEqual(ver2["status"], "refused")
 
     def test_sqrt_rat_lane_round_trips(self):
-        body=call(tools.sqrt_rat_bound,{'expression':'sqrt(x)','lower':'2','upper':'3'})
-        result=body['receipt']['result']
-        self.assertEqual(result['status'],'formal-bounded'); self.assertEqual(result['variant'],'sqrt_rat')
-        self.assertEqual(result['theorem'],tools.FORMAL_THEOREM)
-        ver=tools.verify(body['receipt']); self.assertTrue(ver['valid'], ver.get('errors'))
+        out = self._formal("jackal_sqrt_rat_bound",
+                           {"expression": "sqrt(x)", "input_lo": "2",
+                            "input_hi": "3"})
+        self.assertEqual(out["variant"], "sqrt_rat")
 
-    def test_exp_rat_lane_round_trips(self):
-        body=call(tools.exp_rat_bound,{'expression':'exp(x)','lower':'0','upper':'1'})
-        result=body['receipt']['result']
-        self.assertEqual(result['status'],'formal-bounded'); self.assertEqual(result['variant'],'exp_rat')
-        self.assertEqual(result['theorem'],tools.FORMAL_THEOREM)
-        ver=tools.verify(body['receipt']); self.assertTrue(ver['valid'], ver.get('errors'))
+    def test_ln_rat_lane_round_trips(self):
+        out = self._formal("jackal_ln_rat_bound",
+                           {"expression": "ln(x)", "input_lo": "1",
+                            "input_hi": "2"})
+        self.assertEqual(out["variant"], "ln_rat")
 
-    def test_variant_bindings_are_load_bearing(self):
-        # Every variant re-check must refuse if we tamper with theorem, variant,
-        # producer identity, or cross-swap a certificate.
-        for op_name in ('gaussian_integral','sqrt_rat_bound','exp_rat_bound'):
-            with self.subTest(op=op_name):
-                if op_name=='gaussian_integral':
-                    body=call(getattr(tools,op_name),{'expression':'exp(-10000000000*(x-0.5000123456789)^2)',
-                                                       'lower':0,'upper':1,'tolerance':'1/1000'})
-                elif op_name=='sqrt_rat_bound':
-                    body=call(getattr(tools,op_name),{'expression':'sqrt(x)','lower':'2','upper':'3'})
-                else:
-                    body=call(getattr(tools,op_name),{'expression':'exp(x)','lower':'0','upper':'1'})
-                base=body['receipt']
-                # Baseline verifies
-                self.assertTrue(tools.verify(base)['valid'], tools.verify(base).get('errors'))
-                for mut in (
-                    lambda t: t['result'].__setitem__('theorem','nope'),
-                    lambda t: t['result'].__setitem__('variant','range'),
-                    lambda t: t['instrument']['evaluator'].__setitem__('sha256','b'*64),
-                    lambda t: t['instrument']['checker'].__setitem__('sha256','c'*64),
-                    lambda t: t['result'].__setitem__('enclosure',{'lower':'0','upper':'0'}),
-                    lambda t: t['result'].__setitem__('certificate_sha256','d'*64),
-                    lambda t: t['result'].__setitem__('cert_status','oops'),
-                ):
-                    import copy
-                    tampered=copy.deepcopy(base); mut(tampered); resign(tampered)
-                    self.assertFalse(tools.verify(tampered)['valid'], f'{op_name} verify did not refuse')
+    def test_gaussian_lane_round_trips(self):
+        out = self._formal("jackal_gaussian_integral",
+                           {"expression":
+                            "exp(-10000000000*(x-0.5000123456789)^2)",
+                            "input_lo": "0", "input_hi": "1",
+                            "tolerance": "1/1000000000000"})
+        self.assertEqual(out["receipt"]["variant"], "gaussian")
+        self.assertEqual(out["checker_rerun"], "ACCEPT")
+
+    def test_formal_fragment_refusals(self):
+        out = call(self.by_name["jackal_sqrt_rat_bound"],
+                   {"expression": "x^2", "input_lo": "0", "input_hi": "1"})
+        self.assertEqual(out["status"], "refused")
+        out2 = call(self.by_name["jackal_exp_rat_bound"],
+                    {"expression": "ln(x)", "input_lo": "1",
+                     "input_hi": "2"})
+        self.assertEqual(out2["status"], "refused")
+
+    # -- claim kernel ----------------------------------------------------
+    def test_claim_bundle_compile_replay_and_tamper(self):
+        request = {"schema": "jackal-claim-request-v1",
+                   "steps": [
+                       {"id": "p", "op": "exact", "command": "mod-pow",
+                        "args": ["3", "100", "7"]},
+                       {"id": "t", "op": "threshold", "arg": "p",
+                        "cmp": "lt", "threshold": "7"},
+                       {"id": "d", "op": "decision", "arg": "t",
+                        "decision_id": "unit", "action": "proceed",
+                        "consequence_class": "decision-boundary"}],
+                   "root": "d"}
+        out = call(self.by_name["jackal_claim"], {"request": request})
+        self.assertEqual(out["status"], "ok", out)
+        bundle = out["bundle"]
+        root_node = next(n for n in bundle["nodes"]
+                         if n["id"] == bundle["root"])
+        import hashlib
+        policy_c = json.dumps(bundle["policy"], sort_keys=True,
+                              separators=(",", ":"),
+                              ensure_ascii=False).encode()
+        pins = {
+            "bundle": bundle,
+            "expected_release_epoch": "v1.6.0",
+            "expected_policy_sha256": hashlib.sha256(policy_c).hexdigest(),
+            "expected_root_proposition": root_node["proposition"],
+            "verification_time_unix": "1786752000",
+        }
+        ver = call(self.by_name["jackal_verify_bundle"], pins)
+        self.assertEqual(ver["status"], "verified", ver)
+        # tamper one node value -> stable refusal
+        bad = json.loads(json.dumps(pins))
+        node = bad["bundle"]["nodes"][0]
+        node_s = json.dumps(node["proposition"])
+        node["proposition"] = json.loads(node_s.replace('"4"', '"5"', 1))
+        ver2 = call(self.by_name["jackal_verify_bundle"], bad)
+        self.assertEqual(ver2["status"], "refused")
+        self.assertIn("node-id-mismatch", json.dumps(ver2))
+
+    # -- plugin-boundary fail-closed gates --------------------------------
+    def test_package_identity_poison_fails_admission(self):
+        original = tools.PKG_SHA256
+        admitted = tools._ADMITTED
+        try:
+            tools.PKG_SHA256 = "0" * 64
+            tools._ADMITTED = None
+            out = call(self.by_name["jackal_exact"],
+                       {"expression": "1+1"})
+            self.assertEqual(out["status"], "refused")
+            self.assertEqual(out["reason"], "plugin-admission-failed")
+            self.assertIn("mismatch", out.get("detail", ""))
+        finally:
+            tools.PKG_SHA256 = original
+            tools._ADMITTED = admitted
+
+    def test_epoch_receipt_drift_fails_admission(self):
+        import tempfile
+        original = tools.EPOCH_RECEIPT
+        admitted = tools._ADMITTED
+        try:
+            drifted = json.loads(original.read_text())
+            drifted["upstream"]["package"]["sha256"] = "f" * 64
+            tmp = Path(tempfile.mkstemp(suffix=".json")[1])
+            tmp.write_text(json.dumps(drifted))
+            tools.EPOCH_RECEIPT = tmp
+            tools._ADMITTED = None
+            out = call(self.by_name["jackal_exact"],
+                       {"expression": "1+1"})
+            self.assertEqual(out["status"], "refused")
+            self.assertEqual(out["reason"], "plugin-admission-failed")
+            self.assertIn("epoch-receipt", out.get("detail", ""))
+            tmp.unlink()
+        finally:
+            tools.EPOCH_RECEIPT = original
+            tools._ADMITTED = admitted
+
+    def test_toctou_post_admission_mutation_refuses(self):
+        adm = tools._admit_package()
+        target = adm["root"] / "plugin/hermes/server.py"
+        original_mode = target.stat().st_mode
+        data = target.read_bytes()
+        try:
+            os.chmod(target, 0o600)
+            target.write_bytes(data + b"\n# tampered\n")
+            out = call(self.by_name["jackal_exact"],
+                       {"expression": "1+1"})
+            self.assertEqual(out["status"], "refused")
+            self.assertIn("plugin-toctou", out["reason"])
+        finally:
+            target.write_bytes(data)
+            os.chmod(target, original_mode)
+        healed = call(self.by_name["jackal_exact"], {"expression": "1+1"})
+        self.assertEqual(healed["status"], "exact")
+
+    def test_overlong_expression_refused_at_plugin_boundary(self):
+        out = call(self.by_name["jackal_exact"],
+                   {"expression": "1+" * 5000 + "1"})
+        self.assertEqual(out["status"], "refused")
+        self.assertEqual(out["reason"], "plugin-args-too-long")
 
 
-if __name__=='__main__': unittest.main(verbosity=2)
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
