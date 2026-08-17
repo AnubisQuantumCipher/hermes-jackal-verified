@@ -136,6 +136,7 @@ expectations.
 python3 tests/test_plugin.py        # unit battery (20 cases)
 python3 tests/test_plugin_v2.py     # poison battery (43 rows, also under -O)
 python3 tests/aba_recheck_gate.py   # A→B→A identity-enforcement gate
+python3 tests/parts_discovery_test.py  # split-part discovery fail-closed battery
 python3 scripts/fresh_install_smoke.py
 python3 scripts/verify_manifest.py
 python3 scripts/release_audit.py

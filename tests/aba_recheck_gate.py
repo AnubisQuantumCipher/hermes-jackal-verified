@@ -34,9 +34,20 @@ ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / "tools.py"
 EVIDENCE = ROOT / "tests" / "evidence" / "aba_recheck_gate.json"
 # The vendored release is split into raw byte parts (GitHub 100 MiB limit);
-# forgeries are built from the exact concatenated bytes.
-PKG_PARTS = (ROOT / "pkg" / "jackal-v1.7.0-macos-arm64.tar.gz.part00",
-             ROOT / "pkg" / "jackal-v1.7.0-macos-arm64.tar.gz.part01")
+# forgeries are built from the exact concatenated bytes.  Parts are
+# discovered (contiguous partNN from 00), mirroring tools._discover_parts.
+PKG_BASE = "jackal-v1.7.0-macos-arm64.tar.gz"
+
+
+def _discover_parts():
+    parts = sorted((ROOT / "pkg").glob(f"{PKG_BASE}.part*"))
+    assert parts, "no vendored package parts found"
+    for i, p in enumerate(parts):
+        assert p.name == f"{PKG_BASE}.part{i:02d}", f"non-contiguous: {p.name}"
+    return parts
+
+
+PKG_PARTS = tuple(_discover_parts())
 DIRNAME = "jackal-v1.7.0-macos-arm64"
 
 # The identity-enforcement pair under test: the admission pin loop AND

@@ -56,11 +56,14 @@ jobs:
       - name: Unit battery (18 cases)
         run: python3 tests/test_plugin.py
 
-      - name: Poison battery (36 rows)
+      - name: Poison battery (43 rows)
         run: python3 tests/test_plugin_v2.py
 
       - name: Poison battery under -O (optimized parity)
         run: python3 -O tests/test_plugin_v2.py
+
+      - name: Split-package part-discovery fail-closed battery
+        run: python3 tests/parts_discovery_test.py
 
       - name: A->B->A identity-enforcement gate
         run: python3 tests/aba_recheck_gate.py
