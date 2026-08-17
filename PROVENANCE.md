@@ -4,7 +4,7 @@
 
 | Field | Value |
 |---|---|
-| Repository | `https://github.com/AnubisQuantumCipher/jackal-calc` |
+| Repository | `https://github.com/AnubisQuantumCipher/jackal` (renamed from `jackal-calc`; old URLs redirect) |
 | Tag | `v1.7.0` (tag object `9014369439d7e92590503f86afd0bfdb4f7aac8d`) |
 | Commit | `89ee68dcfae72a1ce9b079ea5cf60665c98f7abc` |
 | Release asset | `jackal-v1.7.0-macos-arm64.tar.gz` |
@@ -53,7 +53,7 @@ The upstream release was sealed locally on Apple Silicon macOS with
 `GATES: PASS (43 gates)` — Lean proof builds (now including the
 composed-integral checker `jackal_int_cert_check`, theorem
 `int_cert_sound`), 202/202 black-box acceptance (including the
-jackal-calc#4 `rat approx=` regression pair), 108/108 hostile claim
+jackal#4 `rat approx=` regression pair), 108/108 hostile claim
 matrix, 42/42 receipt-semantic mutations, the int-cert 31-row
 positive/refusal/poison matrix, int-cert A→B→A (enclosure guards
 proof-load-bearing), 5/5 engine differential with an mpmath oracle, and

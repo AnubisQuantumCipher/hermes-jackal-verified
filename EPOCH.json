@@ -54,8 +54,8 @@
    "size_bytes": 118862060
   },
   "release_epoch": "v1.7.0",
-  "release_url": "https://github.com/AnubisQuantumCipher/jackal-calc/releases/tag/v1.6.0",
-  "repository": "https://github.com/AnubisQuantumCipher/jackal-calc",
+  "release_url": "https://github.com/AnubisQuantumCipher/jackal/releases/tag/v1.7.0",
+  "repository": "https://github.com/AnubisQuantumCipher/jackal",
   "tag": "v1.7.0",
   "tag_object": "9014369439d7e92590503f86afd0bfdb4f7aac8d",
   "verified_from": "unauthenticated public release asset download; hash matched SHA256SUMS and the release receipt"

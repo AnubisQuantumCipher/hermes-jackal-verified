@@ -12,7 +12,7 @@ package.
 ## Trust chain (acyclic)
 
 ```text
-JACKAL v1.7.0 tag/commit (jackal-calc @ 89ee68dcfae72a1ce9b079ea5cf60665c98f7abc)
+JACKAL v1.7.0 tag/commit (jackal @ 89ee68dcfae72a1ce9b079ea5cf60665c98f7abc)
   → public core package  jackal-v1.7.0-macos-arm64.tar.gz
     sha256 21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e
   → this plugin's vendored copy (two raw byte parts under pkg/ — GitHub's
@@ -123,7 +123,7 @@ v5.0.0: `jackal_integrate_bound_cert` — call it instead of
 composed enclosure over the certified fragment
 (`num/var/neg/add/sub/mul/div/pow/sin/cos/abs` in `x`; everything else
 refuses). Upstream `rat`/`jackal_exact` `approx=` is now a rendering of
-the exact rational (issue jackal-calc#4). Three v3.0.0 names/shapes
+the exact rational (issue jackal#4). Three v3.0.0 names/shapes
 still do not exist (`jackal_differentiate` → `jackal_diff`;
 `jackal_claim_card` → `jackal_claim`; mode-based `jackal_exact` args →
 `{"expression": "..."}`). Formal receipts issued by older epochs keep
@@ -147,7 +147,7 @@ CI (`.github/workflows/ci.yml`) runs all of the above on `macos-14`
 
 ## Provenance
 
-- Upstream: `AnubisQuantumCipher/jackal-calc` tag `v1.7.0`, commit
+- Upstream: `AnubisQuantumCipher/jackal` tag `v1.7.0`, commit
   `89ee68dcfae72a1ce9b079ea5cf60665c98f7abc`; the vendored tarball is
   byte-identical to the unauthenticated public release asset (sha256
   `21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e`).
