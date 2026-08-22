@@ -1,8 +1,8 @@
 {
  "identities": {
-  "MANIFEST.sha256": "66f80ec1d408d53ef565fc0ac7833a7a62afc8cd31d2f19d344af67bf93753ed",
+  "MANIFEST.sha256": "7baffdb7f1cb1d537c61549c2f9681202356707b5ea96ff9e9cd79ad1d103ba9",
   "atan_rat_producer.py": "824916bdb3420986f4a6eed8028760a96477e9e1df2febd03b9ca174216aef26",
-  "capability_inventory_v1.json": "b4ce27e112e0a75683fc408c98f1c403ff92799ed5b792d569b7c3e61bea9b88",
+  "capability_inventory_v1.json": "9b3003291d7c323af462406038dea61ece7ec1bb1bf57da1f619b70e4875c409",
   "claim_bundle_verify.py": "e0fcb9540c730bd9bb492b528ed42d29d49fc775b3aa0f9b831b6264fd68fd22",
   "claim_kernel.py": "77b0f85ad5fb7214f88898b60ea29ea9fd7be740c38b655388444e6e5181f348",
   "claim_router.py": "02328cf177a0423bdc5cbca6ec0ea946bb0679bbd3dc6c24140d32598e575afb",
@@ -11,7 +11,7 @@
   "domain_packs/programming/manifest.json": "a8668782c1be9553e80b044a70327a3f767779b6552a2d3401454d01aa1b43ba",
   "domain_packs/registry_v1.json": "1a3b2c95dcdc7c7337fbe0ecb34043b70c3697752d6dc585f45f3c7d4f1b0706",
   "evidence/compat_v173_floor.json": "5b4e78e1f2b3e1ed7d0459a12f229ffe27886c179198a656a5a9dc5343f8b45e",
-  "evidence/lean_admission_audit_v173.json": "aff8108945c49282c9cfd089d207c65591e7cbc8387bf2d1d531194389fd00c2",
+  "evidence/lean_admission_audit_v173.json": "b715e4e464893a66a1bc66144544d07643d1bdf5dbe6fb3b8bcbb8a88fc925a6",
   "exact_verify.py": "2c07e6257ce1524de3e31374371c6d5859dce710767156de2566ec77fa1883a7",
   "exp_rat_producer.py": "1997ed81dfbd26a6d45a6689c515832bfbae05435d07e3dd2d6f156c57668ec1",
   "formal_coverage_inventory.json": "6373641cd7833bb46a08f44acf683a119e0a637c8acb88d22797b81188d896b6",
@@ -36,7 +36,7 @@
   "plugin/hermes/profiles/formal.json": "9be2b3144486311d9ba7f1d41c5033eb8e2553e9d12b71d46e512401f57a084b",
   "plugin/hermes/profiles/full.json": "0db937da01737bbc0341a591ecd23e55008d8ffc02368517c7d1e7da8b309dec",
   "plugin/hermes/schemas/jackal_agent_profile.schema.json": "3522c0c9b5fc4740eda1720647ed2055611313a4d9d144116f179419e439898e",
-  "plugin/hermes/server.py": "a11614c0d0e7ad7945320e87193cb7ae09f32eed65f211443096e47d152712ab",
+  "plugin/hermes/server.py": "4c42725d797ac78ed20d3e843e602b1c60c88bd13f74e06c65a6b4016b3b7daf",
   "plugin/hermes/tools.json": "53c823f07db512b82e01a4f132ff43be426b4b227c436e8853c5144ae0504e87",
   "program/inventory_safe_v1.json": "361979bf89b7c71a4b2c692d64756548833a2c363c269511b037726cab3ebacb",
   "range_proof_identity.json": "84963be9b0a8851a03a38ae71da558b3e9d2c37d9d55ad7da31afbd23188499c",
@@ -47,7 +47,7 @@
   "sin_rat_producer.py": "978f8d508c0921b5d8227a24ee7c7b97373a6041e55e4923cd94617a94a061dd",
   "sqrt_rat_producer.py": "4bc95c331430d2350facfb19da9aba483ab7b3698754e7af2e5deb797e097926",
   "tanh_rat_producer.py": "da03b6054dcdd3fe02588ec25fc7c201405e9d8ec5f3ab46ff45b49698ab5eb3",
-  "tools/anubis_program_verify.py": "a0dbf14b6157de3f2f789fa54190e015575bafc2e1182ba3d30186afcb45e89a",
+  "tools/anubis_program_verify.py": "ee32089a4a3501dced306630ecc8e63e8442c584cfedf0ac9f512ad95a65c831",
   "tools/decision_verify.py": "f1ad7c9fbd4c1d899dbb4bebabbbeb97e97a56bd4b279ad7d8ec3722bf12e0f6",
   "tools/domain_pack_verify.py": "22984f511208af2d7a318f1a43306d95a4b0f61876d8b44f34f39a2ded6d573d",
   "tools/exact_verify.py": "2c07e6257ce1524de3e31374371c6d5859dce710767156de2566ec77fa1883a7",
@@ -73,21 +73,21 @@
  "tools": {
   "count": 41,
   "inventory_path": "capability_inventory_v1.json",
-  "inventory_sha256": "b4ce27e112e0a75683fc408c98f1c403ff92799ed5b792d569b7c3e61bea9b88",
+  "inventory_sha256": "9b3003291d7c323af462406038dea61ece7ec1bb1bf57da1f619b70e4875c409",
   "source": "schemas.py generated from the vendored package catalog"
  },
  "upstream": {
   "alignment_receipt": {
-   "commit": "d50308ac4325a564d89596f190186b62e6f4de22",
+   "commit": "0848cb55212fd5de8a4689d83c8624a8779e0cf4",
    "path": "release/evidence/package_alignment_v173_candidate.json"
   },
-  "build_commit": "5311e9e265b75e2d10ee3da9ccd298283b1a0672",
+  "build_commit": "44381dcb10d7b0572f2531a26d8ccd6f88afe7dd",
   "package": {
    "file_count": 106,
    "name": "jackal-v1.7.3-macos-arm64.tar.gz",
-   "sha256": "9100bc77abd02dfdc1449d23d6fa211e041ad34b38e545024a9311bdb16cf93e",
-   "sha256sums_sha256": "fa2080c7c50a669c28b08e17739f559d1e22b4d8ca95fe31355e90f6b3c5aecf",
-   "size_bytes": 158362324
+   "sha256": "c030076186791a551d7818412e39ea895da0f16a2fad88877554ff390c284d9c",
+   "sha256sums_sha256": "15b179469a3519d124706a1b3281710ca2870e28a7073d107ac15eec156f2894",
+   "size_bytes": 158362703
   },
   "release_epoch": "v1.7.3",
   "release_state": "candidate",
@@ -102,6 +102,6 @@
    "pkg/jackal-v1.7.3-macos-arm64.tar.gz.part00",
    "pkg/jackal-v1.7.3-macos-arm64.tar.gz.part01"
   ],
-  "sha256": "9100bc77abd02dfdc1449d23d6fa211e041ad34b38e545024a9311bdb16cf93e"
+  "sha256": "c030076186791a551d7818412e39ea895da0f16a2fad88877554ff390c284d9c"
  }
 }

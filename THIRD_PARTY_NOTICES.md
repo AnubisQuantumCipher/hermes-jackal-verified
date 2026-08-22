@@ -4,13 +4,13 @@
 
 - Source: `https://github.com/AnubisQuantumCipher/jackal`
 - Source build commit:
-  `5311e9e265b75e2d10ee3da9ccd298283b1a0672`
+  `44381dcb10d7b0572f2531a26d8ccd6f88afe7dd`
 - Alignment receipt commit:
-  `d50308ac4325a564d89596f190186b62e6f4de22`
+  `0848cb55212fd5de8a4689d83c8624a8779e0cf4`
 - Candidate artifact: `jackal-v1.7.3-macos-arm64.tar.gz`
 - SHA-256:
-  `9100bc77abd02dfdc1449d23d6fa211e041ad34b38e545024a9311bdb16cf93e`
-- Size: 158,362,324 bytes
+  `c030076186791a551d7818412e39ea895da0f16a2fad88877554ff390c284d9c`
+- Size: 158,362,703 bytes
 - Vendored representation:
   `pkg/jackal-v1.7.3-macos-arm64.tar.gz.part00` and `.part01`
 - Release state: unpublished `v1.7.3-candidate`; no public release URL is
