@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import re
 import subprocess
 import sys
 import tarfile
@@ -13,8 +14,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_PACKAGE_SHA256 = "cafab1555d3ea7cf207fd5564464fbe35dfa9288cdd650fe226d9f7633254196"
-EXPECTED_TREE_SHA256 = "df2d71627cbd02a2dfd45beec4c87efc35753de17b98a8e0d76baf7cf13c9cd6"
+EXPECTED_PACKAGE_SHA256 = "9100bc77abd02dfdc1449d23d6fa211e041ad34b38e545024a9311bdb16cf93e"
+EXPECTED_TREE_SHA256 = "fa2080c7c50a669c28b08e17739f559d1e22b4d8ca95fe31355e90f6b3c5aecf"
 EXPECTED_TOOLS = [
     "jackal_range_bound",
     "jackal_gaussian_integral",
@@ -195,6 +196,15 @@ class ProductionAlignmentTest(unittest.TestCase):
         )
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
         self.assertIn("EPOCH_GENERATION_PASS", completed.stdout)
+
+    def test_z3_identity_is_consistent_across_ci_and_current_docs(self) -> None:
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        match = re.search(r"Z3_BINARY_SHA256: ([0-9a-f]{64})", workflow)
+        self.assertIsNotNone(match)
+        expected = match.group(1)
+        for relative in ("PROVENANCE.md", "THIRD_PARTY_NOTICES.md"):
+            document = (ROOT / relative).read_text(encoding="utf-8")
+            self.assertIn(expected, document, relative)
 
 
 if __name__ == "__main__":

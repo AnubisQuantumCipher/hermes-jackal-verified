@@ -17,13 +17,13 @@ canonical capability inventory.
 
 | Field | Value |
 |---|---|
-| JACKAL build commit | `a281a6c4675381e99ee185d012eb35127bcd7c3c` |
-| Alignment receipt commit | `1f1e628955c5ab805d13273f8fb9c618747d6f7c` |
+| JACKAL build commit | `5311e9e265b75e2d10ee3da9ccd298283b1a0672` |
+| Alignment receipt commit | `d50308ac4325a564d89596f190186b62e6f4de22` |
 | Package | `jackal-v1.7.3-macos-arm64.tar.gz` |
-| Package SHA-256 | `cafab1555d3ea7cf207fd5564464fbe35dfa9288cdd650fe226d9f7633254196` |
-| Package size | 158,362,119 bytes |
-| Internal `SHA256SUMS` SHA-256 | `df2d71627cbd02a2dfd45beec4c87efc35753de17b98a8e0d76baf7cf13c9cd6` |
-| Capability inventory SHA-256 | `3c58bd162625fdab22803a020592bf1acfeb31dab0d395a5f50b810f249d1c75` |
+| Package SHA-256 | `9100bc77abd02dfdc1449d23d6fa211e041ad34b38e545024a9311bdb16cf93e` |
+| Package size | 158,362,324 bytes |
+| Internal `SHA256SUMS` SHA-256 | `fa2080c7c50a669c28b08e17739f559d1e22b4d8ca95fe31355e90f6b3c5aecf` |
+| Capability inventory SHA-256 | `b4ce27e112e0a75683fc408c98f1c403ff92799ed5b792d569b7c3e61bea9b88` |
 | Release state | `v1.7.3-candidate` |
 
 The package was built twice from the clean build commit and the two tarballs
@@ -35,9 +35,9 @@ under `pkg/` because GitHub rejects a single file of at least 100 MiB.
 ## Acyclic trust chain
 
 ```text
-JACKAL source build commit a281a6c…
-  -> two byte-identical candidate package builds (sha256 cafab155…)
-  -> immutable JACKAL alignment receipt commit 1f1e628…
+JACKAL source build commit 5311e9e…
+  -> two byte-identical candidate package builds (sha256 9100bc77…)
+  -> immutable JACKAL alignment receipt commit d50308a…
   -> this plugin's ordered vendored parts
   -> scripts/generate_epoch.py
        -> EPOCH.json

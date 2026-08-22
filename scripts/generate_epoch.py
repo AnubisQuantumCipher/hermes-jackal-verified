@@ -16,12 +16,12 @@ EPOCH_PATH = ROOT / "EPOCH.json"
 SKILL_PATH = ROOT / "skills/jackal-verified-computation/SKILL.md"
 PACKAGE_BASE = "jackal-v1.7.3-macos-arm64.tar.gz"
 PACKAGE_DIR = "jackal-v1.7.3-macos-arm64"
-PACKAGE_SHA256 = "cafab1555d3ea7cf207fd5564464fbe35dfa9288cdd650fe226d9f7633254196"
-PACKAGE_SIZE = 158362119
+PACKAGE_SHA256 = "9100bc77abd02dfdc1449d23d6fa211e041ad34b38e545024a9311bdb16cf93e"
+PACKAGE_SIZE = 158362324
 PLUGIN_VERSION = "6.0.0"
 SKILL_VERSION = "7.0.0"
-UPSTREAM_BUILD_COMMIT = "a281a6c4675381e99ee185d012eb35127bcd7c3c"
-ALIGNMENT_RECEIPT_COMMIT = "1f1e628955c5ab805d13273f8fb9c618747d6f7c"
+UPSTREAM_BUILD_COMMIT = "5311e9e265b75e2d10ee3da9ccd298283b1a0672"
+ALIGNMENT_RECEIPT_COMMIT = "d50308ac4325a564d89596f190186b62e6f4de22"
 BEGIN = "# BEGIN GENERATED PACKAGE IDENTITIES"
 END = "# END GENERATED PACKAGE IDENTITIES"
 
@@ -210,6 +210,10 @@ def generated_documents() -> tuple[bytes, str]:
 
 
 def render_tools(source: str, block: str) -> str:
+    package_pin_pattern = re.compile(r'^PKG_SHA256 = "[0-9a-f]{64}"$', re.MULTILINE)
+    if len(package_pin_pattern.findall(source)) != 1:
+        raise GenerationError("tools-package-pin")
+    source = package_pin_pattern.sub(f'PKG_SHA256 = "{PACKAGE_SHA256}"', source, count=1)
     if BEGIN in source or END in source:
         if source.count(BEGIN) != 1 or source.count(END) != 1:
             raise GenerationError("tools-generated-markers")

@@ -50,16 +50,18 @@ jobs:
       - name: Verify platform and pinned JACKAL package identity
         run: |
           test "$(uname -m)" = "arm64"
+          expected="$(python3 -I -S -B -c \
+            'import json; print(json.load(open("EPOCH.json"))["vendored"]["sha256"])')"
           # vendored as raw byte parts (GitHub 100 MiB limit); the pin is
           # over the concatenation = the reproducible candidate bytes
           test "$(cat pkg/jackal-v1.7.3-macos-arm64.tar.gz.part00 \
                       pkg/jackal-v1.7.3-macos-arm64.tar.gz.part01 \
                   | shasum -a 256 | cut -d' ' -f1)" \
-            = "cafab1555d3ea7cf207fd5564464fbe35dfa9288cdd650fe226d9f7633254196"
+            = "$expected"
 
       - name: Verify epoch receipt binds the vendored package
         run: |
-          python3 - <<'PY'
+          python3 -I -S -B - <<'PY'
           import json
           d = json.load(open("EPOCH.json"))
           assert d["schema"] == "jackal-plugin-epoch-receipt-v1"
@@ -67,8 +69,7 @@ jobs:
           assert d["upstream"]["release_state"] == "candidate"
           assert d["upstream"]["tag"] is None
           assert d["upstream"]["release_url"] is None
-          assert d["vendored"]["sha256"] == \
-              "cafab1555d3ea7cf207fd5564464fbe35dfa9288cdd650fe226d9f7633254196"
+          assert d["vendored"]["sha256"] == d["upstream"]["package"]["sha256"]
           assert d["plugin"]["version"] == "6.0.0"
           assert d["tools"]["count"] == 41
           print("EPOCH_RECEIPT_OK")

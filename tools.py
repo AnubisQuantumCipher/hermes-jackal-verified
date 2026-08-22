@@ -55,7 +55,7 @@ RELEASE_EPOCH = "v1.7.3"
 # A->B->A gate point it at forged tarballs); when set to a path that exists
 # it takes precedence over the parts.
 PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.7.3-macos-arm64.tar.gz"
-PKG_SHA256 = "cafab1555d3ea7cf207fd5564464fbe35dfa9288cdd650fe226d9f7633254196"
+PKG_SHA256 = "9100bc77abd02dfdc1449d23d6fa211e041ad34b38e545024a9311bdb16cf93e"
 PKG_DIRNAME = "jackal-v1.7.3-macos-arm64"
 EPOCH_RECEIPT = PLUGIN_ROOT / "EPOCH.json"
 
@@ -63,9 +63,9 @@ EPOCH_RECEIPT = PLUGIN_ROOT / "EPOCH.json"
 # SHA256SUMS at seal time; re-verified from bytes at every admission).
 # BEGIN GENERATED PACKAGE IDENTITIES
 APPROVED_IDENTITIES = {
-    'MANIFEST.sha256': 'bf04769a3624027d4650555fdd19b5c536789caf9d50ef07b7da950c9c7bca2e',
+    'MANIFEST.sha256': '66f80ec1d408d53ef565fc0ac7833a7a62afc8cd31d2f19d344af67bf93753ed',
     'atan_rat_producer.py': '824916bdb3420986f4a6eed8028760a96477e9e1df2febd03b9ca174216aef26',
-    'capability_inventory_v1.json': '3c58bd162625fdab22803a020592bf1acfeb31dab0d395a5f50b810f249d1c75',
+    'capability_inventory_v1.json': 'b4ce27e112e0a75683fc408c98f1c403ff92799ed5b792d569b7c3e61bea9b88',
     'claim_bundle_verify.py': 'e0fcb9540c730bd9bb492b528ed42d29d49fc775b3aa0f9b831b6264fd68fd22',
     'claim_kernel.py': '77b0f85ad5fb7214f88898b60ea29ea9fd7be740c38b655388444e6e5181f348',
     'claim_router.py': '02328cf177a0423bdc5cbca6ec0ea946bb0679bbd3dc6c24140d32598e575afb',
@@ -74,7 +74,7 @@ APPROVED_IDENTITIES = {
     'domain_packs/programming/manifest.json': 'a8668782c1be9553e80b044a70327a3f767779b6552a2d3401454d01aa1b43ba',
     'domain_packs/registry_v1.json': '1a3b2c95dcdc7c7337fbe0ecb34043b70c3697752d6dc585f45f3c7d4f1b0706',
     'evidence/compat_v173_floor.json': '5b4e78e1f2b3e1ed7d0459a12f229ffe27886c179198a656a5a9dc5343f8b45e',
-    'evidence/lean_admission_audit_v173.json': '4c680a6817ccfe27da254c5244e5ffc06469ed37a910ea61303abf8125bb3459',
+    'evidence/lean_admission_audit_v173.json': 'aff8108945c49282c9cfd089d207c65591e7cbc8387bf2d1d531194389fd00c2',
     'exact_verify.py': '2c07e6257ce1524de3e31374371c6d5859dce710767156de2566ec77fa1883a7',
     'exp_rat_producer.py': '1997ed81dfbd26a6d45a6689c515832bfbae05435d07e3dd2d6f156c57668ec1',
     'formal_coverage_inventory.json': '6373641cd7833bb46a08f44acf683a119e0a637c8acb88d22797b81188d896b6',
