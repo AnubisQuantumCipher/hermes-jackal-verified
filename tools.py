@@ -1,14 +1,11 @@
-"""JACKAL Verified — Hermes-native adapter over the sealed v1.7.0 package.
+"""Hermes-native adapter over the reproducible JACKAL v1.7.3 candidate.
 
-Thirty-four typed tools (see `schemas.py`, GENERATED from the vendored
-package's own `plugin/hermes/tools.json`).  Every call is a fail-closed
-pass-through into the upstream `jackal_hermes` frontend running INSIDE an
-admitted private snapshot of the vendored release tarball (split into raw
-byte parts under `pkg/`; their concatenation is the exact bytes published
-and hash-verified as the public JACKAL v1.7.0 GitHub release asset).
+Forty-one typed tools are generated from the vendored package catalog. Every
+call invokes the package's `jackal_hermes` frontend inside an admitted private
+snapshot of the exact candidate tarball bytes split under `pkg/`.
 
 Trust model:
-  T0  the plugin ships ONE upstream artifact: the release tarball, pinned
+  T0  the plugin ships ONE upstream artifact: the candidate package, pinned
       by PKG_SHA256 and cross-checked against EPOCH.json at admission;
   T1  admission verifies the tarball hash, safe-extracts to a private
       0700 tempdir, verifies EVERY file against the package's internal
@@ -18,14 +15,14 @@ Trust model:
       Mach-O arm64 magic on the four native binaries;
   T2  every tool call re-hashes the frontend + trust-bearing files
       before AND after execution (TOCTOU);
-  T3  responses are returned VERBATIM: the upstream status/assurance
-      lanes (`exact`, `checked`, `estimated`, `bounded`, `formal-bounded`,
-      `model-based`, `refused`, `indeterminate`) pass through untouched —
-      the adapter can refuse on its own behalf but can never upgrade;
-  T4  verification tools (`jackal_verify_receipt`, `jackal_verify_bundle`)
-      run the upstream independent verifiers, which re-execute the pinned
-      Lean-proved checkers / dependency-free bundle replay on the
-      embedded evidence bytes — no producer-authored field is trusted.
+  T3  after requiring one JSON object with a status field, the adapter emits
+      that parsed runtime object as JSON; plugin admission, argument-length,
+      timeout, execution, and transport failures produce named local refusals;
+  T4  formal-receipt, claim-bundle, structural, decision, and Anubis-program
+      verification routes invoke their packaged checkers. Each route retains
+      its catalog-declared ceiling and caller-pin requirements; program replay
+      starts at the explicitly documented Z3/CNF/RUP boundary and never
+      executes the compiled artifact.
 
 The adapter adds NO mathematical behavior of its own.
 """
@@ -46,94 +43,81 @@ from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parent
 
-RELEASE_EPOCH = "v1.7.0"
-# GitHub rejects single files >= 100 MiB, so the vendored release tarball is
+RELEASE_EPOCH = "v1.7.3"
+# GitHub rejects single files >= 100 MiB, so the vendored candidate package is
 # split into raw byte parts; admission concatenates them IN MEMORY and
 # verifies PKG_SHA256 over the whole — the admitted bytes are exactly the
-# published release asset.  Parts are DISCOVERED fail-closed (v1.7.1):
+# reproducible candidate tarball. Parts are discovered fail-closed:
 # `pkg/<name>.partNN` must be contiguous from part00 and must EXACTLY match
 # the ordered `vendored.parts` list declared in the pinned EPOCH.json
 # receipt — a gap, extra, or undeclared part refuses before any bytes are
 # trusted.  PKG_TARBALL stays as a single-file OVERRIDE knob (tests / the
 # A->B->A gate point it at forged tarballs); when set to a path that exists
 # it takes precedence over the parts.
-PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.7.0-macos-arm64.tar.gz"
-PKG_SHA256 = "21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e"
-PKG_DIRNAME = "jackal-v1.7.0-macos-arm64"
+PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.7.3-macos-arm64.tar.gz"
+PKG_SHA256 = "cafab1555d3ea7cf207fd5564464fbe35dfa9288cdd650fe226d9f7633254196"
+PKG_DIRNAME = "jackal-v1.7.3-macos-arm64"
 EPOCH_RECEIPT = PLUGIN_ROOT / "EPOCH.json"
 
 # Pinned identities inside the admitted package (from the package's own
 # SHA256SUMS at seal time; re-verified from bytes at every admission).
+# BEGIN GENERATED PACKAGE IDENTITIES
 APPROVED_IDENTITIES = {
-    "jackal-native":
-        "20b80827d3c5c2a5d0d5d6f5a84c692f230fb0f55b9c7d1fcad02a1d0b3a1083",
-    "jackal_cert_check":
-        "05c3518b836f239712f897c483a2ddadad9f544e0887b1b7bb1424a27289de8a",
-    "jackal_gaussian_check":
-        "ccac690bf916f71a4e3baeb0622dac19aa47e3ca4af858c0800c295581ecfacb",
-    "jackal_int_cert_check":
-        "c858e3bfc0ff2809a808170caabbf090077cb54996e76f065dbcd26ffb067d49",
-    "plugin/hermes/jackal_hermes":
-        "e63bb66caf3fd0890c5f4de22a22ce61cc1aec52d4c82432171d87dc6a4d0ec3",
-    "plugin/hermes/server.py":
-        "4d67ae76edee3f771ced809520ed6df873c77def8cf410eb79145d61af1009b8",
-    "plugin/hermes/tools.json":
-        "6271d2cf75f9227f10a842599c59229e3178fb929840a325ce83b1b4df1dbc1f",
-    "plugin/hermes/bundle_hash.py":
-        "826aae22af717736e4d98a6746d5d9f6b6767544cf479e1fcf7a46c2d7ab8aee",
-    "gaussian_certificate.py":
-        "20c24622b786940a8e82198f2364fb7593e761902fa0736289b179642f1e4306",
-    "int_cert_producer.py":
-        "b4240fdac3c77b2abd751595303b2b3a0e4bebd492b2ae57fa5ccf052cd50af4",
-    "int_cert_release.py":
-        "5a1e94189bfb1199444cbd73d55ba30845563fd56ca7d898df37caed6330a1e8",
-    "sqrt_rat_producer.py":
-        "4bc95c331430d2350facfb19da9aba483ab7b3698754e7af2e5deb797e097926",
-    "exp_rat_producer.py":
-        "1997ed81dfbd26a6d45a6689c515832bfbae05435d07e3dd2d6f156c57668ec1",
-    "ln_rat_producer.py":
-        "c88eb0153f0ec0ba401597a8945345e621a38df408bfd92a47a4b3abf7985740",
-    "sin_rat_producer.py":
-        "978f8d508c0921b5d8227a24ee7c7b97373a6041e55e4923cd94617a94a061dd",
-    "atan_rat_producer.py":
-        "824916bdb3420986f4a6eed8028760a96477e9e1df2febd03b9ca174216aef26",
-    "tanh_rat_producer.py":
-        "da03b6054dcdd3fe02588ec25fc7c201405e9d8ec5f3ab46ff45b49698ab5eb3",
-    "claim_kernel.py":
-        "0e33bed664d4a07015bafc135940e9e1c0af7912c0ccb94d7a3523423e996c5b",
-    "claim_router.py":
-        "ccab2cce27770297698ae107c59a8d147d81c5f2ff0cd7d686a11d4390d095eb",
-    "claim_bundle_verify.py":
-        "79d579d1be966e857436f67012e0fc79304dce789a66f590d77a2d57ccd97954",
-    "exact_verify.py":
-        "2c07e6257ce1524de3e31374371c6d5859dce710767156de2566ec77fa1883a7",
-    "inference_registry_v1.json":
-        "e7c999c34312288fc35d4e1ecab2cef244dd447174283f0e132e8ebee7277672",
-    "unit_registry_v1.json":
-        "d2d30dfe2a74d58a5ef31b551ea628106390bfccd72ad34d1cb37381c58d114c",
-    "jackal_calc.anb":
-        "638d28dc9811bb9359af27a1bcc5427717cdf894902011fbb230dc18bac63776",
-    "formal_coverage_inventory.json":
-        "18ff7b1d428dbc6f807fd4de27751ba415b33ef0b356088d7fa316ed74bb0ba6",
-    "range_proof_identity.json":
-        "1b2d623904930d748bfbf489637e0e8aa720188e7d68f5250e5bd8f257b89a67",
-    "gaussian_proof_identity.json":
-        "7d2ff9ed4934604eba30f3111a147d7e295fd79302f640f57aacd986a23e243c",
-    "int_cert_proof_identity.json":
-        "f0323e312d8b0e05a7200546fd819fc191d5f146d359bb14efec5b1575f16844",
-    "receipt_verify.py":
-        "e28a103ff07276a2aee270d5dbe234423b6c55a4bb08c0d67c94c06c7e62307c",
-    "release_validate.py":
-        "794bb90f884dd0b538a43f92a34f01f01a1c0ee3255e380fc9fc8646d86acb20",
-    "formal_receipt.py":
-        "e8fe9ccbdee6122e859d42cb5873daf7de6d365a6adefa5754e1ffc7066f2978",
-    "formal_status_gate.py":
-        "6aacf6c1ff4f6d43cd055ac09a6a7d0d8007258c7901f6759a76ef15a29b7203",
-    "isolated_entry.py":
-        "33be0aeb16eded6d1e4fd99fb41db46c52f70276e90c83c9ad48af267e0c87aa",
-    "MANIFEST.sha256":
-        "1276817efaa48cf4b9a941caae8ef56fd78433babc918cc15970f6b4351800e4",
+    'MANIFEST.sha256': 'bf04769a3624027d4650555fdd19b5c536789caf9d50ef07b7da950c9c7bca2e',
+    'atan_rat_producer.py': '824916bdb3420986f4a6eed8028760a96477e9e1df2febd03b9ca174216aef26',
+    'capability_inventory_v1.json': '3c58bd162625fdab22803a020592bf1acfeb31dab0d395a5f50b810f249d1c75',
+    'claim_bundle_verify.py': 'e0fcb9540c730bd9bb492b528ed42d29d49fc775b3aa0f9b831b6264fd68fd22',
+    'claim_kernel.py': '77b0f85ad5fb7214f88898b60ea29ea9fd7be740c38b655388444e6e5181f348',
+    'claim_router.py': '02328cf177a0423bdc5cbca6ec0ea946bb0679bbd3dc6c24140d32598e575afb',
+    'domain_packs/core/manifest.json': '8babbc2966f7a269a0aefe15495e83c70351795f63cc3468f75c36bb5046ee8a',
+    'domain_packs/decision/manifest.json': '79b5d90d50c2343fdc93f1f92f0ea36bfa1e6c1c239ab6572aea8ad237ccbd65',
+    'domain_packs/programming/manifest.json': 'a8668782c1be9553e80b044a70327a3f767779b6552a2d3401454d01aa1b43ba',
+    'domain_packs/registry_v1.json': '1a3b2c95dcdc7c7337fbe0ecb34043b70c3697752d6dc585f45f3c7d4f1b0706',
+    'evidence/compat_v173_floor.json': '5b4e78e1f2b3e1ed7d0459a12f229ffe27886c179198a656a5a9dc5343f8b45e',
+    'evidence/lean_admission_audit_v173.json': '4c680a6817ccfe27da254c5244e5ffc06469ed37a910ea61303abf8125bb3459',
+    'exact_verify.py': '2c07e6257ce1524de3e31374371c6d5859dce710767156de2566ec77fa1883a7',
+    'exp_rat_producer.py': '1997ed81dfbd26a6d45a6689c515832bfbae05435d07e3dd2d6f156c57668ec1',
+    'formal_coverage_inventory.json': '6373641cd7833bb46a08f44acf683a119e0a637c8acb88d22797b81188d896b6',
+    'formal_receipt.py': '235f85bcf5892939231fb8cfd51d74a6f5482b747e43dd3b546f57d021d40d35',
+    'formal_status_gate.py': '6aacf6c1ff4f6d43cd055ac09a6a7d0d8007258c7901f6759a76ef15a29b7203',
+    'gaussian_certificate.py': '20c24622b786940a8e82198f2364fb7593e761902fa0736289b179642f1e4306',
+    'gaussian_proof_identity.json': '7d2ff9ed4934604eba30f3111a147d7e295fd79302f640f57aacd986a23e243c',
+    'inference_registry_v1.json': 'c70b33d5aee8071b5125e6a5f8ffe5226fc22a137d920c17d9b3463968be13f0',
+    'int_cert_producer.py': 'b4240fdac3c77b2abd751595303b2b3a0e4bebd492b2ae57fa5ccf052cd50af4',
+    'int_cert_proof_identity.json': 'a8aefff85666d35cfd5412b10ae3d404260e91a98de53d5f0d2bb9f88f4ffbdf',
+    'int_cert_release.py': '427c557ef18db2c70f4e3d9a746da359d2e503184508eab401b70a1424b3b587',
+    'isolated_entry.py': '01ae7b5b7b21c2af1a32d384d5bb8ab6eb0656fe8133209b2ebb42d712bedf77',
+    'jackal-native': 'f11f3a429aa64dc0f09eb930e82bc3250e19eeb5a8a74b26b86683fafd72a655',
+    'jackal_calc.anb': 'f579b6f59bc024d24914487b0cd0f18ea43dea1be52708a05a66dc885d80bb4e',
+    'jackal_cert_check': 'f7a82524d082b51a8d66f9bed653b9c8da51b5424386659c9048b9c0ae276545',
+    'jackal_gaussian_check': 'ccac690bf916f71a4e3baeb0622dac19aa47e3ca4af858c0800c295581ecfacb',
+    'jackal_int_cert_check': 'f8347cbd18d520852aff56920d41f5e5b496ff192f584e41d84d1a818ff29617',
+    'ln_rat_producer.py': 'c88eb0153f0ec0ba401597a8945345e621a38df408bfd92a47a4b3abf7985740',
+    'plugin/hermes/bundle_hash.py': '826aae22af717736e4d98a6746d5d9f6b6767544cf479e1fcf7a46c2d7ab8aee',
+    'plugin/hermes/jackal_hermes': 'e63bb66caf3fd0890c5f4de22a22ce61cc1aec52d4c82432171d87dc6a4d0ec3',
+    'plugin/hermes/profiles/core.json': '49f33ba23cca5ab940f1929604f61491bc914d092f291cda4fe4f06b37d042d3',
+    'plugin/hermes/profiles/formal.json': '9be2b3144486311d9ba7f1d41c5033eb8e2553e9d12b71d46e512401f57a084b',
+    'plugin/hermes/profiles/full.json': '0db937da01737bbc0341a591ecd23e55008d8ffc02368517c7d1e7da8b309dec',
+    'plugin/hermes/schemas/jackal_agent_profile.schema.json': '3522c0c9b5fc4740eda1720647ed2055611313a4d9d144116f179419e439898e',
+    'plugin/hermes/server.py': 'a11614c0d0e7ad7945320e87193cb7ae09f32eed65f211443096e47d152712ab',
+    'plugin/hermes/tools.json': '53c823f07db512b82e01a4f132ff43be426b4b227c436e8853c5144ae0504e87',
+    'program/inventory_safe_v1.json': '361979bf89b7c71a4b2c692d64756548833a2c363c269511b037726cab3ebacb',
+    'range_proof_identity.json': '84963be9b0a8851a03a38ae71da558b3e9d2c37d9d55ad7da31afbd23188499c',
+    'receipt_verify.py': '44f37a7db525e67dc994348eda5ae2ed75e8d0b6ec7ea1d4f86e3ee31c0f9396',
+    'release/claim/inference_registry_v1.json': 'c70b33d5aee8071b5125e6a5f8ffe5226fc22a137d920c17d9b3463968be13f0',
+    'release/claim/unit_registry_v1.json': 'd2d30dfe2a74d58a5ef31b551ea628106390bfccd72ad34d1cb37381c58d114c',
+    'release_validate.py': '38c631570eaf581027489ae1a4eaf7f63c16f393df24f7b999119ef50c6dbff6',
+    'sin_rat_producer.py': '978f8d508c0921b5d8227a24ee7c7b97373a6041e55e4923cd94617a94a061dd',
+    'sqrt_rat_producer.py': '4bc95c331430d2350facfb19da9aba483ab7b3698754e7af2e5deb797e097926',
+    'tanh_rat_producer.py': 'da03b6054dcdd3fe02588ec25fc7c201405e9d8ec5f3ab46ff45b49698ab5eb3',
+    'tools/anubis_program_verify.py': 'a0dbf14b6157de3f2f789fa54190e015575bafc2e1182ba3d30186afcb45e89a',
+    'tools/decision_verify.py': 'f1ad7c9fbd4c1d899dbb4bebabbbeb97e97a56bd4b279ad7d8ec3722bf12e0f6',
+    'tools/domain_pack_verify.py': '22984f511208af2d7a318f1a43306d95a4b0f61876d8b44f34f39a2ded6d573d',
+    'tools/exact_verify.py': '2c07e6257ce1524de3e31374371c6d5859dce710767156de2566ec77fa1883a7',
+    'tools/test_exists_verify.py': '598cb99e1eb70c9410ca87345efee346f73e43aaf3625427dca17ea04231caea',
+    'unit_registry_v1.json': 'd2d30dfe2a74d58a5ef31b551ea628106390bfccd72ad34d1cb37381c58d114c',
 }
+# END GENERATED PACKAGE IDENTITIES
 
 _EXECUTABLES = ("jackal-native", "jackal_cert_check", "jackal_gaussian_check",
                 "jackal_int_cert_check")
@@ -204,7 +188,7 @@ def _discover_parts() -> tuple[Path, ...]:
 
 
 def _package_bytes() -> bytes:
-    """Exact release-tarball bytes: the single-file override if present,
+    """Exact candidate-package bytes: the single-file override if present,
     else the concatenation of the discovered, receipt-declared parts."""
     if PKG_TARBALL.is_file():
         return PKG_TARBALL.read_bytes()

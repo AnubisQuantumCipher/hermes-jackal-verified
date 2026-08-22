@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A->B->A gate: the admission pin-loop in tools.py is load-bearing.
 
-Builds four semantically tampered variants of the vendored release
+Builds four semantically tampered variants of the vendored candidate package
 tarball whose INTERNAL SHA256SUMS is made self-consistent again, so the
 outer tarball hash gate and the internal-manifest gate both pass and the
 ONLY line standing between the poison and admission is the
@@ -33,10 +33,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / "tools.py"
 EVIDENCE = ROOT / "tests" / "evidence" / "aba_recheck_gate.json"
-# The vendored release is split into raw byte parts (GitHub 100 MiB limit);
+# The vendored candidate is split into raw byte parts (GitHub 100 MiB limit);
 # forgeries are built from the exact concatenated bytes.  Parts are
 # discovered (contiguous partNN from 00), mirroring tools._discover_parts.
-PKG_BASE = "jackal-v1.7.0-macos-arm64.tar.gz"
+PKG_BASE = "jackal-v1.7.3-macos-arm64.tar.gz"
 
 
 def _discover_parts():
@@ -48,7 +48,7 @@ def _discover_parts():
 
 
 PKG_PARTS = tuple(_discover_parts())
-DIRNAME = "jackal-v1.7.0-macos-arm64"
+DIRNAME = "jackal-v1.7.3-macos-arm64"
 
 # The identity-enforcement pair under test: the admission pin loop AND
 # the per-call TOCTOU pre-verification.  B disables BOTH, proving that

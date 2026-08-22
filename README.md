@@ -1,181 +1,194 @@
-# JACKAL Verified — Hermes plugin (v5.0.0)
+# JACKAL Verified — Hermes plugin (v6.0.0 candidate)
 
 [![CI](https://github.com/AnubisQuantumCipher/hermes-jackal-verified/actions/workflows/ci.yml/badge.svg)](https://github.com/AnubisQuantumCipher/hermes-jackal-verified/actions/workflows/ci.yml)
 ![Platform](https://img.shields.io/badge/platform-macOS%20arm64-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-Typed, receipt-bearing access to the sealed **JACKAL v1.7.0 Mathematical
-Evidence Kernel** from Hermes: **34 tools**, every call executed inside an
-admitted, hash-pinned private snapshot of the exact public release
-package.
+Typed, receipt-bearing access to the reproducible JACKAL v1.7.3 candidate
+package from Hermes. The candidate exposes exactly 41 tools from the package's
+canonical capability inventory.
 
-## Trust chain (acyclic)
+> Candidate status: neither JACKAL v1.7.3 nor this plugin's v6.0.0 has been
+> published as a release by this repository. The vendored bytes and candidate
+> commits are review artifacts; they are not evidence of a public tag or
+> release asset.
+
+## Bound candidate
+
+| Field | Value |
+|---|---|
+| JACKAL build commit | `a281a6c4675381e99ee185d012eb35127bcd7c3c` |
+| Alignment receipt commit | `1f1e628955c5ab805d13273f8fb9c618747d6f7c` |
+| Package | `jackal-v1.7.3-macos-arm64.tar.gz` |
+| Package SHA-256 | `cafab1555d3ea7cf207fd5564464fbe35dfa9288cdd650fe226d9f7633254196` |
+| Package size | 158,362,119 bytes |
+| Internal `SHA256SUMS` SHA-256 | `df2d71627cbd02a2dfd45beec4c87efc35753de17b98a8e0d76baf7cf13c9cd6` |
+| Capability inventory SHA-256 | `3c58bd162625fdab22803a020592bf1acfeb31dab0d395a5f50b810f249d1c75` |
+| Release state | `v1.7.3-candidate` |
+
+The package was built twice from the clean build commit and the two tarballs
+were byte-identical. The dedicated alignment receipt is
+`release/evidence/package_alignment_v173_candidate.json` in the JACKAL
+repository. This plugin vendors those package bytes as two ordered raw parts
+under `pkg/` because GitHub rejects a single file of at least 100 MiB.
+
+## Acyclic trust chain
 
 ```text
-JACKAL v1.7.0 tag/commit (jackal @ 89ee68dcfae72a1ce9b079ea5cf60665c98f7abc)
-  → public core package  jackal-v1.7.0-macos-arm64.tar.gz
-    sha256 21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e
-  → this plugin's vendored copy (two raw byte parts under pkg/ — GitHub's
-    100 MiB single-file limit; admission verifies the CONCATENATION equals
-    the published asset byte-for-byte)
-  → plugin release commit (pinned in the GitHub Release notes)
-  → plugin MANIFEST.json + EPOCH.json (machine-readable epoch receipt)
-  → bundled skill jackal-verified-computation v6.0.0
+JACKAL source build commit a281a6c…
+  -> two byte-identical candidate package builds (sha256 cafab155…)
+  -> immutable JACKAL alignment receipt commit 1f1e628…
+  -> this plugin's ordered vendored parts
+  -> scripts/generate_epoch.py
+       -> EPOCH.json
+       -> tools.py selected-identity table
+  -> generated schemas.py + plugin.yaml 41-tool registration
+  -> MANIFEST.json over this plugin candidate
 ```
 
-The core package never references this plugin; the plugin pins the core.
+The JACKAL package does not reference this plugin. Package delivery pins are
+kept outside the package's semantic capability inventory, avoiding a
+self-referential package-hash cycle.
 
-## What the 34 tools are
+## The 41-tool surface
 
-- **10 proof-carrying formal lanes** — `jackal_range_bound`,
-  `jackal_gaussian_integral`, the certified composed integral
-  `jackal_integrate_bound_cert` (v1.7.0), and the pure-Q fragments
-  `jackal_{sqrt,exp,ln,sin,cos,atan,tanh}_rat_bound`. An accepted result
-  is `formal-bounded` with a canonical `jackal-formal-receipt-v1` whose
-  embedded certificate is re-executed by the pinned Lean-proved checker
-  (`request_bound_certified_release`; Gaussian:
-  `gaussian_integral_check_sound`; composed integral: `int_cert_sound`
-  via the compiled `jackal_int_cert_check`). Anything outside an
-  admitted fragment refuses — never downgrades. The weaker float lane
-  `jackal_integrate_bound` stays `bounded` and is NOT the certified
-  lane.
-- **21 honest weaker/exact lanes** — `jackal_exact`, `jackal_evaluate`,
-  `jackal_diff`, `jackal_integrate`, `jackal_integrate_adaptive`,
-  `jackal_integrate_bound`, `jackal_solve`, and the fourteen exact-CAS
-  certificate lanes (`jackal_canon`, `jackal_poly_canon`,
-  `jackal_poly_eq`, `jackal_poly_gcd`, `jackal_ratfunc_canon`,
-  `jackal_roots_isolate`, `jackal_alg_sign`, `jackal_alg_cmp`,
-  `jackal_xgcd`, `jackal_mod_pow`, `jackal_mod_inv`, `jackal_crt`,
-  `jackal_divides`, `jackal_prime_cert`). Statuses (`exact`, `checked`,
-  `estimated`, `bounded`, `model-based`, `refused`, `indeterminate`)
-  pass through verbatim; inflation is structurally impossible.
-- **2 claim-kernel front doors (v1.6.0)** — `jackal_claim` compiles a
-  typed request into a content-addressed `jackal-claim-bundle-v1`
-  evidence graph; `jackal_verify_bundle` independently replays a bundle
-  under CALLER-pinned epoch/root-proposition/policy/time and recomputes
-  every hash, rule, assurance axis, consequence floor, and rendering.
-- **1 receipt verifier** — `jackal_verify_receipt` re-runs the
-  variant-selected pinned checker on the embedded certificate bytes;
-  no outer digest is ever sufficient.
+| Family | Count | Tools and boundary |
+|---|---:|---|
+| Formal producers | 10 | `jackal_range_bound`, `jackal_gaussian_integral`, `jackal_integrate_bound_cert`, and `jackal_{sqrt,exp,ln,sin,cos,atan,tanh}_rat_bound`; only a checker-accepted fragment returns `formal-bounded` |
+| Formal replay | 1 | `jackal_verify_receipt`; replays only the closed epoch/variant registry against independent caller expectations |
+| Numeric and exact | 21 | `jackal_exact`, `jackal_evaluate`, `jackal_diff`, three integration lanes, `jackal_solve`, and fourteen exact algebra/number-theory tools |
+| Claim graph | 2 | `jackal_claim`, `jackal_verify_bundle`; compilation plus caller-pinned independent replay |
+| Source structure | 2 | `jackal_test_exists`, `jackal_claim_cites_test`; byte-exact structural facts with an informational consequence ceiling |
+| Decision ranking | 2 | `jackal_decision_rank`, `jackal_decision_rank_v2`; exact ordering of caller-declared values, not validation of the criterion or measurements |
+| Anubis program evidence | 3 | `jackal_anubis_check_program`, `jackal_anubis_verify_program`, `jackal_anubis_verify_program_receipt`; strict `inventory-safe-v1` verification without artifact execution |
 
-Tool schemas are **generated** from the vendored package's own
-`plugin/hermes/tools.json` (`scripts/gen_schemas.py`); CI regenerates
-and requires byte equality, so the registered surface cannot drift from
-the sealed upstream surface.
+The authoritative order, schemas, status classes, dependencies, fragments,
+and refusal boundaries are in `capability_inventory_v1.json` inside the
+vendored package. `scripts/gen_schemas.py` derives this plugin's schemas from
+the same packaged catalog, and CI requires exact inventory/catalog/schema/
+registration equality.
 
-## Security model
+## Assurance boundaries
 
-1. **Admission** (once per process): tarball SHA-256 equals the pin AND
-   the machine-readable `EPOCH.json` receipt; safe extraction into a
-   0700 private tempdir (no traversal, no non-regular members, no
-   Apple-Double); the package's internal `SHA256SUMS` verifies every
-   file with none missing and none extra; the `APPROVED_IDENTITIES`
-   table re-verifies 34 trust-bearing files byte-for-byte; Mach-O arm64
-   magic on the four native binaries; executables locked to 0500.
-2. **Per call**: TOCTOU — the frontend, server, tools.json, engine, and
-   both checkers are re-hashed before AND after every invocation;
-   subprocesses run `shell=False`, `stdin=DEVNULL`, restricted `PATH`,
-   private `HOME`.
-3. **Fail closed**: any mismatch refuses with a stable
-   `plugin-admission-failed` / `plugin-toctou-*` class. The A→B→A gate
-   (`tests/aba_recheck_gate.py`) proves the identity-enforcement pair is
-   load-bearing — and that even with it disabled, the upstream package's
-   own bundle-hash and evaluator-identity layers still refuse tampered
-   bytes (defense in depth, mechanically demonstrated).
+- `formal-bounded` applies only to the named Lean-checker fragment. An
+  unsupported expression refuses; the plugin does not substitute a weaker
+  numerical lane.
+- `bounded`, `checked`, `estimated`, `exact`, and `model-based` retain their
+  catalog-declared meanings. An estimate is not a bound, and exact arithmetic
+  over supplied inputs does not establish that the inputs are true.
+- Source-structure certificates establish declaration or citation structure,
+  not correctness, test execution, assertions, or coverage.
+- Decision certificates order caller-supplied numbers. A declared unit is not
+  a measurement, and the selected criterion remains the caller's.
+- Program verification checks exact source/evidence identities, strict v3
+  rosters, producer-summary reconciliation, approved-Z3 UNSAT replay, and
+  independent RUP replay. It leaves policy-construct totality, source-to-VC,
+  SMT-to-CNF, source-native refinement, runtime behavior, and universal
+  language soundness open.
+- `refused` and `indeterminate` are terminal unless a caller explicitly asks
+  for a separately labeled weaker lane.
 
-## Install
+## Adapter security model
+
+1. Admission reconstructs the declared package parts, verifies the outer
+   package hash and `EPOCH.json`, extracts only regular safe paths into a
+   private `0700` directory, verifies complete internal `SHA256SUMS` closure,
+   checks 53 selected trust-bearing identities, and checks the four native
+   binaries for arm64 Mach-O format.
+2. Each call re-hashes the frontend and nine runtime trust files before and
+   after execution. The subprocess uses `shell=False`, no stdin, a restricted
+   `PATH`, and the private directory as `HOME`.
+3. The adapter requires one JSON object with a `status` field and serializes
+   that parsed runtime object. Admission, argument-length, timeout, execution,
+   and transport failures become named local refusals.
+4. The generated epoch records the skill hash. Generator tests and the plugin
+   manifest detect source drift; runtime package admission itself is not a
+   proof that an operator followed the skill prompt.
+
+The plugin is local native code, not a sandbox.
+
+## Candidate installation for review
+
+Install only an independently reviewed, immutable 40-character candidate
+commit. Do not use a floating branch and do not treat this candidate as the
+published v6 release.
 
 ```bash
-# Pin the EXACT full 40-character release commit from the v5.0.0
-# GitHub Release notes — never a floating branch:
 hermes plugins install AnubisQuantumCipher/hermes-jackal-verified \
-  --force --ref <FULL-40-CHAR-RELEASE-COMMIT> --enable
-
+  --force --ref <FULL-40-CHAR-CANDIDATE-COMMIT> --enable
 hermes plugins doctor jackal-verified --ci
-# expected: registrations: 34 tool(s)
+# expected candidate registration: 41 tool(s)
 ```
 
-**Start a NEW Hermes session after install/upgrade** — tool schemas load
-once per session.
-
-Requirements: Apple Silicon macOS (the vendored engine and checkers are
-arm64 Mach-O; no cross-platform native execution is claimed), Python
-3.11+. After installation everything runs locally — no first-call
-network fetch.
+Start a new Hermes session after install or upgrade because tool schemas are
+loaded once per session. Requirements for the complete 41-tool positive path
+are Apple Silicon macOS 26, Python 3.11 or newer, and the approved Z3 4.15.4
+binary identity. Earlier macOS hosts may run other package lanes, but the
+program verifier will refuse when the approved solver is unavailable or has a
+different hash. The vendored JACKAL package itself runs without a first-call
+download; Z3 is an external program-replay dependency and is not vendored.
 
 ## Usage sketches
 
 ```text
-"what is 0.1 + 0.2 exactly"            → jackal_exact       → exact 3/10
-"derivative of x^3, checked"           → jackal_diff        → checked
-"enclose sqrt(x) on [2,3] with proof"  → jackal_sqrt_rat_bound → formal-bounded + receipt
-"integral of sin(x) on [0,1], proven"  → jackal_integrate_bound_cert → formal-bounded + receipt
-"is 3^100 mod 7 below 7, as evidence"  → jackal_claim       → claim bundle
-"replay this bundle independently"     → jackal_verify_bundle → verified | refused
+"what is 0.1 + 0.2 exactly"              -> jackal_exact -> exact 3/10
+"enclose sqrt(x) on [2,3] with proof"    -> jackal_sqrt_rat_bound
+"replay this formal receipt"             -> jackal_verify_receipt
+"compile and replay this policy claim"   -> jackal_claim + jackal_verify_bundle
+"does this exact file declare this test" -> jackal_test_exists
+"rank these measured latencies in ms"    -> jackal_decision_rank_v2
+"verify this Anubis evidence directory"  -> jackal_anubis_verify_program
 ```
 
-## Migrating from v4.0.0 (33 tools)
+Expected identity values are caller authorization, not data discovery. Never
+copy an `expected_*` value out of the receipt or bundle being verified.
 
-Purely additive: every v4.0.0 tool keeps its exact name and schema
-(`COMPAT_FLOOR_PASS frozen_tools=31 live_tools=34` upstream). New in
-v5.0.0: `jackal_integrate_bound_cert` — call it instead of
-`jackal_integrate_bound` when you need a Lean-checked `formal-bounded`
-composed enclosure over the certified fragment
-(`num/var/neg/add/sub/mul/div/pow/sin/cos/abs` in `x`; everything else
-refuses). Upstream `rat`/`jackal_exact` `approx=` is now a rendering of
-the exact rational (issue jackal#4). Three v3.0.0 names/shapes
-still do not exist (`jackal_differentiate` → `jackal_diff`;
-`jackal_claim_card` → `jackal_claim`; mode-based `jackal_exact` args →
-`{"expression": "..."}`). Formal receipts issued by older epochs keep
-verifying under their original caller-pinned epoch/request
-expectations.
-
-## Tests and verification
+## Verification
 
 ```bash
-python3 tests/test_plugin.py        # unit battery (20 cases)
-python3 tests/test_plugin_v2.py     # poison battery (43 rows, also under -O)
-python3 tests/aba_recheck_gate.py   # A→B→A identity-enforcement gate
-python3 tests/parts_discovery_test.py  # split-part discovery fail-closed battery
+python3 scripts/generate_epoch.py --check
+python3 tests/production_alignment_test.py
+python3 tests/test_plugin.py
+python3 tests/test_plugin_v2.py
+python3 -O tests/test_plugin_v2.py
+python3 tests/parts_discovery_test.py
+python3 tests/aba_recheck_gate.py
 python3 scripts/fresh_install_smoke.py
 python3 scripts/verify_manifest.py
 python3 scripts/release_audit.py
 python3 scripts/gen_schemas.py && git diff --exit-code schemas.py
 ```
 
-CI (`.github/workflows/ci.yml`) runs all of the above on `macos-14`
-(Apple Silicon) against the exact vendored package bytes.
+The unit battery includes positive structural, decision, whole-program, and
+program-receipt replay calls through the Hermes adapter. The hostile battery
+also checks the new identity and unit refusal boundaries. CI runs the same
+candidate gates on a macOS 26 arm64 runner and provisions the exact approved
+Z3 binary from a separately hash-pinned Homebrew bottle.
 
-## Provenance
+## Migration from v5.0.0
 
-- Upstream: `AnubisQuantumCipher/jackal` tag `v1.7.0`, commit
-  `89ee68dcfae72a1ce9b079ea5cf60665c98f7abc`; the vendored tarball is
-  byte-identical to the unauthenticated public release asset (sha256
-  `21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e`).
-- Key identities (full table in `EPOCH.json` and `PROVENANCE.md`):
-  evaluator `jackal-native`
-  `20b80827d3c5c2a5d0d5d6f5a84c692f230fb0f55b9c7d1fcad02a1d0b3a1083`,
-  proved checker `jackal_cert_check`
-  `05c3518b836f239712f897c483a2ddadad9f544e0887b1b7bb1424a27289de8a`,
-  Gaussian checker `jackal_gaussian_check`
-  `ccac690bf916f71a4e3baeb0622dac19aa47e3ca4af858c0800c295581ecfacb`,
-  composed-integral checker `jackal_int_cert_check`
-  `c858e3bfc0ff2809a808170caabbf090077cb54996e76f065dbcd26ffb067d49`.
-- Upstream local evidence: `GATES: PASS (43 gates)` on the release
-  bytes, including 202/202 black-box, 108/108 hostile claim matrix, and
-  49/49 package parity over the v1.7.0 package — see the upstream
-  release's evidence assets.
+The candidate change is additive at the tool-name level: the historical
+v5.0.0 surface had 34 tools, and v6.0.0 adds two source-structure tools, two
+decision tools, and three Anubis program-evidence tools. Existing formal
+receipt compatibility remains governed by the closed registry: current range,
+pure-rational, and composed-integral receipts use the request-bound v1.7.2
+identities; the request-unbound v1.7.0 composed-integral identity remains
+revoked.
 
 ## Non-claims
 
-SHA-256 identifies exact bytes — not authorship, authenticity, or
-mathematical correctness. Finite hostile campaigns are strong bounded
-evidence, not universal theorems. No source→native formal refinement, no
-end-to-end formally verified executable, no replay prevention without an
-external nonce store, no claim that supplied inputs are true in the
-world, no universal soundness outside admitted fragments. See
-`SECURITY.md` and the upstream `PROVENANCE.md` for the full boundary.
+SHA-256 identifies bytes; it is not authorship, authenticity, or mathematical
+correctness. The Lean audit does not prove the compiler, Lean kernel, native
+code, operating system, hardware, or supply chain. Finite hostile campaigns
+are bounded evidence, not universal theorems. No public v1.7.3 or v6.0.0
+release, notarization, cross-platform support, source-to-native refinement,
+runtime execution proof, external nonce store, or real-world input truth is
+claimed here.
+
+See `PROVENANCE.md`, `SECURITY.md`, and `THIRD_PARTY_NOTICES.md` for the exact
+candidate boundary.
 
 ## License
 
-MIT. Upstream JACKAL package: see `THIRD_PARTY_NOTICES.md`.
+MIT. The vendored JACKAL candidate is separately identified in
+`THIRD_PARTY_NOTICES.md`.

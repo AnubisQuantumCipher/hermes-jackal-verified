@@ -9,9 +9,13 @@ import hashlib
 import importlib.util
 import json
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tests"))
+
+from program_fixture import POLICY_SHA256, VERIFY_TIME, make_v3_fixture, sha
 
 
 class Context:
@@ -42,7 +46,7 @@ def main() -> int:
     spec.loader.exec_module(module)
     ctx = Context()
     module.register(ctx)
-    assert len(ctx.tools) == 34, f"expected 34 tools, got {len(ctx.tools)}"
+    assert len(ctx.tools) == 41, f"expected 41 tools, got {len(ctx.tools)}"
     assert ctx.skills == ["jackal-verified-computation"], ctx.skills
     assert ctx.sections, "routing prompt section missing"
 
@@ -80,10 +84,59 @@ def main() -> int:
         "verification_time_unix": "1786752000"}))
     assert verified["status"] == "verified", verified
 
+    structural = json.loads(ctx.tools["jackal_test_exists"]({
+        "file_path": "claim_kernel.py",
+        "file_sha256": (
+            "77b0f85ad5fb7214f88898b60ea29ea9"
+            "fd7be740c38b655388444e6e5181f348"
+        ),
+        "symbol": "canonical_bytes",
+        "declaration_line": "77",
+        "declaration_count": "1",
+    }))
+    assert structural["status"] == "structural-exact", structural
+    assert structural["checker_rerun"] == "ACCEPT", structural
+
+    decision = json.loads(ctx.tools["jackal_decision_rank_v2"]({
+        "decision_id": "fresh_install_v6",
+        "criterion": "latency_ms",
+        "unit": "ms",
+        "sense": "min",
+        "options": "alpha 120 beta 90",
+    }))
+    assert decision["status"] == "exact", decision
+    assert decision["fields"]["selected"] == "beta", decision
+
+    with tempfile.TemporaryDirectory(prefix="jackal-fresh-program-") as td:
+        source, evidence, compiler_sha, artifact_sha, marker = make_v3_fixture(
+            Path(td)
+        )
+        program_args = {
+            "source_path": str(source),
+            "evidence_dir": str(evidence),
+            "expected_source_sha256": sha(source.read_bytes()),
+            "expected_compiler_sha256": compiler_sha,
+            "expected_artifact_sha256": artifact_sha,
+            "expected_policy_sha256": POLICY_SHA256,
+            "verification_time_unix": VERIFY_TIME,
+            "profile": "inventory-safe-v1",
+            "nonce": "fresh-install-v6",
+        }
+        program = json.loads(
+            ctx.tools["jackal_anubis_verify_program"](program_args)
+        )
+        assert program["status"] == "verified-program-evidence", program
+        replay = json.loads(ctx.tools["jackal_anubis_verify_program_receipt"](
+            {**program_args, "receipt": program["receipt"]}
+        ))
+        assert replay["status"] == "verified-program-receipt", replay
+        assert not marker.exists(), "program artifact executed"
+
     print(f"FRESH_INSTALL_PASS tools={len(ctx.tools)} "
           f"skills={len(ctx.skills)} prompt_sections={len(ctx.sections)} "
           f"exact=3/10 formal=sqrt_rat composed=int_cert "
-          f"bundle_replay=verified")
+          f"bundle_replay=verified structural=structural-exact "
+          f"decision=beta program=verified-program-receipt")
     return 0
 
 

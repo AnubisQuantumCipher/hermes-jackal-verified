@@ -1,5 +1,54 @@
 # Changelog
 
+## 6.0.0 candidate — 2026-08-22
+
+**JACKAL v1.7.3 production-alignment candidate: one canonical 41-tool
+inventory across the package, Hermes adapter, Codex adapter, and skills.**
+This entry records reviewable candidate bytes; it does not assert a v1.7.3 or
+v6.0.0 tag or GitHub Release.
+
+- Vendored the reproducible candidate package
+  `jackal-v1.7.3-macos-arm64.tar.gz` (SHA-256
+  `cafab1555d3ea7cf207fd5564464fbe35dfa9288cdd650fe226d9f7633254196`,
+  158,362,119 bytes) as two ordered raw byte parts. Two clean builds from
+  JACKAL commit `a281a6c4675381e99ee185d012eb35127bcd7c3c` were
+  byte-identical; internal `SHA256SUMS` SHA-256 is
+  `df2d71627cbd02a2dfd45beec4c87efc35753de17b98a8e0d76baf7cf13c9cd6`.
+- Expanded the surface additively from the historical v5 34-tool roster to
+  41 tools: `jackal_test_exists`, `jackal_claim_cites_test`,
+  `jackal_decision_rank`, `jackal_decision_rank_v2`,
+  `jackal_anubis_check_program`, `jackal_anubis_verify_program`, and
+  `jackal_anubis_verify_program_receipt`.
+- Added `scripts/generate_epoch.py`. It checks split-part continuity,
+  package size/hash, tar layout, complete internal-manifest closure, exact
+  41-tool inventory/catalog equality, and 53 selected package identities,
+  then generates `EPOCH.json` and the `tools.py` identity block.
+- Regenerated `schemas.py` from the packaged 41-tool catalog and made
+  package inventory, catalog, schema, and `plugin.yaml` equality an explicit
+  production-alignment gate.
+- Kept the adapter semantically neutral: it requires one parsed runtime
+  result object with a status and adds named local refusals for plugin-boundary
+  failures. Existing package-admission and per-call TOCTOU acceptance
+  conditions were not broadened.
+- Added positive Hermes calls for source structure, unit-bearing decision
+  ranking, Anubis whole-program verification, and program-receipt replay.
+  Added identity/unit/compiler refusal controls and ran the hostile battery in
+  normal and optimized Python modes.
+- Moved the full positive hosted gate to macOS 26 arm64 and added deterministic
+  provisioning of the already-approved Z3 4.15.4 Tahoe binary. CI verifies
+  both the Homebrew bottle digest and the exact solver digest; no alternate
+  solver identity was admitted.
+- Updated the bundled `jackal-verified-computation` skill to v7.0.0 with
+  41-tool routing, caller-pin discipline, explicit consequence ceilings,
+  program-evidence residuals, and no-silent-downgrade behavior.
+- Bound the packaged Lean admission audit: 42 tracked Lean files, 27 unique
+  release theorems, zero logical admissions, zero repository axiom
+  declarations, zero forbidden findings, and exact checker identities. The
+  fresh full Lean build passed with non-fatal warnings; no warning-free claim
+  is made.
+- Publication remains gated on the repository's required trust-surface
+  signoff. Candidate evidence is not release authority.
+
 ## 5.0.0 — 2026-08-17
 
 **JACKAL v1.7.0 epoch: 34 tools — the certified composed-integral lane

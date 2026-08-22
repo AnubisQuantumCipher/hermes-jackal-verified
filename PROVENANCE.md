@@ -1,78 +1,137 @@
-# Provenance — jackal-verified v5.0.0
+# Provenance — jackal-verified v6.0.0 candidate
 
-## Upstream root (immutable public release)
+## Status
+
+This document binds an unpublished candidate. It does not assert that a
+JACKAL v1.7.3 tag, JACKAL v1.7.3 GitHub Release, jackal-verified v6.0.0 tag,
+or jackal-verified v6.0.0 GitHub Release exists.
+
+## Upstream candidate root
 
 | Field | Value |
 |---|---|
-| Repository | `https://github.com/AnubisQuantumCipher/jackal` (renamed from `jackal-calc`; old URLs redirect) |
-| Tag | `v1.7.0` (tag object `9014369439d7e92590503f86afd0bfdb4f7aac8d`) |
-| Commit | `89ee68dcfae72a1ce9b079ea5cf60665c98f7abc` |
-| Release asset | `jackal-v1.7.0-macos-arm64.tar.gz` |
-| Asset SHA-256 | `21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e` |
-| Asset size | 118,862,060 bytes |
-| Acquisition | unauthenticated public download; hash matched the release `SHA256SUMS`, the release receipt JSON, and the local double-build of the release commit |
+| Repository | `https://github.com/AnubisQuantumCipher/jackal` |
+| Source build commit | `a281a6c4675381e99ee185d012eb35127bcd7c3c` |
+| Source tree | `4376a42aa70fcf02ffe95b9f3a9c48e68f860477` |
+| Worktree at build | clean |
+| Package builder SHA-256 | `018ba54a921dcb64d98ca953de508ab8dc1d65af5beb30d95ae66cfecff8bf22` |
+| Alignment receipt | `release/evidence/package_alignment_v173_candidate.json` at commit `1f1e628955c5ab805d13273f8fb9c618747d6f7c` |
+| Release state | `v1.7.3-candidate` |
+| Public tag or asset | none asserted |
 
-The vendored copy lives as two raw byte parts
-(`pkg/jackal-v1.7.0-macos-arm64.tar.gz.part00` + `.part01` — GitHub
-rejects single files ≥ 100 MiB); their concatenation is byte-identical
-to that public asset; admission re-verifies the pin, the
-`EPOCH.json` receipt, the package's internal `SHA256SUMS`, and the
-34-row `APPROVED_IDENTITIES` table before any tool executes.
+## Candidate package
 
-## Key pinned identities (full table: `EPOCH.json`)
+| Field | Value |
+|---|---|
+| Name | `jackal-v1.7.3-macos-arm64.tar.gz` |
+| SHA-256 | `cafab1555d3ea7cf207fd5564464fbe35dfa9288cdd650fe226d9f7633254196` |
+| Bytes | 158,362,119 |
+| Extracted bytes | 555,504,965 |
+| Files including `SHA256SUMS` | 106 |
+| Internal `SHA256SUMS` SHA-256 | `df2d71627cbd02a2dfd45beec4c87efc35753de17b98a8e0d76baf7cf13c9cd6` |
+| Capability inventory SHA-256 | `3c58bd162625fdab22803a020592bf1acfeb31dab0d395a5f50b810f249d1c75` |
 
-```text
-evaluator  jackal-native         20b80827d3c5c2a5d0d5d6f5a84c692f230fb0f55b9c7d1fcad02a1d0b3a1083
-checker    jackal_cert_check     05c3518b836f239712f897c483a2ddadad9f544e0887b1b7bb1424a27289de8a
-checker    jackal_gaussian_check ccac690bf916f71a4e3baeb0622dac19aa47e3ca4af858c0800c295581ecfacb
-checker    jackal_int_cert_check c858e3bfc0ff2809a808170caabbf090077cb54996e76f065dbcd26ffb067d49
-frontend   jackal_hermes         e63bb66caf3fd0890c5f4de22a22ce61cc1aec52d4c82432171d87dc6a4d0ec3
-source     jackal_calc.anb       638d28dc9811bb9359af27a1bcc5427717cdf894902011fbb230dc18bac63776
-```
-
-(The v4.0.0 rendering of this table carried a transcription typo in the
-frontend hash; the value above is re-derived from the vendored package's
-own `SHA256SUMS` and matches `EPOCH.json` and `tools.py` exactly.)
-
-## Trust chain (acyclic)
+Two clean builds from the source build commit produced byte-identical
+tarballs and byte-identical extracted directories. The plugin stores the
+candidate package as:
 
 ```text
-core release (tag v1.7.0, commit 89ee68dc…)
-  → core package sha256 21c7ede5…
-  → this plugin commit (pinned in the GitHub Release notes)
-  → MANIFEST.json (jackal-plugin-manifest-v1, seals every tracked file)
-  → EPOCH.json  (jackal-plugin-epoch-receipt-v1, binds upstream → vendored → skill)
-  → bundled skill jackal-verified-computation v6.0.0
+pkg/jackal-v1.7.3-macos-arm64.tar.gz.part00  99,614,720 bytes
+pkg/jackal-v1.7.3-macos-arm64.tar.gz.part01  58,747,399 bytes
 ```
 
-The core package does not reference this plugin.
+Admission hashes the ordered concatenation. There is no acquisition URL
+because no public v1.7.3 release asset is asserted.
 
-## Upstream evidence scope (stated exactly)
+## Selected runtime identities
 
-The upstream release was sealed locally on Apple Silicon macOS with
-`GATES: PASS (43 gates)` — Lean proof builds (now including the
-composed-integral checker `jackal_int_cert_check`, theorem
-`int_cert_sound`), 202/202 black-box acceptance (including the
-jackal#4 `rat approx=` regression pair), 108/108 hostile claim
-matrix, 42/42 receipt-semantic mutations, the int-cert 31-row
-positive/refusal/poison matrix, int-cert A→B→A (enclosure guards
-proof-load-bearing), 5/5 engine differential with an mpmath oracle, and
-49/49 package parity (all 34 tools exercised from the fresh-extracted
-v1.7.0 package). Upstream hosted CI runs a documented subset (Lean
-source closures for all three checker lanes + an engine-free 34-tool
-claim-kernel admission job). This plugin's own CI (macos-14, Apple
-Silicon) runs the plugin batteries against the exact vendored bytes.
+The complete 53-row table is generated into `EPOCH.json` and `tools.py)
+from the package's internal `SHA256SUMS`.
 
-`hermes plugins doctor <plugin> --ci` is expected to report
-`registrations: 34 tool(s)` (see the release notes for the observed
-run).
+```text
+evaluator          jackal-native                   f11f3a429aa64dc0f09eb930e82bc3250e19eeb5a8a74b26b86683fafd72a655
+range checker      jackal_cert_check               f7a82524d082b51a8d66f9bed653b9c8da51b5424386659c9048b9c0ae276545
+Gaussian checker   jackal_gaussian_check           ccac690bf916f71a4e3baeb0622dac19aa47e3ca4af858c0800c295581ecfacb
+integral checker   jackal_int_cert_check           f8347cbd18d520852aff56920d41f5e5b496ff192f584e41d84d1a818ff29617
+Hermes frontend    plugin/hermes/jackal_hermes     e63bb66caf3fd0890c5f4de22a22ce61cc1aec52d4c82432171d87dc6a4d0ec3
+Hermes catalog     plugin/hermes/tools.json         53c823f07db512b82e01a4f132ff43be426b4b227c436e8853c5144ae0504e87
+inventory          capability_inventory_v1.json    3c58bd162625fdab22803a020592bf1acfeb31dab0d395a5f50b810f249d1c75
+Lean audit         evidence/lean_admission_audit_v173.json
+                                                   4c680a6817ccfe27da254c5244e5ffc06469ed37a910ea61303abf8125bb3459
+program verifier   tools/anubis_program_verify.py  a0dbf14b6157de3f2f789fa54190e015575bafc2e1182ba3d30186afcb45e89a
+program policy     program/inventory_safe_v1.json  361979bf89b7c71a4b2c692d64756548833a2c363c269511b037726cab3ebacb
+approved Z3        /opt/homebrew/bin/z3             ae6c8df33db9ec5971749daf943567c204ed9f2d3001edbd46599f4540d7d6
+```
 
-## Non-claims
+## Capability alignment
 
-SHA-256 identifies exact bytes only. Finite campaigns are bounded
-evidence, not universal theorems. No source→native refinement, no
-end-to-end formally verified executable, no replay prevention without an
-external nonce store, no real-world input truth, no universal soundness
-outside admitted fragments. The upstream producer for the composed
-integral is untrusted by design; its fidelity to the engine's float
-`bound_step` is differential-tested, not proved.
+The candidate package inventory and packaged Hermes catalog each contain the
+same ordered 41 unique names. The plugin's generated `schemas.py` contains
+the same 41 schemas, and `plugin.yaml` declares the same name set. The
+inventory records kernel, Hermes, and Codex exposure, supported fragments,
+status classes, refusal boundaries, and dependency identities.
+
+The package-alignment receipt records:
+
+- 11 live package-unification tests with zero skips;
+- 60 package-parity rows with zero failures;
+- 216 Codex-plugin repository tests;
+- isolated Codex live acceptance discovering 41 tools and observing exact,
+  formal-bounded, producer-refused, claim-bundle verified, and formal-receipt
+  verified outcomes;
+- Codex wrapper aggregate SHA-256
+  `321344d89a8de3db17a18ed37eddd4789ca65e58754ebb0aadea415fff218885`.
+
+Those are bounded executions over the named bytes, not universal correctness
+claims.
+
+## Lean admission audit
+
+The packaged `jackal-lean-admission-audit-v1` record has semantic digest
+`c4d4440b8aa472f3fa2db682e4cff1144683b003e815e41d795a831b9fda57cf`.
+It binds 42 tracked Lean source files, 27 unique release theorems, the three
+checker binaries above, and exact theorem-axiom output.
+
+Observed audit result:
+
+- zero logical admissions;
+- zero repository axiom declarations;
+- zero unexpected or forbidden constructs;
+- each release theorem reports only `propext`, `Classical.choice`, and
+  `Quot.sound`;
+- 37 `noncomputable` occurrences are classified as non-admissions;
+- two allowlisted `implemented_by` occurrences are dump-only runtime mirrors
+  and are outside the three checker roots.
+
+A fresh full Lean build completed 17,369 jobs with exit status 0. The build
+emitted non-fatal warnings; this record does not claim a warning-free build.
+
+## Plugin generation and sealing
+
+`scripts/generate_epoch.py` independently checks package size/hash, split
+part continuity, tar layout, complete internal-manifest closure, exact
+inventory/catalog equality, and all selected package identities. It generates
+`EPOCH.json` and the identity table in `tools.py`.
+
+`scripts/gen_schemas.py` generates `schemas.py` from the packaged catalog.
+`MANIFEST.json` seals the plugin repository files after generation. The
+bundled skill is v7.0.0; its exact SHA-256 is stored in `EPOCH.json` and is
+checked by generation/tests. Package admission does not prove that a human or
+agent obeyed the skill.
+
+The program verifier's approved Z3 4.15.4 binary was built for macOS 26. Full
+positive program-verification CI therefore uses the `macos-26` arm64 runner.
+CI downloads Homebrew's Tahoe bottle by blob digest
+`9f57f90f63a0995a9b56b6f4c94a1c29bd8fd9a474e09f78cba7f64aaf25708c`
+and separately verifies the binary SHA-256 above before installation. Z3 is a
+runtime replay dependency, not part of the vendored JACKAL tarball.
+
+## Residual boundary
+
+SHA-256 identifies exact bytes only. Neither local build observation nor a
+hash authenticates the builder. The Lean audit does not prove the compiler,
+Lean kernel, native-code extraction, operating system, hardware, or supply
+chain. Program-evidence verification intentionally leaves policy-construct
+totality, source-to-VC, SMT-to-CNF, source-native refinement, runtime behavior,
+and universal language soundness unproved. Candidate evidence is not release
+authority.

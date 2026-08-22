@@ -1,33 +1,32 @@
-"""jackal-verified — typed, receipt-bearing access to the sealed JACKAL
-v1.7.0 Mathematical Evidence Kernel (34 tools, pass-through adapter)."""
+"""Hermes adapter for the reproducible 41-tool JACKAL v1.7.3 candidate."""
 from __future__ import annotations
 
 from pathlib import Path
 
 from . import schemas, tools
 
-_ROUTING_RULES = """JACKAL verified computation routing:
-- Known single lane? Call the direct typed tool: exact rationals ->
-  jackal_exact; IEEE evaluation -> jackal_evaluate; checked derivative ->
-  jackal_diff; integration estimate/enclosure -> jackal_integrate /
-  jackal_integrate_adaptive / jackal_integrate_bound; proved interval
-  enclosures -> jackal_range_bound, jackal_gaussian_integral, the
-  certified composed integral jackal_integrate_bound_cert (v1.7.0,
-  theorem int_cert_sound; certified fragment num/var/neg/add/sub/mul/
-  div/pow/sin/cos/abs — everything else refuses), and the
-  pure-Q lanes jackal_{sqrt,exp,ln,sin,cos,atan,tanh}_rat_bound; exact
-  CAS -> jackal_canon/poly_*/ratfunc_canon/roots_isolate/alg_*/xgcd/
-  mod_pow/mod_inv/crt/divides/prime_cert.
-- Mixed, policy-bearing, or consequential multi-step claims ->
-  jackal_claim compiles one deterministic content-addressed evidence
-  bundle (never a bare VERIFIED).
-- Independent replay of a claim bundle -> jackal_verify_bundle with
-  CALLER-pinned epoch/root-proposition/policy/time; formal receipts ->
-  jackal_verify_receipt (re-runs the pinned Lean-proved checker).
-- Statuses pass through verbatim (exact/checked/estimated/bounded/
-  formal-bounded/model-based/refused/indeterminate). Refusal and
-  indeterminate are valid terminal outcomes. Never silently downgrade,
-  never upgrade, never substitute mental arithmetic for a refused lane.
+_ROUTING_RULES = """JACKAL v1.7.3 candidate routing (41-tool inventory):
+- Route a known single operation to its exact typed tool: exact/CAS and
+  number theory, checked derivatives, estimated or bounded integration,
+  or the checker-admitted formal-bounded range/Gaussian/composed/rational
+  fragments. Unsupported fragments refuse.
+- Route byte-exact source/test structure to jackal_test_exists or
+  jackal_claim_cites_test. These establish only the declared structural
+  fact. Route caller-declared numeric option ordering to
+  jackal_decision_rank or the closed-unit jackal_decision_rank_v2; neither
+  establishes that the criterion or supplied values are correct.
+- Route mixed, policy-bearing, or consequential multi-step claims through
+  jackal_claim, then independently replay with jackal_verify_bundle using
+  caller-pinned epoch, proposition, policy, and time. Replay formal receipts
+  with jackal_verify_receipt and independent caller expectations.
+- Route Anubis Safe-source evidence to jackal_anubis_verify_program or its
+  receipt verifier. jackal_anubis_check_program requires the caller-pinned
+  approved compiler. No program route executes the artifact; inventory-safe-v1
+  leaves construct totality, source-to-VC, SMT-to-CNF, source-native,
+  runtime-observation, and universal-soundness residuals open.
+- Inspect status before value. Refused and indeterminate are terminal unless
+  the caller explicitly requests a separate weaker lane. Never silently
+  downgrade or substitute model arithmetic for a refused deterministic lane.
 """
 
 

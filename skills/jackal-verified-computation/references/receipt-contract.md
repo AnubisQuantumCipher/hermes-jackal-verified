@@ -1,42 +1,64 @@
-# Evidence contracts (v1.7.0 kernel, plugin v5.0.0)
+# JACKAL evidence contracts (v1.7.3 candidate)
 
-The plugin passes upstream responses through verbatim. Three evidence
-shapes matter:
+The canonical per-tool facts are generated in
+`release/capability_inventory_v1.json`. A package or plugin adapter may copy a
+runtime result object, but the status becomes evidence only through the
+runtime's named checker/verifier path and its pinned identities.
 
-## Weaker/exact lanes
-`{status, lane, formal: false, fields, engine_output, identities,
-non_claims, assurance}` — `status` is the honest inventory-derived class
-(`exact | checked | estimated | bounded | model-based | refused |
-indeterminate`); status inflation is structurally impossible; exact-CAS
-lanes additionally carry a `jackal-exact-cert-v1` certificate that is
-independently re-checkable.
+## Result classes
 
-## Formal lanes
-`{status: "formal-bounded", variant, receipt, checker_output,
-checker_rerun}` where `receipt` is a canonical `jackal-formal-receipt-v1`
-with `variant = range | gaussian | int_cert | sqrt_rat | exp_rat | ln_rat
-| sin_rat | cos_rat | atan_rat | tanh_rat`, the embedded certificate,
-pinned producer/checker/evaluator identities, and theorem
-`request_bound_certified_release` (range + `_rat` variants),
-`gaussian_integral_check_sound` (gaussian), or `int_cert_sound`
-(int_cert — the v1.7.0 certified composed definite integral, checked by
-the compiled `jackal_int_cert_check`; expected_tolerance is required at
-verification exactly like gaussian). `jackal_verify_receipt`
-re-runs the variant-selected pinned Lean-proved checker on the embedded
-certificate bytes with caller-pinned expectations — recomputing either
-outer digest alone is never sufficient.
+- `exact`: deterministic exact output inside the declared grammar; it is not a
+  Lean theorem unless a separate formal lane says so.
+- `checked`: sampled or challenged agreement, not an identity proof.
+- `estimated`: a numerical estimate, never a bound.
+- `bounded`: an enclosure conditional on the stated arithmetic/libm model.
+- `formal-bounded`: a checker-accepted certificate inside one declared formal
+  fragment.
+- `model-based`: conditional on explicit model assumptions.
+- `structural-exact`: byte-exact structure with an informational consequence
+  ceiling; not correctness or coverage.
+- `verified-program-evidence` / `verified-program-receipt`: replayed
+  inventory-safe-v1 evidence; not formal-bounded and not runtime behavior.
+- `refused` / `indeterminate`: no released mathematical value.
+
+## Formal receipts
+
+A canonical `jackal-formal-receipt-v1` binds variant, exact request,
+certificate bytes and digest, producer/evaluator/checker identities, theorem,
+coverage, assumptions, and non-claims. The dedicated verifier re-runs the
+variant-selected checker against caller-pinned expectations. Range and
+pure-rational variants use expected command `range-bound-cert`; Gaussian uses
+`integrate`; composed integral uses `integrate-bound-cert` and binds tolerance.
+The request-unbound v1.7.0 composed-integral identity is revoked.
 
 ## Claim bundles
-`jackal_claim` → `{status: "ok", root, bundle_digest_sha256, rendering,
-permitted_text, route_trace, bundle}` with a canonical
-`jackal-claim-bundle-v1` graph. `jackal_verify_bundle` replays it under
-CALLER-pinned `expected_release_epoch`, `expected_root_proposition`,
-`expected_policy_sha256`, `verification_time_unix` (and optional nonce):
-every node hash, rule application, assurance axis, consequence floor,
-and rendering is recomputed; the result is `verified | refused |
-indeterminate` with a stable reason class — never a bare VERIFIED badge.
 
-Negative controls: a mutated node refuses `node-id-mismatch`; a swapped
-variant/theorem/identity refuses; producer-authored statuses are never
-trusted; refusals are terminal unless the caller explicitly accepts a
-weaker lane.
+`jackal_claim` produces a content-addressed `jackal-claim-bundle-v1` graph.
+`jackal_verify_bundle` recomputes nodes, rules, assurance axes, consequence
+floors, and rendering under caller-pinned epoch, policy digest, root
+proposition, verification time, and nonce. Never copy those expectations from
+the bundle being reviewed.
+
+## Structural and decision certificates
+
+Source-structure certificates bind exact file bytes and declaration/citation
+facts, but never claim that a test executes, passes, asserts anything, or
+covers prose. Decision certificates recompute an ordering over caller-declared
+criterion, values, sense, and, for v2, a canonical unit. A unit is not a
+measurement; the arithmetic does not validate the criterion or values.
+
+## Program evidence
+
+Program receipts bind caller-selected Safe source, strict v3 evidence bytes,
+compiler, artifact, policy, verification time, profile, and nonce. Independent
+verification replays approved Z3 UNSAT and RUP proof bytes without executing
+the artifact. It does not establish source-to-VC, SMT-to-CNF,
+policy-construct-totality, source-native refinement, runtime behavior, or
+universal language soundness.
+
+## Negative controls
+
+Require pristine → tamper → pristine replay. Mutated request, epoch, policy,
+root proposition, unit, node, certificate, checker identity, program roster,
+artifact pin, or outer receipt semantics must refuse. Recomputing an unkeyed
+outer digest never rescues semantic poison.

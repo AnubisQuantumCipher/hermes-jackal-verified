@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit battery for the v5.0.0 pass-through adapter (34 tools)."""
+"""Unit battery for the v6.0.0 candidate adapter (41 tools)."""
 from __future__ import annotations
 
 import importlib.util
@@ -7,8 +7,11 @@ import json
 import os
 import sys
 import tarfile
+import tempfile
 import unittest
 from pathlib import Path
+
+from program_fixture import POLICY_SHA256, VERIFY_TIME, make_v3_fixture, sha
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -59,8 +62,8 @@ class JackalPluginTests(unittest.TestCase):
         cls.by_name = {name: handler for name, _, handler in cls.ctx.tools}
 
     # -- registration surface ------------------------------------------
-    def test_registers_exactly_34_tools_skill_and_routing(self):
-        self.assertEqual(len(self.ctx.tools), 34)
+    def test_registers_exactly_41_tools_skill_and_routing(self):
+        self.assertEqual(len(self.ctx.tools), 41)
         self.assertEqual(sorted(self.by_name), sorted(schemas.ALL_TOOLS))
         self.assertIn("jackal_claim", self.by_name)
         self.assertIn("jackal_verify_bundle", self.by_name)
@@ -68,8 +71,11 @@ class JackalPluginTests(unittest.TestCase):
         self.assertEqual([n for n, _ in self.ctx.skills],
                          ["jackal-verified-computation"])
         routing = self.ctx.sections[0][1]
-        self.assertIn("Never silently downgrade", routing)
+        self.assertIn("Never silently downgrade", " ".join(routing.split()))
         self.assertIn("jackal_verify_bundle", routing)
+        self.assertIn("jackal_test_exists", routing)
+        self.assertIn("jackal_decision_rank_v2", routing)
+        self.assertIn("jackal_anubis_verify_program", routing)
 
     def test_schemas_match_vendored_tools_json(self):
         import io
@@ -248,6 +254,69 @@ class JackalPluginTests(unittest.TestCase):
         ver2 = call(self.by_name["jackal_verify_bundle"], bad)
         self.assertEqual(ver2["status"], "refused")
         self.assertIn("node-id-mismatch", json.dumps(ver2))
+
+    # -- domain packs and Anubis program evidence ------------------------
+    def test_structural_and_decision_families_round_trip(self):
+        structural = call(self.by_name["jackal_test_exists"], {
+            "file_path": "claim_kernel.py",
+            "file_sha256": (
+                "77b0f85ad5fb7214f88898b60ea29ea9"
+                "fd7be740c38b655388444e6e5181f348"
+            ),
+            "symbol": "canonical_bytes",
+            "declaration_line": "77",
+            "declaration_count": "1",
+        })
+        self.assertEqual(structural["status"], "structural-exact", structural)
+        self.assertEqual(structural["checker_rerun"], "ACCEPT", structural)
+        self.assertEqual(structural["consequence_ceiling"], "informational")
+
+        decision = call(self.by_name["jackal_decision_rank_v2"], {
+            "decision_id": "plugin_v6",
+            "criterion": "latency_ms",
+            "unit": "ms",
+            "sense": "min",
+            "options": "alpha 120 beta 90",
+        })
+        self.assertEqual(decision["status"], "exact", decision)
+        self.assertEqual(decision["checker_rerun"], "ACCEPT", decision)
+        self.assertEqual(decision["fields"]["selected"], "beta")
+        self.assertEqual(decision["consequence_ceiling"], "decision-boundary")
+
+    def test_anubis_program_verify_and_receipt_replay(self):
+        with tempfile.TemporaryDirectory(prefix="jackal-hermes-program-") as td:
+            source, evidence, compiler_sha, artifact_sha, marker = make_v3_fixture(
+                Path(td)
+            )
+            arguments = {
+                "source_path": str(source),
+                "evidence_dir": str(evidence),
+                "expected_source_sha256": sha(source.read_bytes()),
+                "expected_compiler_sha256": compiler_sha,
+                "expected_artifact_sha256": artifact_sha,
+                "expected_policy_sha256": POLICY_SHA256,
+                "verification_time_unix": VERIFY_TIME,
+                "profile": "inventory-safe-v1",
+                "nonce": "hermes-v6-positive",
+            }
+            verified = call(
+                self.by_name["jackal_anubis_verify_program"], arguments
+            )
+            self.assertEqual(
+                verified["status"], "verified-program-evidence", verified
+            )
+            self.assertIn(
+                "policy-construct-totality-not-established",
+                verified["receipt"]["residual_non_claims"],
+            )
+            replay = call(
+                self.by_name["jackal_anubis_verify_program_receipt"],
+                {**arguments, "receipt": verified["receipt"]},
+            )
+            self.assertEqual(
+                replay["status"], "verified-program-receipt", replay
+            )
+            self.assertFalse(marker.exists(), "plugin executed the artifact")
 
     # -- plugin-boundary fail-closed gates --------------------------------
     def test_package_identity_poison_fails_admission(self):

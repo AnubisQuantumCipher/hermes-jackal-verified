@@ -1,13 +1,36 @@
 # Third-party notices
 
-## JACKAL (vendored release package)
+## JACKAL candidate package
 
 - Source: `https://github.com/AnubisQuantumCipher/jackal`
-- Release: `v1.7.0` (commit `89ee68dcfae72a1ce9b079ea5cf60665c98f7abc`)
-- Artifact: `pkg/jackal-v1.7.0-macos-arm64.tar.gz`
-  (sha256 `21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e`)
-- URL: `https://github.com/AnubisQuantumCipher/jackal/releases/download/v1.7.0/jackal-v1.7.0-macos-arm64.tar.gz`
-- License: MIT (see the upstream repository)
+- Source build commit:
+  `a281a6c4675381e99ee185d012eb35127bcd7c3c`
+- Alignment receipt commit:
+  `1f1e628955c5ab805d13273f8fb9c618747d6f7c`
+- Candidate artifact: `jackal-v1.7.3-macos-arm64.tar.gz`
+- SHA-256:
+  `cafab1555d3ea7cf207fd5564464fbe35dfa9288cdd650fe226d9f7633254196`
+- Size: 158,362,119 bytes
+- Vendored representation:
+  `pkg/jackal-v1.7.3-macos-arm64.tar.gz.part00` and `.part01`
+- Release state: unpublished `v1.7.3-candidate`; no public release URL is
+  asserted
+- License: MIT; see the upstream source repository and package notices
+
+The two vendored files are ordered raw byte parts. Their concatenation is the
+candidate artifact identified above.
+
+## Z3 program-replay dependency
+
+- Source: `https://github.com/Z3Prover/z3`
+- Version: 4.15.4
+- License: MIT
+- Approved macOS 26 arm64 binary SHA-256:
+  `ae6c8df33db9ec5971749daf943567c204ed9f2d3001edbd46599f4540d7d6`
+- CI Homebrew bottle SHA-256:
+  `9f57f90f63a0995a9b56b6f4c94a1c29bd8fd9a474e09f78cba7f64aaf25708c`
+- Vendoring: not vendored; CI provisions and verifies the exact external
+  replay dependency
 
 ## Hermes Agent
 

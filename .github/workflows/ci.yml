@@ -10,8 +10,8 @@ permissions:
 
 jobs:
   verify:
-    name: Verify plugin (Apple Silicon)
-    runs-on: macos-14
+    name: Verify plugin (macOS 26 arm64)
+    runs-on: macos-26
     timeout-minutes: 45
     steps:
       - name: Check out exact revision
@@ -22,15 +22,40 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Provision the approved Z3 replay identity
+        env:
+          Z3_BOTTLE_SHA256: 9f57f90f63a0995a9b56b6f4c94a1c29bd8fd9a474e09f78cba7f64aaf25708c
+          Z3_BINARY_SHA256: ae6c8df33db9c9ae9a80b6044e77cd66529a141d8b25f0620f1e89b409594f48
+        run: |
+          set -euo pipefail
+          z3_dir="$RUNNER_TEMP/z3-4.15.4-tahoe"
+          mkdir -p "$z3_dir"
+          ghcr_token="$(curl -fsSL \
+            'https://ghcr.io/token?service=ghcr.io&scope=repository:homebrew/core/z3:pull' \
+            | jq -r .token)"
+          curl -fsSL \
+            -H "Authorization: Bearer ${ghcr_token}" \
+            'https://ghcr.io/v2/homebrew/core/z3/blobs/sha256:9f57f90f63a0995a9b56b6f4c94a1c29bd8fd9a474e09f78cba7f64aaf25708c' \
+            -o "$z3_dir/z3.tar.gz"
+          test "$(shasum -a 256 "$z3_dir/z3.tar.gz" | cut -d' ' -f1)" \
+            = "$Z3_BOTTLE_SHA256"
+          tar -xzf "$z3_dir/z3.tar.gz" -C "$z3_dir"
+          test "$(shasum -a 256 "$z3_dir/z3/4.15.4/bin/z3" | cut -d' ' -f1)" \
+            = "$Z3_BINARY_SHA256"
+          sudo install -m 0755 "$z3_dir/z3/4.15.4/bin/z3" /opt/homebrew/bin/z3
+          test "$(shasum -a 256 /opt/homebrew/bin/z3 | cut -d' ' -f1)" \
+            = "$Z3_BINARY_SHA256"
+          /opt/homebrew/bin/z3 --version
+
       - name: Verify platform and pinned JACKAL package identity
         run: |
           test "$(uname -m)" = "arm64"
           # vendored as raw byte parts (GitHub 100 MiB limit); the pin is
-          # over the concatenation = the published release asset bytes
-          test "$(cat pkg/jackal-v1.7.0-macos-arm64.tar.gz.part00 \
-                      pkg/jackal-v1.7.0-macos-arm64.tar.gz.part01 \
+          # over the concatenation = the reproducible candidate bytes
+          test "$(cat pkg/jackal-v1.7.3-macos-arm64.tar.gz.part00 \
+                      pkg/jackal-v1.7.3-macos-arm64.tar.gz.part01 \
                   | shasum -a 256 | cut -d' ' -f1)" \
-            = "21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e"
+            = "cafab1555d3ea7cf207fd5564464fbe35dfa9288cdd650fe226d9f7633254196"
 
       - name: Verify epoch receipt binds the vendored package
         run: |
@@ -38,10 +63,14 @@ jobs:
           import json
           d = json.load(open("EPOCH.json"))
           assert d["schema"] == "jackal-plugin-epoch-receipt-v1"
-          assert d["upstream"]["release_epoch"] == "v1.7.0"
+          assert d["upstream"]["release_epoch"] == "v1.7.3"
+          assert d["upstream"]["release_state"] == "candidate"
+          assert d["upstream"]["tag"] is None
+          assert d["upstream"]["release_url"] is None
           assert d["vendored"]["sha256"] == \
-              "21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e"
-          assert d["plugin"]["version"] == "5.0.0"
+              "cafab1555d3ea7cf207fd5564464fbe35dfa9288cdd650fe226d9f7633254196"
+          assert d["plugin"]["version"] == "6.0.0"
+          assert d["tools"]["count"] == 41
           print("EPOCH_RECEIPT_OK")
           PY
 
@@ -53,10 +82,16 @@ jobs:
           python3 scripts/gen_schemas.py
           git diff --exit-code schemas.py
 
-      - name: Unit battery (18 cases)
+      - name: Epoch and selected identities are generated (no drift)
+        run: python3 scripts/generate_epoch.py --check
+
+      - name: Production alignment contract (6 cases)
+        run: python3 tests/production_alignment_test.py
+
+      - name: Unit battery (22 cases)
         run: python3 tests/test_plugin.py
 
-      - name: Poison battery (43 rows)
+      - name: Poison battery (48 rows)
         run: python3 tests/test_plugin_v2.py
 
       - name: Poison battery under -O (optimized parity)

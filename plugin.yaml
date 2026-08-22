@@ -1,19 +1,17 @@
 name: jackal-verified
-version: "5.0.0"
+version: "6.0.0"
 manifest_version: 1
 api_version: 1
 description: >-
-  Typed, receipt-bearing access to the sealed JACKAL v1.7.0 Mathematical
-  Evidence Kernel: 34 tools — ten proof-carrying formal-bounded lanes
-  (range, gaussian, the v1.7.0 certified composed integral int_cert,
-  sqrt_rat, exp_rat, ln_rat, sin_rat, cos_rat, atan_rat,
-  tanh_rat) whose receipts are re-verified by pinned Lean-proved checkers,
-  twenty-one honest weaker/exact-CAS lanes with status passthrough that
-  never inflates, independent receipt verification, and the
-  claim-kernel front doors jackal_claim / jackal_verify_bundle for
-  compiling and independently replaying content-addressed evidence
-  bundles. Every call runs inside an admitted, hash-pinned private
-  snapshot of the public v1.7.0 release package.
+  Typed adapter for the reproducible JACKAL v1.7.3 candidate: 41 tools
+  derived from the package catalog, including exact and numerical lanes,
+  Lean-checked formal-bounded lanes, claim compilation and replay,
+  structural and decision checks, and caller-pinned Anubis program-evidence
+  verification. Each call invokes the vendored runtime frontend inside an
+  admitted private snapshot. The adapter parses one runtime result object;
+  admission, argument-length, timeout, execution, and transport failures
+  produce named local refusals. Candidate state does not assert a public
+  v1.7.3 tag or release asset.
 author: Anubis Quantum Cipher
 license: MIT
 kind: standalone
@@ -21,11 +19,17 @@ tags: [mathematics, verification, formal-methods, interval-arithmetic, evidence]
 provides_tools:
   - jackal_alg_cmp
   - jackal_alg_sign
+  - jackal_anubis_check_program
+  - jackal_anubis_verify_program
+  - jackal_anubis_verify_program_receipt
   - jackal_atan_rat_bound
   - jackal_canon
   - jackal_claim
+  - jackal_claim_cites_test
   - jackal_cos_rat_bound
   - jackal_crt
+  - jackal_decision_rank
+  - jackal_decision_rank_v2
   - jackal_diff
   - jackal_divides
   - jackal_evaluate
@@ -50,6 +54,7 @@ provides_tools:
   - jackal_solve
   - jackal_sqrt_rat_bound
   - jackal_tanh_rat_bound
+  - jackal_test_exists
   - jackal_verify_bundle
   - jackal_verify_receipt
   - jackal_xgcd

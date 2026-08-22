@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""v4.0.0 poison battery: surface parity, refusal passthrough, formal
-variant round trips, receipt/bundle semantic poisons.  Exit-code driven;
-run under default python AND `python3 -O` (optimized parity)."""
+"""v6.0.0 candidate poison battery: surface parity, refusal behavior,
+formal variants, new-family pins, and receipt/bundle semantic poisons.
+Exit-code driven; run under default Python and `python3 -O`."""
 from __future__ import annotations
 
 import importlib.util
@@ -68,7 +68,7 @@ def main() -> int:
         doc = json.loads(tf.extractfile(
             f"{tools.PKG_DIRNAME}/plugin/hermes/tools.json").read())
     upstream = sorted(t["name"] for t in doc["tools"])
-    record("inventory-34", len(CTX.tools) == 34, f"n={len(CTX.tools)}")
+    record("inventory-41", len(CTX.tools) == 41, f"n={len(CTX.tools)}")
     record("inventory-parity", sorted(CTX.tools) == upstream)
     record("schemas-generated-parity",
            sorted(schemas.ALL_TOOLS) == upstream)
@@ -144,7 +144,7 @@ def main() -> int:
             record(f"{variant}-poison-{pname}",
                    out.get("status") == "refused", out.get("reason", ""))
 
-    # -- v1.7.0 certified composed-integral lane ---------------------------
+    # -- certified composed-integral lane ----------------------------------
     ic = call("jackal_integrate_bound_cert",
               {"expression": "sin(x)", "input_lo": "0", "input_hi": "1",
                "tolerance": "1/100"})
@@ -237,6 +237,73 @@ def main() -> int:
     record("bundle-node-tamper-refuses",
            v.get("status") == "refused"
            and "node-id-mismatch" in json.dumps(v))
+
+    # -- new domain/program families are reachable and fail closed --------
+    structural = call("jackal_test_exists", {
+        "file_path": "claim_kernel.py",
+        "file_sha256": (
+            "77b0f85ad5fb7214f88898b60ea29ea9"
+            "fd7be740c38b655388444e6e5181f348"
+        ),
+        "symbol": "canonical_bytes",
+        "declaration_line": "77",
+        "declaration_count": "1",
+    })
+    record("structural-family-positive",
+           structural.get("status") == "structural-exact"
+           and structural.get("checker_rerun") == "ACCEPT")
+    bad_structural = call("jackal_test_exists", {
+        "file_path": "claim_kernel.py",
+        "file_sha256": "0" * 64,
+        "symbol": "canonical_bytes",
+        "declaration_line": "77",
+        "declaration_count": "1",
+    })
+    record("structural-file-pin-bites",
+           bad_structural.get("status") == "refused",
+           bad_structural.get("reason", ""))
+
+    decision = call("jackal_decision_rank_v2", {
+        "decision_id": "plugin_v6",
+        "criterion": "latency_ms",
+        "unit": "ms",
+        "sense": "min",
+        "options": "alpha 120 beta 90",
+    })
+    record("decision-v2-family-positive",
+           decision.get("status") == "exact"
+           and decision.get("fields", {}).get("selected") == "beta")
+    bad_decision = call("jackal_decision_rank_v2", {
+        "decision_id": "plugin_v6",
+        "criterion": "latency_ms",
+        "unit": "millisecond",
+        "sense": "min",
+        "options": "alpha 120 beta 90",
+    })
+    record("decision-v2-unit-pin-bites",
+           bad_decision.get("status") == "refused",
+           bad_decision.get("reason", ""))
+
+    program = call("jackal_anubis_check_program", {
+        "source_path": str(ROOT / "tests/test_plugin.py"),
+        "anubis_bin": "/bin/echo",
+        "expected_source_sha256": hashlib.sha256(
+            (ROOT / "tests/test_plugin.py").read_bytes()).hexdigest(),
+        "expected_compiler_sha256": hashlib.sha256(
+            Path("/bin/echo").read_bytes()).hexdigest(),
+        "expected_policy_sha256": (
+            "1b94350a6d23e9d76a917f05f0a53ae9"
+            "e0ccf861bc6aee71342967ce1dccb090"
+        ),
+        "verification_time_unix": "1787227290",
+        "profile": "inventory-safe-v1",
+        "nonce": "hermes-v6-refusal",
+        "out_root": str(ROOT / ".must-not-be-created-by-refusal"),
+    })
+    record("program-family-approved-compiler-pin-bites",
+           program.get("status") == "refused"
+           and program.get("reason") == "compiler-not-approved",
+           program.get("reason", ""))
 
     failures = [name for name, ok, _ in RESULTS if not ok]
     print(f"VERDICT: {'PASS' if not failures else 'FAIL'} "

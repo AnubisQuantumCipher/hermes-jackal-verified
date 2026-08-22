@@ -2,19 +2,19 @@
   "forgeries": {
     "evaluator-appended": {
       "A_post": {
-        "detail": "pinned identity mismatch: jackal-native: 50e5ee32729f72be57961ccaeb10d135d37ce04b6dee3e875a39ded8368bc7e6",
+        "detail": "pinned identity mismatch: jackal-native: 98ad063b2dbb5d9a53214f7da2f8e8054d6ce785c119c24d659268aa3db31041",
         "reason": "plugin-admission-failed",
         "status": "refused"
       },
       "A_post_refused": true,
       "A_pre": {
-        "detail": "pinned identity mismatch: jackal-native: 50e5ee32729f72be57961ccaeb10d135d37ce04b6dee3e875a39ded8368bc7e6",
+        "detail": "pinned identity mismatch: jackal-native: 98ad063b2dbb5d9a53214f7da2f8e8054d6ce785c119c24d659268aa3db31041",
         "reason": "plugin-admission-failed",
         "status": "refused"
       },
       "A_pre_refused_for_reason": true,
       "B": {
-        "detail": "50e5ee32729f72be57961ccaeb10d135d37ce04b6dee3e875a39ded8368bc7e6 != pinned 20b80827d3c5c2a5d0d5d6f5a84c692f230fb0f55b9c7d1fcad02a1d0b3a1083",
+        "detail": "98ad063b2dbb5d9a53214f7da2f8e8054d6ce785c119c24d659268aa3db31041 != pinned f11f3a429aa64dc0f09eb930e82bc3250e19eeb5a8a74b26b86683fafd72a655",
         "reason": "evaluator-identity",
         "status": "refused"
       },
@@ -34,7 +34,7 @@
       },
       "A_pre_refused_for_reason": true,
       "B": {
-        "detail": "current d820c6cc1c80804e2939544768b7371aa924207ca4eaafc6cd1f42b9d242b31d startup d820c6cc1c80804e2939544768b7371aa924207ca4eaafc6cd1f42b9d242b31d pinned d141c909e8f5f03e268a2112f291e6bd79fafff906522eb7ca9accc247a3274b",
+        "detail": "current dd692a1f7e822f22bb0c02b217f81682a4fef5c983e1e85fcaaf7ec6de24efa9 startup dd692a1f7e822f22bb0c02b217f81682a4fef5c983e1e85fcaaf7ec6de24efa9 pinned 03567f3d97447af40a1ecd2084424ddbe7a5a98030ad55a6b327849ab76f00b4",
         "reason": "plugin-bundle-mismatch",
         "status": "refused"
       },
@@ -49,19 +49,19 @@
     },
     "server-py-mutated": {
       "A_post": {
-        "detail": "pinned identity mismatch: plugin/hermes/server.py: c38e1d2192c62de5a4e5b7ddb03c0458916ee787f070018fb618f95cb645e903",
+        "detail": "pinned identity mismatch: plugin/hermes/server.py: 3abb3b60eb27243dc9fe844a3e286a776bee7bf5228f8251f820580e60efe228",
         "reason": "plugin-admission-failed",
         "status": "refused"
       },
       "A_post_refused": true,
       "A_pre": {
-        "detail": "pinned identity mismatch: plugin/hermes/server.py: c38e1d2192c62de5a4e5b7ddb03c0458916ee787f070018fb618f95cb645e903",
+        "detail": "pinned identity mismatch: plugin/hermes/server.py: 3abb3b60eb27243dc9fe844a3e286a776bee7bf5228f8251f820580e60efe228",
         "reason": "plugin-admission-failed",
         "status": "refused"
       },
       "A_pre_refused_for_reason": true,
       "B": {
-        "detail": "current 88de29f8f10db9e95c77867474cf9623784523bd8daa179d738f95c266bf946a startup 88de29f8f10db9e95c77867474cf9623784523bd8daa179d738f95c266bf946a pinned d141c909e8f5f03e268a2112f291e6bd79fafff906522eb7ca9accc247a3274b",
+        "detail": "current a62b3faef76d7a18bda699a42dae4b0e4abc70169bb1487dd5b88281013f728e startup a62b3faef76d7a18bda699a42dae4b0e4abc70169bb1487dd5b88281013f728e pinned 03567f3d97447af40a1ecd2084424ddbe7a5a98030ad55a6b327849ab76f00b4",
         "reason": "plugin-bundle-mismatch",
         "status": "refused"
       },
@@ -69,19 +69,19 @@
     },
     "tools-json-mutated": {
       "A_post": {
-        "detail": "pinned identity mismatch: plugin/hermes/tools.json: 15a2c25b99aa944f82dfbad4355ce2806608268243cf7938e1487c4c67ba81a4",
+        "detail": "pinned identity mismatch: plugin/hermes/tools.json: 6c4f0d82842b6b662314f0a7f06c21f5f3f263129f7d9ee983bd2d76452fce75",
         "reason": "plugin-admission-failed",
         "status": "refused"
       },
       "A_post_refused": true,
       "A_pre": {
-        "detail": "pinned identity mismatch: plugin/hermes/tools.json: 15a2c25b99aa944f82dfbad4355ce2806608268243cf7938e1487c4c67ba81a4",
+        "detail": "pinned identity mismatch: plugin/hermes/tools.json: 6c4f0d82842b6b662314f0a7f06c21f5f3f263129f7d9ee983bd2d76452fce75",
         "reason": "plugin-admission-failed",
         "status": "refused"
       },
       "A_pre_refused_for_reason": true,
       "B": {
-        "detail": "current d5674f2ff751b89d6ce88c99603324c0e3f64b5420a47c728f4b5b7464a77c25 startup d5674f2ff751b89d6ce88c99603324c0e3f64b5420a47c728f4b5b7464a77c25 pinned d141c909e8f5f03e268a2112f291e6bd79fafff906522eb7ca9accc247a3274b",
+        "detail": "current 66d9fa83fdb6fb22acf116985acd8877ff42debdcd1ea657d0b8a71d02dd19b6 startup 66d9fa83fdb6fb22acf116985acd8877ff42debdcd1ea657d0b8a71d02dd19b6 pinned 03567f3d97447af40a1ecd2084424ddbe7a5a98030ad55a6b327849ab76f00b4",
         "reason": "plugin-bundle-mismatch",
         "status": "refused"
       },
@@ -94,7 +94,7 @@
   ],
   "restore_hash_verified": true,
   "schema": "jackal-plugin-aba-recheck-v2",
-  "source_hash_mutated": "4f7bea094976dbb573bf041a7a26469b3ac875ad74ea382984ef1e75a924aaf7",
-  "source_hash_post": "13be6c6ca644d72411bb0427e8e3cb862b78c0c8163c756b5992c4163cd84084",
-  "source_hash_pre": "13be6c6ca644d72411bb0427e8e3cb862b78c0c8163c756b5992c4163cd84084"
+  "source_hash_mutated": "0df07d50e6d82c703249f1881bf35354fa515122e06d2162ab28e2d5f5135c59",
+  "source_hash_post": "d1f6e99b4a14b2cc7325eac4bb236994554f4efa87e9d495019ede441be4f4c8",
+  "source_hash_pre": "d1f6e99b4a14b2cc7325eac4bb236994554f4efa87e9d495019ede441be4f4c8"
 }

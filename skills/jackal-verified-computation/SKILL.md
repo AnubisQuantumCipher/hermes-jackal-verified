@@ -1,7 +1,7 @@
 ---
 name: jackal-verified-computation
-description: Use JACKAL for exact, bounded, checked, or claim-compiled STEM work.
-version: 6.0.0
+description: Route exact, bounded, formal, structural, claim, and Anubis program evidence through JACKAL.
+version: 7.0.0
 author: Anubis Quantum Cipher contributors
 license: MIT
 platforms: [macos]
@@ -11,156 +11,137 @@ metadata:
 related_skills: [adversarial-calculator-audit, evidence-first-claims-audit]
 ---
 
-# JACKAL verified computation (v1.7.0 kernel, 34 tools)
+# JACKAL verified computation
 
-Use the `jackal-verified` plugin as a deterministic computational trust
-layer. Select the weakest lane that satisfies the user's actual assurance
-requirement, preserve JACKAL's epistemic class, and never turn a refusal
-or estimate into a stronger claim.
+<!-- JACKAL_CURRENT_SURFACE_V1_BEGIN -->
+The v1.7.3 candidate exposes the ordered 41-tool full inventory recorded in
+`release/capability_inventory_v1.json`. That generated inventory is the
+capability-name, schema-identity, status, dependency, fragment, and refusal
+source. Candidate evidence does not assert that a public v1.7.3 tag or release
+exists.
+<!-- JACKAL_CURRENT_SURFACE_V1_END -->
 
-## When to use
+Use the `jackal-verified` plugin when the result needs an explicit evidence
+class, independently replayable receipt, or named refusal. No silent downgrade
+is permitted. Preserve `refused` and `indeterminate` as terminal outcomes
+unless the caller explicitly requests a separate weaker lane.
 
-- Exact rational/integer truth, modular arithmetic, polynomial and
-  algebraic-number certificates.
-- Symbolic derivatives that should be numerically checked before release.
-- Numerical integration where estimate versus bound materially changes
-  the answer.
-- Range, threshold, denominator-zero, and sensitivity questions over
-  intervals.
-- Proof-carrying Gaussian integrals, the seven pure-rational
-  fragments — `sqrt`, `exp`, `ln`, `sin`, `cos`, `atan`, `tanh` over
-  admitted rational intervals — and certified composed definite-integral
-  enclosures over the bound_step fragment (v1.7.0).
-- Consequential multi-step conclusions: compile ONE deterministic,
-  independently replayable claim bundle instead of prose.
-- Any arithmetic where language-model mental computation would reduce
-  reliability.
-- Do NOT use JACKAL for unsupported general CAS solving, theorem proving,
-  arbitrary-precision reals, or as evidence that a physical model matches
-  reality.
+## Establish the loaded surface
 
-## Prerequisites
+Start a new Hermes session after an install or upgrade because tool schemas are
+loaded once per session. From a trusted plugin checkout, install an immutable
+40-character commit and run:
 
-- The `jackal-verified` native Hermes plugin v5.0.0 is enabled in the
-  active profile. When loaded from the plugin bundle, its explicit skill
-  name is `jackal-verified:jackal-verified-computation`.
-- The plugin vendors the public JACKAL v1.7.0 package
-  (`jackal-v1.7.0-macos-arm64.tar.gz`, SHA-256
-  `21c7ede586f30a58772f321f7dbb36ab66213e199785489f99133710ac56096e`);
-  admission verifies the tarball hash, the package's internal SHA256SUMS,
-  and every pinned producer/checker identity before any computation. Any
-  mismatch fails closed.
-- A NEW Hermes session is required after plugin installation or upgrade:
-  tool schemas load once per session.
+```bash
+hermes plugins install AnubisQuantumCipher/hermes-jackal-verified \
+  --force --ref <FULL-40-CHAR-COMMIT> --enable
+hermes plugins doctor jackal-verified --ci
+```
 
-## Assurance Selection
+Require exactly 41 unique registrations and the reviewed
+`jackal-verified-computation` skill. A 34-tool discovery is the historical
+plugin surface and does not provide the domain-pack or Anubis program tools.
+For an unpublished candidate, use only the separately verified local package
+and candidate commit; do not treat a future release URL as evidence.
 
-| Need | Tool | Honest class |
+Requirements are Apple Silicon macOS and Python 3.11 or newer. The plugin
+vendors the entire content-pinned runtime, extracts it into a private snapshot,
+checks the package SHA-256 and complete internal `SHA256SUMS`, then checks its
+named trust-bearing identities. Any mismatch returns a plugin admission
+refusal. The plugin is local native code, not a sandbox.
+
+## Choose the front door
+
+- Use `jackal_claim` for mixed, unit-aware, model-conditioned, policy-bearing,
+  or consequential multi-step claims. Keep fallback disabled.
+- Use `jackal_verify_bundle` for independent replay against caller-pinned
+  epoch, policy digest, root proposition, verification time, and nonce.
+- Use `jackal_verify_receipt` for formal receipt replay against
+  caller-authorized request values and identities.
+- Use a direct typed tool for one narrow operation. Do not create raw shell or
+  generic-command substitutions when a typed tool covers the request.
+- Use `jackal_test_exists` and `jackal_claim_cites_test` only for byte-exact
+  source structure. Their consequence ceiling is informational; existence or
+  citation resolution is not correctness, execution, assertion quality, or
+  coverage.
+- Use `jackal_decision_rank_v2` when the caller supplies a numeric criterion
+  and a canonical unit. Use `jackal_decision_rank` only when the caller
+  explicitly accepts the older unit-free boundary. A declared unit is not a
+  measurement and neither tool chooses the criterion or values.
+- Use `jackal_anubis_verify_program` for caller-selected Safe source/evidence
+  bytes, `jackal_anubis_verify_program_receipt` to recompute a receipt from
+  those bytes, and `jackal_anubis_check_program` only when the caller supplies
+  the approved compiler and a new output root. None executes the artifact.
+
+Expected values are authorization, not data discovery. Never copy an
+`expected_*` value from the receipt or bundle being verified.
+
+## Current 41-tool families
+
+| Family | Typed tools | Returned boundary |
 |---|---|---|
-| Rational or integer truth | `jackal_exact` | exact within the supported grammar |
-| Exact CAS certificate (gcd/modular/polynomial/algebraic) | `jackal_xgcd`, `jackal_mod_pow`, `jackal_mod_inv`, `jackal_crt`, `jackal_divides`, `jackal_prime_cert`, `jackal_canon`, `jackal_poly_canon`, `jackal_poly_eq`, `jackal_poly_gcd`, `jackal_ratfunc_canon`, `jackal_roots_isolate`, `jackal_alg_sign`, `jackal_alg_cmp` | exact + `jackal-exact-cert-v1` certificate, independently re-checkable |
-| Ordinary finite-real evaluation | `jackal_evaluate` | IEEE-f64 evaluated value |
-| Symbolic derivative | `jackal_diff` | numerically checked derivative, not identity proof |
-| Fast exploratory integral | `jackal_integrate` | grid-limited estimate |
-| Better numerical integral | `jackal_integrate_adaptive` | local estimate with refusal semantics |
-| Consequential integral | `jackal_integrate_bound` | enclosure conditional on stated rounding/libm model |
-| Proof-carrying definite integral over the certified fragment (`num/var/neg/add/sub/mul/div/pow/sin/cos/abs` in x) | `jackal_integrate_bound_cert` | `formal-bounded`, `variant=int_cert`, theorem `int_cert_sound` re-checked by the pinned compiled `jackal_int_cert_check`; otherwise refusal |
-| Possible values over an interval | `jackal_range_bound` | `formal-bounded`, `variant=range`, in the pure-Q theorem-covered fragment; otherwise refusal |
-| Gaussian integral `exp(a*(x-b)^2)`, `a<0` | `jackal_gaussian_integral` | `formal-bounded`, `variant=gaussian`, through the zero-libm checker; otherwise refusal |
-| `sqrt/exp/ln/sin/cos/atan/tanh` over admitted rational intervals | `jackal_sqrt_rat_bound`, `jackal_exp_rat_bound`, `jackal_ln_rat_bound`, `jackal_sin_rat_bound`, `jackal_cos_rat_bound`, `jackal_atan_rat_bound`, `jackal_tanh_rat_bound` | `formal-bounded`, `variant=<lane>_rat`, no libm on the proof-decision path; otherwise refusal |
-| Mixed/policy-bearing multi-step claim | `jackal_claim` | compiled `jackal-claim-bundle-v1` with recomputed multidimensional assurance vector |
-| Independent replay of a bundle | `jackal_verify_bundle` | `verified` / `refused` / `indeterminate` with a stable reason class |
-| Formal receipt re-verification | `jackal_verify_receipt` | re-runs the pinned Lean-proved checker on the embedded certificate |
+| Formal range/integral | `jackal_range_bound`, `jackal_gaussian_integral`, `jackal_integrate_bound_cert` | `formal-bounded` only after the selected checker accepts; otherwise `refused` |
+| Formal pure-rational | `jackal_sqrt_rat_bound`, `jackal_exp_rat_bound`, `jackal_ln_rat_bound`, `jackal_sin_rat_bound`, `jackal_cos_rat_bound`, `jackal_atan_rat_bound`, `jackal_tanh_rat_bound` | named admitted unary fragment only; otherwise `refused` |
+| Formal replay | `jackal_verify_receipt` | `verified` or `refused` against caller pins |
+| Numeric/exact | `jackal_exact`, `jackal_evaluate`, `jackal_diff`, `jackal_integrate`, `jackal_integrate_adaptive`, `jackal_integrate_bound`, `jackal_solve` | exact, checked, estimated, bounded, refused, or indeterminate as returned |
+| Exact algebra/number theory | `jackal_canon`, `jackal_poly_canon`, `jackal_poly_eq`, `jackal_poly_gcd`, `jackal_ratfunc_canon`, `jackal_roots_isolate`, `jackal_alg_sign`, `jackal_alg_cmp`, `jackal_xgcd`, `jackal_mod_pow`, `jackal_mod_inv`, `jackal_crt`, `jackal_divides`, `jackal_prime_cert` | exact result plus the catalog-declared certificate boundary |
+| Claim graph | `jackal_claim`, `jackal_verify_bundle` | compiled bundle, or verified/refused/indeterminate replay |
+| Source structure | `jackal_test_exists`, `jackal_claim_cites_test` | `structural-exact`, consequence-capped at informational, or refused |
+| Decision ranking | `jackal_decision_rank`, `jackal_decision_rank_v2` | exact ordering over caller declarations, consequence-capped at decision-boundary, or refused |
+| Anubis program evidence | `jackal_anubis_check_program`, `jackal_anubis_verify_program`, `jackal_anubis_verify_program_receipt` | verified-program-evidence or verified-program-receipt under inventory-safe-v1, or refused |
 
-When the user asks for "accurate," infer the consequence. Prefer bounded
-or formal lanes for money, safety, proofs, irreversible decisions, or
-thresholds. Never silently downgrade a bounded request.
+## Formal-bounded fragments
 
-## Procedure
+- Range accepts only the catalog-declared canonical-rational expression and
+  interval fragment.
+- Gaussian accepts only the canonical `exp(-A*(x-mu)^2)` request shape with
+  canonical rational bounds and tolerance.
+- Composed integral accepts only
+  `num/var/neg/add/sub/mul/div/pow(0..4096)/sin/cos/abs` in `x`; it does not
+  fall back to the weaker float integration lane.
+- The seven pure-rational tools accept only their exact named unary form and
+  documented rational domain. The tanh lane uses
+  `1-2/(exp(2*x)+1)`; a general tanh expression is outside the fragment.
 
-1. **Classify the computation.** Exact, checked, estimated, bounded,
-   formal-bounded, model-based — or a composed claim. Completion: one
-   assurance class (or `jackal_claim`) is named before interpreting
-   output.
-2. **Call the typed JACKAL tool.** Do not construct raw shell commands
-   when a plugin tool covers the operation. Completion: the response
-   carries `status` plus lane fields; formal lanes carry the canonical
-   nested `jackal-formal-receipt-v1` with
-   `variant=range|gaussian|int_cert|sqrt_rat|exp_rat|ln_rat|sin_rat|cos_rat|atan_rat|tanh_rat`.
-3. **Inspect status before value.** Treat `refused` and `indeterminate`
-   as terminal computational outcomes unless the user explicitly accepts
-   a weaker lane. Completion: no value from a prior or weaker run is
-   substituted.
-4. **Verify consequential evidence.** For formal receipts call
-   `jackal_verify_receipt` with caller-pinned expectations and require
-   `status=verified verdict=ACCEPT`. For claim bundles call
-   `jackal_verify_bundle` with YOUR OWN expected epoch, root proposition,
-   policy hash, and verification time — never pinned from the bundle
-   itself. Completion: verification succeeds, or the refusal reason is
-   reported and no answer is released.
-5. **Report the epistemic class.** Use the same class JACKAL returned;
-   include assumptions and non-claims for model-based or supplied-input
-   work. Completion: wording does not exceed evidence.
-6. **On refusal, stop or reroute honestly.** Name the stable refusal
-   class; offer the weaker lane explicitly rather than silently
-   substituting it.
+Current range, pure-rational, and composed-integral receipts use the
+request-bound v1.7.2 proof identities even though the additive package epoch
+is v1.7.3. The request-unbound v1.7.0 composed-integral identity is revoked,
+not an alternative verifier path.
 
-## Non-inflation rules
+## Anubis program-evidence boundary
 
-- The ten formal lanes are distinct admitted fragments. Do not route a
-  general integral through the Gaussian tool, a general radical through
-  `sqrt_rat`, an out-of-fragment integrand (sqrt/exp/ln/tan/...) through
-  `jackal_integrate_bound_cert`, or an out-of-domain input through any
-  `_rat` lane; refusal is the correct result outside each admitted form.
-- `NO-libm-TCB` applies to the Gaussian and pure-Q `_rat` proof-decision
-  paths as declared by their receipts; do not generalize it to ordinary
-  evaluation, integration, or the full plugin.
-- Ordinary `bounded` integration (`jackal_integrate_bound`) remains
-  conditional on JACKAL's IEEE/libm model — never transfer
-  `formal-bounded` language to it; the certificate twin
-  `jackal_integrate_bound_cert` is the formal lane, and its producer's
-  fidelity to the engine's float lane is differential-tested, not proved.
-- Composed interval arithmetic inside claim bundles caps at
-  `mathematical=bounded`; only admitted theorem-covered fragments earn
-  `formal-bounded`.
-- Exact math over an assumed physical model stays
-  `model_validity=assumed`; formal math over supplied inputs stays
-  `input_provenance=supplied`. A signature affects artifact provenance
-  only.
-- Fixed-grid estimates can miss narrow features even when refinement
-  agrees. Interval enclosures can be conservative; supersets need not be
-  tight or attained.
-- Plugin installation does not hot-add tools to an existing conversation.
-  Start a new session after enabling or upgrading.
+Require profile `inventory-safe-v1`, Safe mode, one exact source leaf, strict
+v3 stage/file/consumer rosters, nonzero one-to-one proof paths, approved Z3
+UNSAT replay, and independent RUP replay. Preserve these residuals:
 
-## Verification checklist (consequential results)
+- `no-source-to-vc-proof`
+- `no-smt-to-cnf-proof`
+- `policy-construct-totality-not-established`
+- `no-source-native-refinement`
+- `runtime-not-observed`
+- `no-universal-language-soundness`
 
-1. Formal lanes: require the nested `jackal-formal-receipt-v1`, a
-   recognized variant, pinned producer/checker identities, and
-   checker-derived request/enclosure bindings. Require theorem
-   `request_bound_certified_release` for `range` and every `_rat`
-   variant, `gaussian_integral_check_sound` for `gaussian`, or
-   `int_cert_sound` for `int_cert` (composed integral; expected_tolerance
-   is required at verification exactly like gaussian).
-   Verification re-runs the variant-selected pinned checker on the
-   embedded certificate; either outer digest alone is never sufficient.
-2. Claim bundles: require `jackal_verify_bundle` = `verified` under
-   caller-pinned epoch `v1.6.0`, root proposition, policy hash, and
-   time; the recomputed assurance vector, consequence floors, and
-   rendering must match — a tampered node refuses (`node-id-mismatch`).
-3. Exact-CAS lanes: certificates are independently re-checkable; verify
-   before relying on them in consequential work.
-4. Report variant plus producer/checker SHA-256 identities alongside
-   high-stakes formal results when auditability matters.
+Refuse `contracted-safe-v1`. A producer-attested whole-function inventory does
+not establish independent construct-total walker coverage. Never execute an
+artifact to strengthen the returned status.
 
-## Migrating from older plugin epochs
+## Result handling
 
-- v3.0.0 exposed 10 tools with three legacy names/shapes that do NOT
-  exist in the 34-tool surface: `jackal_differentiate` → use
-  `jackal_diff`; `jackal_claim_card` → compile the model claim through
-  `jackal_claim` (op `model` + consequence class); the old mode-based
-  `jackal_exact` arguments → `jackal_exact {"expression": "..."}`.
-- The 34-tool surface equals the sealed upstream v1.7.0 plugin surface
-  exactly (v1.6.0's 33 tools plus `jackal_integrate_bound_cert`); the
-  plugin's local regression suite and admission gate establish adapter
-  behavior separately from JACKAL's own mathematical claims.
+1. Classify the requested evidence lane before interpreting output.
+2. Call the exact typed tool and inspect `status` before any value.
+3. Preserve every returned status, assumption, non-claim, residual, route
+   trace, receipt identity, and checker verdict.
+4. For consequential formal receipts, replay with `jackal_verify_receipt` and
+   independent pins. Range and pure-rational receipts use expected command
+   `range-bound-cert`; Gaussian uses `integrate`; composed integral uses
+   `integrate-bound-cert` and requires expected tolerance.
+5. For consequential bundles, replay with `jackal_verify_bundle` and the
+   caller's independent expectations.
+6. If the requested lane refuses, report its named reason. Run a weaker lane
+   only as a separately labeled call after explicit caller authorization.
+
+`formal-bounded` covers only checker-admitted fragments. `bounded` integration
+is conditional on the stated f64/libm model. `checked` derivative evidence is
+sampled numeric agreement, not an identity theorem. `estimated` is never a
+bound. Exact mathematics over supplied inputs does not validate their
+real-world truth, and model-based mathematics does not validate the model.
