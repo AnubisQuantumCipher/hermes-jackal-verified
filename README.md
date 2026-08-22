@@ -6,12 +6,14 @@
 
 > [!IMPORTANT]
 > **Production-alignment status (2026-08-22):** the mechanically verified
-> [v6.0.0 candidate](https://github.com/AnubisQuantumCipher/hermes-jackal-verified/tree/a72e4b53075a10dc077e47613d0e4d5dae35de0e)
+> [v6.0.0 candidate](https://github.com/AnubisQuantumCipher/hermes-jackal-verified/tree/936dab4458d4618f4ecf56c2da5c9f5cdbb9aef4)
 > exposes exactly **41 tools** and binds the JACKAL v1.7.3 candidate package.
-> The latest published plugin release remains v5.0.0 with 34 tools while
-> trust-surface sign-off is pending. The release-specific installation,
-> inventory, and migration sections below intentionally describe v5.0.0;
-> they are not the current candidate count.
+> The latest published plugin release remains **v5.0.0 with 34 tools** while
+> trust-surface sign-off is pending. Everything below the next heading is the
+> published v5 release reference; those historical 34-tool statements are not
+> the current candidate count.
+
+## Published release reference — v5.0.0 (34 tools)
 
 Typed, receipt-bearing access to the sealed **JACKAL v1.7.0 Mathematical
 Evidence Kernel** from Hermes: **34 tools**, every call executed inside an
@@ -34,7 +36,7 @@ JACKAL v1.7.0 tag/commit (jackal @ 89ee68dcfae72a1ce9b079ea5cf60665c98f7abc)
 
 The core package never references this plugin; the plugin pins the core.
 
-## What the 34 tools are
+## Published v5.0.0: what its 34 tools are
 
 - **10 proof-carrying formal lanes** — `jackal_range_bound`,
   `jackal_gaussian_integral`, the certified composed integral
