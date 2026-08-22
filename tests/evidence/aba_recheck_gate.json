@@ -34,7 +34,7 @@
       },
       "A_pre_refused_for_reason": true,
       "B": {
-        "detail": "current a324ec7eca41511a2a55871cfea1b2fb8b351abd157a7926b7b7a0fc29617c64 startup a324ec7eca41511a2a55871cfea1b2fb8b351abd157a7926b7b7a0fc29617c64 pinned a072f1f20c351622b0c22e650dc0800e56e47d3e4d3bb594d1db8a1579dcc7d9",
+        "detail": "current 3d4664fdc0fcc47657d2fa8bb891cb1ab18bfa73a83eda1fdd198378f1ce7c4f startup 3d4664fdc0fcc47657d2fa8bb891cb1ab18bfa73a83eda1fdd198378f1ce7c4f pinned c6a27483077b89d899d8c73c03bfeb3191f25db2a22f8021254a7dec763ba5fe",
         "reason": "plugin-bundle-mismatch",
         "status": "refused"
       },
@@ -61,7 +61,7 @@
       },
       "A_pre_refused_for_reason": true,
       "B": {
-        "detail": "current 225a2c015d5d51b09fe7651cc0699025e68c725b8f2305b8e67a4b54f795185a startup 225a2c015d5d51b09fe7651cc0699025e68c725b8f2305b8e67a4b54f795185a pinned a072f1f20c351622b0c22e650dc0800e56e47d3e4d3bb594d1db8a1579dcc7d9",
+        "detail": "current c0a8c3a6ce06ba7d840085ee9d29523348909fdad78eedb3bfebd4b0ec1ea4ba startup c0a8c3a6ce06ba7d840085ee9d29523348909fdad78eedb3bfebd4b0ec1ea4ba pinned c6a27483077b89d899d8c73c03bfeb3191f25db2a22f8021254a7dec763ba5fe",
         "reason": "plugin-bundle-mismatch",
         "status": "refused"
       },
@@ -81,7 +81,7 @@
       },
       "A_pre_refused_for_reason": true,
       "B": {
-        "detail": "current b1d72a1f31212b5da0a46035753939d292d421c937bfd2a65d02fb604d9339a5 startup b1d72a1f31212b5da0a46035753939d292d421c937bfd2a65d02fb604d9339a5 pinned a072f1f20c351622b0c22e650dc0800e56e47d3e4d3bb594d1db8a1579dcc7d9",
+        "detail": "current 268b4a32b6559200ab29f6a08453fd6c1232c739f4d7a87d1132d8bcbd3ebbdf startup 268b4a32b6559200ab29f6a08453fd6c1232c739f4d7a87d1132d8bcbd3ebbdf pinned c6a27483077b89d899d8c73c03bfeb3191f25db2a22f8021254a7dec763ba5fe",
         "reason": "plugin-bundle-mismatch",
         "status": "refused"
       },
@@ -94,7 +94,7 @@
   ],
   "restore_hash_verified": true,
   "schema": "jackal-plugin-aba-recheck-v2",
-  "source_hash_mutated": "4e0186935756aff15ab57d9e052cb15e19edb275270090d808f4d62013950ab4",
-  "source_hash_post": "c901000bb0f6d0fbad52314aacf29057afdc7a0716fca3c75b8ccab8deaa8f9c",
-  "source_hash_pre": "c901000bb0f6d0fbad52314aacf29057afdc7a0716fca3c75b8ccab8deaa8f9c"
+  "source_hash_mutated": "49d67dbcec7775b1e57a8651c61283e1bf4a483e5c097f960d14c6fcf14c132f",
+  "source_hash_post": "9aa37988d2de9aa6a001ac2bd8ae63a0d4ce71943f974ca6ec50c6854d563dd7",
+  "source_hash_pre": "9aa37988d2de9aa6a001ac2bd8ae63a0d4ce71943f974ca6ec50c6854d563dd7"
 }

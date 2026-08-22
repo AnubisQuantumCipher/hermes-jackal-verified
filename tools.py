@@ -55,7 +55,7 @@ RELEASE_EPOCH = "v1.7.3"
 # A->B->A gate point it at forged tarballs); when set to a path that exists
 # it takes precedence over the parts.
 PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.7.3-macos-arm64.tar.gz"
-PKG_SHA256 = "d0c2c87d357aa9cae6551343215910032f30259e4a6b40cde0b64687cba107d4"
+PKG_SHA256 = "b317849234208ab6f435e5bad1336e4bf4d039981811323e35138c2e0a4ee68d"
 PKG_DIRNAME = "jackal-v1.7.3-macos-arm64"
 EPOCH_RECEIPT = PLUGIN_ROOT / "EPOCH.json"
 
@@ -63,9 +63,9 @@ EPOCH_RECEIPT = PLUGIN_ROOT / "EPOCH.json"
 # SHA256SUMS at seal time; re-verified from bytes at every admission).
 # BEGIN GENERATED PACKAGE IDENTITIES
 APPROVED_IDENTITIES = {
-    'MANIFEST.sha256': '264c4d7d76b6718c792b2a927db7024a96b5f3be8392243817ace7eae5437031',
+    'MANIFEST.sha256': 'bda71afd2a39e43b13b7913195a276e5887df091f5c4ecc2daf97feec93335d1',
     'atan_rat_producer.py': '824916bdb3420986f4a6eed8028760a96477e9e1df2febd03b9ca174216aef26',
-    'capability_inventory_v1.json': 'b26606faab2acba95d42b964787b75029b84df3038cc047ae00e5234378aebd4',
+    'capability_inventory_v1.json': '19930922418aa0f751c8ee3476f31677368e0c29c5f1c5ea8942ea7fb597d60c',
     'claim_bundle_verify.py': 'e0fcb9540c730bd9bb492b528ed42d29d49fc775b3aa0f9b831b6264fd68fd22',
     'claim_kernel.py': '77b0f85ad5fb7214f88898b60ea29ea9fd7be740c38b655388444e6e5181f348',
     'claim_router.py': '02328cf177a0423bdc5cbca6ec0ea946bb0679bbd3dc6c24140d32598e575afb',
@@ -74,7 +74,7 @@ APPROVED_IDENTITIES = {
     'domain_packs/programming/manifest.json': 'a8668782c1be9553e80b044a70327a3f767779b6552a2d3401454d01aa1b43ba',
     'domain_packs/registry_v1.json': '1a3b2c95dcdc7c7337fbe0ecb34043b70c3697752d6dc585f45f3c7d4f1b0706',
     'evidence/compat_v173_floor.json': '5b4e78e1f2b3e1ed7d0459a12f229ffe27886c179198a656a5a9dc5343f8b45e',
-    'evidence/lean_admission_audit_v173.json': '0dac3023ad4b53c83df8f659b195d4d027445916eaf38c34422c3f0637c062d5',
+    'evidence/lean_admission_audit_v173.json': '7c14c616dabdaa1e1424b04b647be79dddfab7861c61e2d8a0b28064d10fea3d',
     'exact_verify.py': '2c07e6257ce1524de3e31374371c6d5859dce710767156de2566ec77fa1883a7',
     'exp_rat_producer.py': '1997ed81dfbd26a6d45a6689c515832bfbae05435d07e3dd2d6f156c57668ec1',
     'formal_coverage_inventory.json': '6373641cd7833bb46a08f44acf683a119e0a637c8acb88d22797b81188d896b6',
@@ -110,7 +110,7 @@ APPROVED_IDENTITIES = {
     'sin_rat_producer.py': '978f8d508c0921b5d8227a24ee7c7b97373a6041e55e4923cd94617a94a061dd',
     'sqrt_rat_producer.py': '4bc95c331430d2350facfb19da9aba483ab7b3698754e7af2e5deb797e097926',
     'tanh_rat_producer.py': 'da03b6054dcdd3fe02588ec25fc7c201405e9d8ec5f3ab46ff45b49698ab5eb3',
-    'tools/anubis_program_verify.py': 'fd00b87501c980401583bbb9d1e87f7409fd04cd686b7d470e0aa380bf38195d',
+    'tools/anubis_program_verify.py': '4b80e29bdffc0737f05a6e215fce8cce3b6b828c24afbf55c68443399e5119dc',
     'tools/decision_verify.py': 'f1ad7c9fbd4c1d899dbb4bebabbbeb97e97a56bd4b279ad7d8ec3722bf12e0f6',
     'tools/domain_pack_verify.py': '22984f511208af2d7a318f1a43306d95a4b0f61876d8b44f34f39a2ded6d573d',
     'tools/exact_verify.py': '2c07e6257ce1524de3e31374371c6d5859dce710767156de2566ec77fa1883a7',

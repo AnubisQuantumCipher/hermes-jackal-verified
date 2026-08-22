@@ -11,11 +11,11 @@ or jackal-verified v6.0.0 GitHub Release exists.
 | Field | Value |
 |---|---|
 | Repository | `https://github.com/AnubisQuantumCipher/jackal` |
-| Source build commit | `0ef98d4706c0be5660914b705083924886c813cb` |
-| Source tree | `45cb97bde1954deebb0f843b3de16c898994303e` |
+| Source build commit | `957ac893b243814d9059e6e104c21e0ce68e9ef5` |
+| Source tree | `b77c28e47bb03eddf28f580ff1ac95708ba7f1bd` |
 | Worktree at build | clean |
-| Package builder SHA-256 | `45d88d3168cd5101fa0f87463b1a48538a7e97b4585ac764473038f1cb509753` |
-| Alignment receipt | `release/evidence/package_alignment_v173_candidate.json` at commit `5c0223f2a73bdafdbf0cf6fe5132559ddb6b7f8e` |
+| Package builder SHA-256 | `b7683c5f6d0a2cc76292ad4377763925169f26a0770e2a34102fb37f9ebb8e5c` |
+| Alignment receipt | `release/evidence/package_alignment_v173_candidate.json` at commit `0bca7da98def582bb0ce34a7dfb9b540e599d1b1` |
 | Release state | `v1.7.3-candidate` |
 | Public tag or asset | none asserted |
 
@@ -24,12 +24,12 @@ or jackal-verified v6.0.0 GitHub Release exists.
 | Field | Value |
 |---|---|
 | Name | `jackal-v1.7.3-macos-arm64.tar.gz` |
-| SHA-256 | `d0c2c87d357aa9cae6551343215910032f30259e4a6b40cde0b64687cba107d4` |
-| Bytes | 158,362,724 |
-| Extracted bytes | 555,507,658 |
+| SHA-256 | `b317849234208ab6f435e5bad1336e4bf4d039981811323e35138c2e0a4ee68d` |
+| Bytes | 158,363,755 |
+| Extracted bytes | 555,512,409 |
 | Files including `SHA256SUMS` | 106 |
-| Internal `SHA256SUMS` SHA-256 | `12e52bfd0b3fe3fc2f6f4c8acf4bd6d0d3c47be1ae9c334e8ef4b068c24e07e3` |
-| Capability inventory SHA-256 | `b26606faab2acba95d42b964787b75029b84df3038cc047ae00e5234378aebd4` |
+| Internal `SHA256SUMS` SHA-256 | `c0afbe8108517b30d36d8aab8ac3cddc0bae78588b41d86e976eee53da92be7f` |
+| Capability inventory SHA-256 | `19930922418aa0f751c8ee3476f31677368e0c29c5f1c5ea8942ea7fb597d60c` |
 
 Two clean builds from the source build commit produced byte-identical
 tarballs and byte-identical extracted directories. The plugin stores the
@@ -37,7 +37,7 @@ candidate package as:
 
 ```text
 pkg/jackal-v1.7.3-macos-arm64.tar.gz.part00  99,614,720 bytes
-pkg/jackal-v1.7.3-macos-arm64.tar.gz.part01  58,748,004 bytes
+pkg/jackal-v1.7.3-macos-arm64.tar.gz.part01  58,749,035 bytes
 ```
 
 Admission hashes the ordered concatenation. There is no acquisition URL
@@ -55,10 +55,10 @@ Gaussian checker   jackal_gaussian_check           ccac690bf916f71a4e3baeb0622da
 integral checker   jackal_int_cert_check           f8347cbd18d520852aff56920d41f5e5b496ff192f584e41d84d1a818ff29617
 Hermes frontend    plugin/hermes/jackal_hermes     e63bb66caf3fd0890c5f4de22a22ce61cc1aec52d4c82432171d87dc6a4d0ec3
 Hermes catalog     plugin/hermes/tools.json         53c823f07db512b82e01a4f132ff43be426b4b227c436e8853c5144ae0504e87
-inventory          capability_inventory_v1.json    b26606faab2acba95d42b964787b75029b84df3038cc047ae00e5234378aebd4
+inventory          capability_inventory_v1.json    19930922418aa0f751c8ee3476f31677368e0c29c5f1c5ea8942ea7fb597d60c
 Lean audit         evidence/lean_admission_audit_v173.json
-                                                   0dac3023ad4b53c83df8f659b195d4d027445916eaf38c34422c3f0637c062d5
-program verifier   tools/anubis_program_verify.py  fd00b87501c980401583bbb9d1e87f7409fd04cd686b7d470e0aa380bf38195d
+                                                   7c14c616dabdaa1e1424b04b647be79dddfab7861c61e2d8a0b28064d10fea3d
+program verifier   tools/anubis_program_verify.py  4b80e29bdffc0737f05a6e215fce8cce3b6b828c24afbf55c68443399e5119dc
 program policy     program/inventory_safe_v1.json  361979bf89b7c71a4b2c692d64756548833a2c363c269511b037726cab3ebacb
 approved Z3        /opt/homebrew/bin/z3             ae6c8df33db9c9ae9a80b6044e77cd66529a141d8b25f0620f1e89b409594f48
 ```
@@ -73,14 +73,14 @@ status classes, refusal boundaries, and dependency identities.
 
 The package-alignment receipt records:
 
-- 14 live package-unification tests with zero skips;
+- 15 live package-unification tests with zero skips;
 - 60 package-parity rows with zero failures;
-- 217 Codex-plugin repository tests;
+- 218 Codex-plugin repository tests;
 - isolated Codex live acceptance discovering 41 tools and observing exact,
   formal-bounded, producer-refused, claim-bundle verified, and formal-receipt
   verified outcomes;
 - Codex wrapper aggregate SHA-256
-  `c69610183dd207fe8c476e686554f51454b83d96815ad63bea0e4f39dbadf0ac`.
+  `a1d04cf92b1c56cd5833c43fb87ab8d129a6115d645ad98ddfa47e5e38f1c8dc`.
 
 Those are bounded executions over the named bytes, not universal correctness
 claims.
