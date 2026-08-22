@@ -35,9 +35,11 @@ under `pkg/` because GitHub rejects a single file of at least 100 MiB.
 ## Acyclic trust chain
 
 ```text
-JACKAL source build commit 7d935f0…
-  -> two byte-identical candidate package builds (sha256 5bc45b70…)
-  -> immutable JACKAL alignment receipt commit 4671296…
+JACKAL source build commit 0ef98d4706c0be5660914b705083924886c813cb
+  -> two byte-identical candidate package builds
+     (sha256 d0c2c87d357aa9cae6551343215910032f30259e4a6b40cde0b64687cba107d4)
+  -> immutable JACKAL alignment receipt commit
+     5c0223f2a73bdafdbf0cf6fe5132559ddb6b7f8e
   -> this plugin's ordered vendored parts
   -> scripts/generate_epoch.py
        -> EPOCH.json

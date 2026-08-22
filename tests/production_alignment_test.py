@@ -16,6 +16,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_PACKAGE_SHA256 = "d0c2c87d357aa9cae6551343215910032f30259e4a6b40cde0b64687cba107d4"
 EXPECTED_TREE_SHA256 = "12e52bfd0b3fe3fc2f6f4c8acf4bd6d0d3c47be1ae9c334e8ef4b068c24e07e3"
+EXPECTED_BUILD_COMMIT = "0ef98d4706c0be5660914b705083924886c813cb"
+EXPECTED_ALIGNMENT_RECEIPT_COMMIT = "5c0223f2a73bdafdbf0cf6fe5132559ddb6b7f8e"
 EXPECTED_TOOLS = [
     "jackal_range_bound",
     "jackal_gaussian_integral",
@@ -159,9 +161,16 @@ class ProductionAlignmentTest(unittest.TestCase):
             self.assertIn("candidate", document, relative)
             self.assertNotIn("jackal-v1.7.0-macos-arm64", document, relative)
             self.assertNotIn("exposes thirty-four", document, relative)
-        self.assertIn(
-            "41 tools", (ROOT / "README.md").read_text(encoding="utf-8")
-        )
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        for expected in (
+            "41 tools",
+            EXPECTED_BUILD_COMMIT,
+            EXPECTED_ALIGNMENT_RECEIPT_COMMIT,
+            EXPECTED_PACKAGE_SHA256,
+        ):
+            self.assertIn(expected, readme)
+        for stale in ("7d935f0", "5bc45b70", "4671296"):
+            self.assertNotIn(stale, readme)
 
     def test_skill_routes_current_claim_receipt_domain_and_program_surfaces(self) -> None:
         skill = (ROOT / "skills/jackal-verified-computation/SKILL.md").read_text(encoding="utf-8")
