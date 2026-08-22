@@ -11,11 +11,11 @@ or jackal-verified v6.0.0 GitHub Release exists.
 | Field | Value |
 |---|---|
 | Repository | `https://github.com/AnubisQuantumCipher/jackal` |
-| Source build commit | `44381dcb10d7b0572f2531a26d8ccd6f88afe7dd` |
-| Source tree | `3f4bf69f11a8acfddfb8a670d522d55143a8e6ba` |
+| Source build commit | `7d935f0ca8ab444475cc3269d5d8bde03ba397fb` |
+| Source tree | `acdf0079dd46efcf76fc4c545644a4158107f1b2` |
 | Worktree at build | clean |
 | Package builder SHA-256 | `109b5461e509c5c31cc426455ae0976afbe9a400b9eba9f3bd5028ccb1015723` |
-| Alignment receipt | `release/evidence/package_alignment_v173_candidate.json` at commit `0848cb55212fd5de8a4689d83c8624a8779e0cf4` |
+| Alignment receipt | `release/evidence/package_alignment_v173_candidate.json` at commit `467129691c1b717681c2fed2b9bb03179215bf07` |
 | Release state | `v1.7.3-candidate` |
 | Public tag or asset | none asserted |
 
@@ -24,12 +24,12 @@ or jackal-verified v6.0.0 GitHub Release exists.
 | Field | Value |
 |---|---|
 | Name | `jackal-v1.7.3-macos-arm64.tar.gz` |
-| SHA-256 | `c030076186791a551d7818412e39ea895da0f16a2fad88877554ff390c284d9c` |
-| Bytes | 158,362,703 |
-| Extracted bytes | 555,507,432 |
+| SHA-256 | `5bc45b704d4de2a1413ea3a4a5520d768da740840146fe7286643a7a55de41c3` |
+| Bytes | 158,362,693 |
+| Extracted bytes | 555,507,667 |
 | Files including `SHA256SUMS` | 106 |
-| Internal `SHA256SUMS` SHA-256 | `15b179469a3519d124706a1b3281710ca2870e28a7073d107ac15eec156f2894` |
-| Capability inventory SHA-256 | `9b3003291d7c323af462406038dea61ece7ec1bb1bf57da1f619b70e4875c409` |
+| Internal `SHA256SUMS` SHA-256 | `3cc7fbb37a07939c8f7b4df6e0dabe873e5ef12ebc10876597993d02e7740d80` |
+| Capability inventory SHA-256 | `b26606faab2acba95d42b964787b75029b84df3038cc047ae00e5234378aebd4` |
 
 Two clean builds from the source build commit produced byte-identical
 tarballs and byte-identical extracted directories. The plugin stores the
@@ -37,7 +37,7 @@ candidate package as:
 
 ```text
 pkg/jackal-v1.7.3-macos-arm64.tar.gz.part00  99,614,720 bytes
-pkg/jackal-v1.7.3-macos-arm64.tar.gz.part01  58,747,983 bytes
+pkg/jackal-v1.7.3-macos-arm64.tar.gz.part01  58,747,973 bytes
 ```
 
 Admission hashes the ordered concatenation. There is no acquisition URL
@@ -55,10 +55,10 @@ Gaussian checker   jackal_gaussian_check           ccac690bf916f71a4e3baeb0622da
 integral checker   jackal_int_cert_check           f8347cbd18d520852aff56920d41f5e5b496ff192f584e41d84d1a818ff29617
 Hermes frontend    plugin/hermes/jackal_hermes     e63bb66caf3fd0890c5f4de22a22ce61cc1aec52d4c82432171d87dc6a4d0ec3
 Hermes catalog     plugin/hermes/tools.json         53c823f07db512b82e01a4f132ff43be426b4b227c436e8853c5144ae0504e87
-inventory          capability_inventory_v1.json    9b3003291d7c323af462406038dea61ece7ec1bb1bf57da1f619b70e4875c409
+inventory          capability_inventory_v1.json    b26606faab2acba95d42b964787b75029b84df3038cc047ae00e5234378aebd4
 Lean audit         evidence/lean_admission_audit_v173.json
-                                                   b715e4e464893a66a1bc66144544d07643d1bdf5dbe6fb3b8bcbb8a88fc925a6
-program verifier   tools/anubis_program_verify.py  ee32089a4a3501dced306630ecc8e63e8442c584cfedf0ac9f512ad95a65c831
+                                                   0dac3023ad4b53c83df8f659b195d4d027445916eaf38c34422c3f0637c062d5
+program verifier   tools/anubis_program_verify.py  fd00b87501c980401583bbb9d1e87f7409fd04cd686b7d470e0aa380bf38195d
 program policy     program/inventory_safe_v1.json  361979bf89b7c71a4b2c692d64756548833a2c363c269511b037726cab3ebacb
 approved Z3        /opt/homebrew/bin/z3             ae6c8df33db9c9ae9a80b6044e77cd66529a141d8b25f0620f1e89b409594f48
 ```
@@ -80,7 +80,7 @@ The package-alignment receipt records:
   formal-bounded, producer-refused, claim-bundle verified, and formal-receipt
   verified outcomes;
 - Codex wrapper aggregate SHA-256
-  `3b2ea0858032d139949914daf6b2e45fa37150059f0771335512375b67c5e74f`.
+  `a3735c2f41581ec8b386eef355baaf8c32a578639c66f765cdfd8a29111c96e1`.
 
 Those are bounded executions over the named bytes, not universal correctness
 claims.
@@ -88,7 +88,7 @@ claims.
 ## Lean admission audit
 
 The packaged `jackal-lean-admission-audit-v1` record has semantic digest
-`cc0751ba9bee5830ccb89cac9a91a398de5a7ff1885069c4da177a8a21de38a1`.
+`62991b7eb7dbe4ecbbff1562a9fee788de2c944bec9c4ff5cd11aecd81510e1e`.
 It binds 42 tracked Lean source files, 27 unique release theorems, the three
 checker binaries above, and exact theorem-axiom output.
 
