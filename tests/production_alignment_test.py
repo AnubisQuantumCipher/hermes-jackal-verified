@@ -14,8 +14,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_PACKAGE_SHA256 = "5bc45b704d4de2a1413ea3a4a5520d768da740840146fe7286643a7a55de41c3"
-EXPECTED_TREE_SHA256 = "3cc7fbb37a07939c8f7b4df6e0dabe873e5ef12ebc10876597993d02e7740d80"
+EXPECTED_PACKAGE_SHA256 = "d0c2c87d357aa9cae6551343215910032f30259e4a6b40cde0b64687cba107d4"
+EXPECTED_TREE_SHA256 = "12e52bfd0b3fe3fc2f6f4c8acf4bd6d0d3c47be1ae9c334e8ef4b068c24e07e3"
 EXPECTED_TOOLS = [
     "jackal_range_bound",
     "jackal_gaussian_integral",

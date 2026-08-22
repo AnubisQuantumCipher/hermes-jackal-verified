@@ -11,11 +11,11 @@ or jackal-verified v6.0.0 GitHub Release exists.
 | Field | Value |
 |---|---|
 | Repository | `https://github.com/AnubisQuantumCipher/jackal` |
-| Source build commit | `7d935f0ca8ab444475cc3269d5d8bde03ba397fb` |
-| Source tree | `acdf0079dd46efcf76fc4c545644a4158107f1b2` |
+| Source build commit | `efece744fdc3f1362422b0ef999398702774e8e3` |
+| Source tree | `3a40227d6255321e7d3956ba02f943ab37ce1d6f` |
 | Worktree at build | clean |
-| Package builder SHA-256 | `109b5461e509c5c31cc426455ae0976afbe9a400b9eba9f3bd5028ccb1015723` |
-| Alignment receipt | `release/evidence/package_alignment_v173_candidate.json` at commit `467129691c1b717681c2fed2b9bb03179215bf07` |
+| Package builder SHA-256 | `9fefb2741888c6d9bb268f2a4199a1bb776f52a333878ee900175615e2701801` |
+| Alignment receipt | `release/evidence/package_alignment_v173_candidate.json` at commit `a482d94e7de72f1ea1562379749bac34e5406380` |
 | Release state | `v1.7.3-candidate` |
 | Public tag or asset | none asserted |
 
@@ -24,11 +24,11 @@ or jackal-verified v6.0.0 GitHub Release exists.
 | Field | Value |
 |---|---|
 | Name | `jackal-v1.7.3-macos-arm64.tar.gz` |
-| SHA-256 | `5bc45b704d4de2a1413ea3a4a5520d768da740840146fe7286643a7a55de41c3` |
-| Bytes | 158,362,693 |
-| Extracted bytes | 555,507,667 |
+| SHA-256 | `d0c2c87d357aa9cae6551343215910032f30259e4a6b40cde0b64687cba107d4` |
+| Bytes | 158,362,724 |
+| Extracted bytes | 555,507,658 |
 | Files including `SHA256SUMS` | 106 |
-| Internal `SHA256SUMS` SHA-256 | `3cc7fbb37a07939c8f7b4df6e0dabe873e5ef12ebc10876597993d02e7740d80` |
+| Internal `SHA256SUMS` SHA-256 | `12e52bfd0b3fe3fc2f6f4c8acf4bd6d0d3c47be1ae9c334e8ef4b068c24e07e3` |
 | Capability inventory SHA-256 | `b26606faab2acba95d42b964787b75029b84df3038cc047ae00e5234378aebd4` |
 
 Two clean builds from the source build commit produced byte-identical
@@ -37,7 +37,7 @@ candidate package as:
 
 ```text
 pkg/jackal-v1.7.3-macos-arm64.tar.gz.part00  99,614,720 bytes
-pkg/jackal-v1.7.3-macos-arm64.tar.gz.part01  58,747,973 bytes
+pkg/jackal-v1.7.3-macos-arm64.tar.gz.part01  58,748,004 bytes
 ```
 
 Admission hashes the ordered concatenation. There is no acquisition URL
@@ -80,7 +80,7 @@ The package-alignment receipt records:
   formal-bounded, producer-refused, claim-bundle verified, and formal-receipt
   verified outcomes;
 - Codex wrapper aggregate SHA-256
-  `a3735c2f41581ec8b386eef355baaf8c32a578639c66f765cdfd8a29111c96e1`.
+  `c69610183dd207fe8c476e686554f51454b83d96815ad63bea0e4f39dbadf0ac`.
 
 Those are bounded executions over the named bytes, not universal correctness
 claims.

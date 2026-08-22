@@ -86,7 +86,7 @@ jobs:
       - name: Epoch and selected identities are generated (no drift)
         run: python3 scripts/generate_epoch.py --check
 
-      - name: Production alignment contract (6 cases)
+      - name: Production alignment contract (7 cases)
         run: python3 tests/production_alignment_test.py
 
       - name: Unit battery (22 cases)

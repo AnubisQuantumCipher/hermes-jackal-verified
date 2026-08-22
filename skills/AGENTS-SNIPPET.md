@@ -32,7 +32,7 @@ a public v1.7.3 or v6.0.0 release.
 Candidate pins:
 
 - package `jackal-v1.7.3-macos-arm64.tar.gz`
-  `5bc45b704d4de2a1413ea3a4a5520d768da740840146fe7286643a7a55de41c3`
+  `d0c2c87d357aa9cae6551343215910032f30259e4a6b40cde0b64687cba107d4`
 - capability inventory
   `b26606faab2acba95d42b964787b75029b84df3038cc047ae00e5234378aebd4`
 - evaluator `jackal-native`

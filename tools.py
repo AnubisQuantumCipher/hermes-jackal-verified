@@ -55,7 +55,7 @@ RELEASE_EPOCH = "v1.7.3"
 # A->B->A gate point it at forged tarballs); when set to a path that exists
 # it takes precedence over the parts.
 PKG_TARBALL = PLUGIN_ROOT / "pkg" / "jackal-v1.7.3-macos-arm64.tar.gz"
-PKG_SHA256 = "5bc45b704d4de2a1413ea3a4a5520d768da740840146fe7286643a7a55de41c3"
+PKG_SHA256 = "d0c2c87d357aa9cae6551343215910032f30259e4a6b40cde0b64687cba107d4"
 PKG_DIRNAME = "jackal-v1.7.3-macos-arm64"
 EPOCH_RECEIPT = PLUGIN_ROOT / "EPOCH.json"
 

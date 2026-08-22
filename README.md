@@ -17,12 +17,12 @@ canonical capability inventory.
 
 | Field | Value |
 |---|---|
-| JACKAL build commit | `7d935f0ca8ab444475cc3269d5d8bde03ba397fb` |
-| Alignment receipt commit | `467129691c1b717681c2fed2b9bb03179215bf07` |
+| JACKAL build commit | `efece744fdc3f1362422b0ef999398702774e8e3` |
+| Alignment receipt commit | `a482d94e7de72f1ea1562379749bac34e5406380` |
 | Package | `jackal-v1.7.3-macos-arm64.tar.gz` |
-| Package SHA-256 | `5bc45b704d4de2a1413ea3a4a5520d768da740840146fe7286643a7a55de41c3` |
-| Package size | 158,362,693 bytes |
-| Internal `SHA256SUMS` SHA-256 | `3cc7fbb37a07939c8f7b4df6e0dabe873e5ef12ebc10876597993d02e7740d80` |
+| Package SHA-256 | `d0c2c87d357aa9cae6551343215910032f30259e4a6b40cde0b64687cba107d4` |
+| Package size | 158,362,724 bytes |
+| Internal `SHA256SUMS` SHA-256 | `12e52bfd0b3fe3fc2f6f4c8acf4bd6d0d3c47be1ae9c334e8ef4b068c24e07e3` |
 | Capability inventory SHA-256 | `b26606faab2acba95d42b964787b75029b84df3038cc047ae00e5234378aebd4` |
 | Release state | `v1.7.3-candidate` |
 
