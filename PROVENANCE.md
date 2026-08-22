@@ -11,11 +11,11 @@ or jackal-verified v6.0.0 GitHub Release exists.
 | Field | Value |
 |---|---|
 | Repository | `https://github.com/AnubisQuantumCipher/jackal` |
-| Source build commit | `efece744fdc3f1362422b0ef999398702774e8e3` |
-| Source tree | `3a40227d6255321e7d3956ba02f943ab37ce1d6f` |
+| Source build commit | `0ef98d4706c0be5660914b705083924886c813cb` |
+| Source tree | `45cb97bde1954deebb0f843b3de16c898994303e` |
 | Worktree at build | clean |
-| Package builder SHA-256 | `9fefb2741888c6d9bb268f2a4199a1bb776f52a333878ee900175615e2701801` |
-| Alignment receipt | `release/evidence/package_alignment_v173_candidate.json` at commit `a482d94e7de72f1ea1562379749bac34e5406380` |
+| Package builder SHA-256 | `45d88d3168cd5101fa0f87463b1a48538a7e97b4585ac764473038f1cb509753` |
+| Alignment receipt | `release/evidence/package_alignment_v173_candidate.json` at commit `5c0223f2a73bdafdbf0cf6fe5132559ddb6b7f8e` |
 | Release state | `v1.7.3-candidate` |
 | Public tag or asset | none asserted |
 

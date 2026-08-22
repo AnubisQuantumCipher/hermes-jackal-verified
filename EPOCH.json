@@ -78,10 +78,10 @@
  },
  "upstream": {
   "alignment_receipt": {
-   "commit": "a482d94e7de72f1ea1562379749bac34e5406380",
+   "commit": "5c0223f2a73bdafdbf0cf6fe5132559ddb6b7f8e",
    "path": "release/evidence/package_alignment_v173_candidate.json"
   },
-  "build_commit": "efece744fdc3f1362422b0ef999398702774e8e3",
+  "build_commit": "0ef98d4706c0be5660914b705083924886c813cb",
   "package": {
    "file_count": 106,
    "name": "jackal-v1.7.3-macos-arm64.tar.gz",

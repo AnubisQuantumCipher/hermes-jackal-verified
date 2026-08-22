@@ -11,7 +11,7 @@ v6.0.0 tag or GitHub Release.
   `jackal-v1.7.3-macos-arm64.tar.gz` (SHA-256
   `d0c2c87d357aa9cae6551343215910032f30259e4a6b40cde0b64687cba107d4`,
   158,362,724 bytes) as two ordered raw byte parts. Two clean builds from
-  JACKAL commit `efece744fdc3f1362422b0ef999398702774e8e3` were
+  JACKAL commit `0ef98d4706c0be5660914b705083924886c813cb` were
   byte-identical; internal `SHA256SUMS` SHA-256 is
   `12e52bfd0b3fe3fc2f6f4c8acf4bd6d0d3c47be1ae9c334e8ef4b068c24e07e3`.
 - Expanded the surface additively from the historical v5 34-tool roster to
