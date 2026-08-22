@@ -1,8 +1,17 @@
-# JACKAL Verified — Hermes plugin (v5.0.0)
+# JACKAL Verified — Hermes plugin
 
 [![CI](https://github.com/AnubisQuantumCipher/hermes-jackal-verified/actions/workflows/ci.yml/badge.svg)](https://github.com/AnubisQuantumCipher/hermes-jackal-verified/actions/workflows/ci.yml)
 ![Platform](https://img.shields.io/badge/platform-macOS%20arm64-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-blue)
+
+> [!IMPORTANT]
+> **Production-alignment status (2026-08-22):** the mechanically verified
+> [v6.0.0 candidate](https://github.com/AnubisQuantumCipher/hermes-jackal-verified/tree/a72e4b53075a10dc077e47613d0e4d5dae35de0e)
+> exposes exactly **41 tools** and binds the JACKAL v1.7.3 candidate package.
+> The latest published plugin release remains v5.0.0 with 34 tools while
+> trust-surface sign-off is pending. The release-specific installation,
+> inventory, and migration sections below intentionally describe v5.0.0;
+> they are not the current candidate count.
 
 Typed, receipt-bearing access to the sealed **JACKAL v1.7.0 Mathematical
 Evidence Kernel** from Hermes: **34 tools**, every call executed inside an
